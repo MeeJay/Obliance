@@ -3,6 +3,19 @@ import type { Script, ScriptCategory, ScriptSchedule, ScriptExecution, Execution
 
 interface ApiResponse<T> { data?: T; error?: string; }
 
+type NewScheduleInput = Omit<ScriptSchedule, 'id' | 'uuid' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'lastRunAt' | 'nextRunAt' | 'script'>;
+
+/** Returned by POST /schedules when the privacy-mode bypass awaits approval. */
+export interface ScheduleBypassApproval {
+  approvalId: number | string | null;
+  status: 'pending_approval';
+}
+
+async function postSchedule(data: NewScheduleInput): Promise<{ schedule: ScriptSchedule; bypassPrivacyApproval?: ScheduleBypassApproval }> {
+  const res = await apiClient.post<ApiResponse<ScriptSchedule> & { bypassPrivacyApproval?: ScheduleBypassApproval }>('/schedules', data);
+  return { schedule: res.data.data!, bypassPrivacyApproval: res.data.bypassPrivacyApproval };
+}
+
 export const scriptApi = {
   // Categories
   async listCategories(): Promise<ScriptCategory[]> {
@@ -52,9 +65,16 @@ export const scriptApi = {
     const res = await apiClient.get<ApiResponse<ScriptSchedule>>(`/schedules/${id}`);
     return res.data.data!;
   },
-  async createSchedule(data: Omit<ScriptSchedule, 'id' | 'uuid' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'lastRunAt' | 'nextRunAt' | 'script'>): Promise<ScriptSchedule> {
-    const res = await apiClient.post<ApiResponse<ScriptSchedule>>('/schedules', data);
-    return res.data.data!;
+  async createSchedule(data: NewScheduleInput): Promise<ScriptSchedule> {
+    return (await postSchedule(data)).schedule;
+  },
+  /**
+   * Same as createSchedule, plus the server's `bypassPrivacyApproval` when a
+   * requested privacy-mode bypass was held for admin approval (restricted
+   * tenant): the schedule is then created WITHOUT the bypass.
+   */
+  async createScheduleWithApproval(data: NewScheduleInput): Promise<{ schedule: ScriptSchedule; bypassPrivacyApproval?: ScheduleBypassApproval }> {
+    return postSchedule(data);
   },
   async updateSchedule(id: number, data: Partial<ScriptSchedule>): Promise<ScriptSchedule> {
     const res = await apiClient.patch<ApiResponse<ScriptSchedule>>(`/schedules/${id}`, data);

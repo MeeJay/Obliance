@@ -61,7 +61,9 @@ export const useRemoteShellStore = create<State & Actions>((set) => ({
   isOpen: true,
   groupedIds: [],
 
-  addSession: (s) => set((st) => ({
+  // A tab without a relay token could only open a tunnel the server refuses
+  // (the token is only sent to the session's starter) — never add one.
+  addSession: (s) => set((st) => (!s.sessionToken || !s.id ? {} : {
     sessions: [
       ...st.sessions,
       { ...s, status: 'connecting', errorMsg: '', createdAt: Date.now() },

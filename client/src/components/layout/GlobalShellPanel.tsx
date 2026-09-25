@@ -19,6 +19,7 @@ import { useNativeBack } from '@/hooks/useNativeBack';
 import { useCanHover, useIsCoarsePointer, useLayoutMode } from '@/hooks/useMediaQuery';
 import { isAndroidApp, isTouchDevice } from '@/native/bridge';
 import { copyText } from '@/utils/clipboard';
+import { remoteStartErrorMessage, requireSessionToken } from '@/utils/remoteSession';
 import type { Device } from '@obliance/shared';
 import { isAgentReachable } from '@/utils/deviceStatus';
 import toast from 'react-hot-toast';
@@ -390,8 +391,12 @@ export function GlobalShellPanel() {
  try { oldRt?.term.dispose(); } catch {}
  runtimes.current.delete(id);
  removeSession(id);
+ let freshId: string | null = null;
  try {
  const fresh = await remoteApi.startSession(s.deviceId, s.protocol);
+ freshId = fresh.id;
+ // No relay token = no tunnel to open: never add a tab for it.
+ requireSessionToken(fresh);
  const socket = getSocket();
  const add = () => {
  addSession({
@@ -417,8 +422,10 @@ export function GlobalShellPanel() {
  add();
  }
  }, 1500);
- } catch {
- toast.error(t('shell.reconnectFailed') || 'Reconnect failed');
+ } catch (err) {
+ if (freshId) remoteApi.endSession(freshId).catch(() => {});
+ const msg = remoteStartErrorMessage(err, t, t('shell.reconnectFailed', 'Reconnect failed'), s.protocol);
+ if (msg) toast.error(msg);
  }
  };
 
@@ -462,8 +469,12 @@ export function GlobalShellPanel() {
  // ── Open a new session on a chosen device/protocol ──────────────────────
  const openNew = async (deviceId: number, deviceName: string, protocol: ShellProtocol) => {
  pushRecent(deviceId);
+ let startedId: string | null = null;
  try {
  const session = await remoteApi.startSession(deviceId, protocol);
+ startedId = session.id;
+ // No relay token = no tunnel to open: never add a tab for it.
+ requireSessionToken(session);
  // The server emits REMOTE_TUNNEL_READY when the agent is actually
  // connected. Listen once for it and then add the session.
  const socket = getSocket();
@@ -489,8 +500,10 @@ export function GlobalShellPanel() {
  add();
  }
  }, 1500);
- } catch {
- toast.error(t('shell.startFailed', { protocol: PROTOCOL_LABEL[protocol] }) || `Failed to start ${protocol} session`);
+ } catch (err) {
+ if (startedId) remoteApi.endSession(startedId).catch(() => {});
+ const msg = remoteStartErrorMessage(err, t, t('shell.startFailed', { protocol: PROTOCOL_LABEL[protocol], defaultValue: 'Failed to start {{protocol}} session' }), protocol);
+ if (msg) toast.error(msg);
  }
  setPickerOpen(false);
  };

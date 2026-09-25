@@ -13,6 +13,7 @@ import { TableScroll } from '@/components/common/TableScroll';
 import { useConfirm } from '@/components/common/ConfirmDialog';
 import { getSocket } from '@/socket/socketClient';
 import { anonymize } from '@/utils/anonymize';
+import { canAttachRemoteSession, remoteStartErrorMessage, requireSessionToken } from '@/utils/remoteSession';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
@@ -79,6 +80,10 @@ const TB = 'coarse:min-h-10';
 export function RemoteSessionsPage({ embedded }: { embedded?: boolean } = {}) {
  const { t } = useTranslation();
  const confirm = useConfirm();
+ // Only the user who started a session holds its relay token (the server
+ // strips it for everyone else and the tunnel refuses them): "View" is
+ // offered on the current user's own sessions only.
+ const currentUserId = useAuthStore((s) => s.user?.id);
  const [activeTab, setActiveTab] = useState<Tab>('active');
  const [activeSessions, setActiveSessions] = useState<RemoteSession[]>([]);
  const [historySessions, setHistorySessions] = useState<RemoteSession[]>([]);
@@ -170,6 +175,7 @@ export function RemoteSessionsPage({ embedded }: { embedded?: boolean } = {}) {
  // Shells open in the global terminal panel (same flow as the device page):
  // the tab is added once the agent's tunnel is ready.
  const openShellPanel = async (session: RemoteSession, protocol: ShellProto, deviceId: number) => {
+ requireSessionToken(session);
  const { useRemoteShellStore } = await import('@/store/remoteShellStore');
  const add = () => useRemoteShellStore.getState().addSession({
  id: session.sessionToken,
@@ -205,9 +211,12 @@ export function RemoteSessionsPage({ embedded }: { embedded?: boolean } = {}) {
  if (protocol === 'oblireach') {
  setOrSession({ sessionToken: '', deviceId: selectedDeviceId } as any); // placeholder — viewer shows "waiting"
  }
+ let startedId: string | null = null;
  try {
  const session = await remoteApi.startSession(selectedDeviceId, protocol, sessionNotes || undefined);
+ startedId = session.id;
  if (protocol === 'oblireach') {
+ requireSessionToken(session);
  pendingOrId.current = session.id;
  setOrSession(session); // replace placeholder with real session
  } else if (isShellProtocol(protocol)) {
@@ -220,8 +229,11 @@ export function RemoteSessionsPage({ embedded }: { embedded?: boolean } = {}) {
  setSessionNotes('');
  setDeviceSearch('');
  await load();
- } catch {
- toast.error(t('remoteSessions.startFailed', 'Failed to start session'));
+ } catch (err) {
+ // A session created without a usable token is ended right away.
+ if (startedId) remoteApi.endSession(startedId).catch(() => {});
+ const msg = remoteStartErrorMessage(err, t, t('remoteSessions.startFailed', 'Failed to start session'), protocol);
+ if (msg) toast.error(msg);
  if (protocol === 'oblireach') setOrSession(null);
  } finally {
  setIsStarting(false);
@@ -463,7 +475,7 @@ export function RemoteSessionsPage({ embedded }: { embedded?: boolean } = {}) {
 
  {/* Action buttons */}
  <div className="flex items-center gap-2 shrink-0 max-sm:basis-full max-sm:[&>button]:flex-1">
- {session.status === 'active' && session.protocol === 'oblireach' && (
+ {session.status === 'active' && session.protocol === 'oblireach' && canAttachRemoteSession(session, currentUserId) && (
  <button
  onClick={() => setOrSession(session)}
  className={clsx('flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded-lg hover:bg-sky-500/20 transition-colors', TB)}
@@ -575,7 +587,14 @@ export function RemoteSessionsPage({ embedded }: { embedded?: boolean } = {}) {
  onReconnect={async () => {
  // Recreate a session on the same device after an unexpected
  // WS close (Winlogon→user-session transition after CAD login).
+ // Throwing (no token) stops the viewer's reconnect loop.
  const s = await remoteApi.startSession(orSession.deviceId, 'oblireach', undefined);
+ try {
+ requireSessionToken(s);
+ } catch (err) {
+ remoteApi.endSession(s.id).catch(() => {});
+ throw err;
+ }
  setOrSession(s);
  }}
  />

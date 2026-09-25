@@ -62,6 +62,7 @@ import type { Device, HardwareInventory, SoftwareEntry, Script, ScriptExecution,
 import { SocketEvents } from '@obliance/shared';
 import { useTranslation } from 'react-i18next';
 import { anonymize, anonymizeIp, anonymizeMac } from '@/utils/anonymize';
+import { canAttachRemoteSession, remoteStartErrorMessage, requireSessionToken } from '@/utils/remoteSession';
 import { isAgentReachable } from '@/utils/deviceStatus';
 import { isCommandSupported, unsupportedTooltip } from '@/utils/capabilities';
 import { mergeById } from '@/utils/mergeById';
@@ -3433,6 +3434,9 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
 
 function RemoteTab({ device }: { device: Device }) {
  const { t } = useTranslation();
+ // Only the session's starter holds its relay token (S2): "View" / "Open"
+ // are offered on the current user's own sessions only.
+ const currentUserId = useAuthStore((s) => s.user?.id);
  const [sessions, setSessions] = useState<RemoteSession[]>([]);
  const [isLoading, setIsLoading] = useState(false);
  const [isStarting, setIsStarting] = useState(false);
@@ -3572,12 +3576,17 @@ function RemoteTab({ device }: { device: Device }) {
  setOrModalOpen(true);
  setIsStarting(true);
  orWtsSessionIdRef.current = wtsSessionId;
+ let startedId: string | null = null;
  try {
  const session = await remoteApi.startSession(device.id, 'oblireach', undefined, wtsSessionId);
+ startedId = session.id;
+ requireSessionToken(session);
  pendingOrId.current = session.id;
  setSessions((prev) => [session, ...prev]);
- } catch {
- toast.error('Failed to start remote session');
+ } catch (err) {
+ if (startedId) remoteApi.endSession(startedId).catch(() => {});
+ const msg = remoteStartErrorMessage(err, t, t('deviceDetail.remote.startFailed', 'Failed to start remote session'), 'oblireach');
+ if (msg) toast.error(msg);
  setOrModalOpen(false);
  } finally {
  setIsStarting(false);
@@ -3593,6 +3602,13 @@ function RemoteTab({ device }: { device: Device }) {
  const session = await remoteApi.startSession(
  device.id, 'oblireach', undefined, orWtsSessionIdRef.current,
  );
+ // Throwing (no token) stops the viewer's reconnect loop.
+ try {
+ requireSessionToken(session);
+ } catch (err) {
+ remoteApi.endSession(session.id).catch(() => {});
+ throw err;
+ }
  pendingOrId.current = session.id;
  setSessions((prev) => [session, ...prev]);
  setOrSession(session);
@@ -3660,8 +3676,12 @@ function RemoteTab({ device }: { device: Device }) {
  const startShellSession = async (protocol: 'ssh' | 'cmd' | 'powershell', wtsSessionId?: number) => {
  setShellSessionPickerOpen(false);
  setIsStarting(true);
+ let startedId: string | null = null;
  try {
  const session = await remoteApi.startSession(device.id, protocol, undefined, wtsSessionId);
+ startedId = session.id;
+ // No relay token = no tunnel to open: never add a tab for it.
+ requireSessionToken(session);
  pendingSshId.current = session.id;
  setSessions((prev) => [session, ...prev]);
 
@@ -3694,8 +3714,10 @@ function RemoteTab({ device }: { device: Device }) {
  } else {
  add();
  }
- } catch {
- toast.error('Failed to start remote session');
+ } catch (err) {
+ if (startedId) remoteApi.endSession(startedId).catch(() => {});
+ const msg = remoteStartErrorMessage(err, t, t('deviceDetail.remote.startFailed', 'Failed to start remote session'), protocol);
+ if (msg) toast.error(msg);
  } finally {
  setIsStarting(false);
  }
@@ -3933,18 +3955,19 @@ function RemoteTab({ device }: { device: Device }) {
  {session.durationSeconds != null && ` · ${Math.round(session.durationSeconds / 60)}min`}
  </p>
  </div>
- {session.status === 'active' && session.protocol === 'oblireach' && (
+ {session.status === 'active' && session.protocol === 'oblireach' && canAttachRemoteSession(session, currentUserId) && (
  <div className="flex items-center gap-2">
  <button
  onClick={() => { setOrSession(session); setOrModalOpen(true); }}
  className="px-3 py-1 text-xs bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded-lg hover:bg-sky-500/20 transition-colors coarse:min-h-10"
  >
- View
+ {t('remoteSessions.view', 'View')}
  </button>
  </div>
  )}
  {session.status === 'active' && isShellProtocol(session.protocol) && (
  <div className="flex items-center gap-2">
+ {canAttachRemoteSession(session, currentUserId) && (
  <button
  onClick={async () => {
  const { useRemoteShellStore } = await import('@/store/remoteShellStore');
@@ -3967,8 +3990,9 @@ function RemoteTab({ device }: { device: Device }) {
  }}
  className="text-xs px-3 py-1 bg-green-500/10 text-green-400 border border-green-500/30 rounded-lg hover:bg-green-500/20 transition-colors coarse:min-h-10"
  >
- Open
+ {t('deviceDetail.remote.open', 'Open')}
  </button>
+ )}
  <button
  onClick={() => handleEndSession(session)}
  disabled={endingSession.has(session.id)}
@@ -4066,11 +4090,17 @@ function HyperVTab({ deviceId }: { deviceId: number }) {
  const [modal, setModal] = useState<{ kind: 'edit' | 'checkpoints'; vm: import('@obliance/shared').VirtualMachine } | { kind: 'create' } | null>(null);
  const [liveConsole, setLiveConsole] = useState<{ token: string | null; sessionId: string; vmName: string; vmId: string } | null>(null);
  const openLiveConsole = useCallback(async (vm: import('@obliance/shared').VirtualMachine) => {
+ let startedId: string | null = null;
  try {
  const sess = await remoteApi.startSession(deviceId, 'vmconsole', undefined, undefined, vm.vmId);
- setLiveConsole({ token: sess.sessionToken ?? null, sessionId: String(sess.id), vmName: vm.name, vmId: vm.vmId });
- } catch (e: any) {
- toast.error(e?.response?.data?.error || (t('hyperv.consoleError', 'Could not open the interactive console')));
+ startedId = String(sess.id);
+ const token = requireSessionToken(sess);
+ setLiveConsole({ token, sessionId: String(sess.id), vmName: vm.name, vmId: vm.vmId });
+ } catch (e) {
+ if (startedId) remoteApi.endSession(startedId).catch(() => {});
+ // 409 = host agent not connected (the console is live-only).
+ const msg = remoteStartErrorMessage(e, t, t('hyperv.consoleError', 'Could not open the interactive console'), 'vmconsole');
+ if (msg) toast.error(msg);
  }
  }, [deviceId, t]);
  // Auto-reconnect for the interactive VM console (mobile networks drop the
@@ -4079,9 +4109,24 @@ function HyperVTab({ deviceId }: { deviceId: number }) {
  const reconnectLiveConsole = useCallback(async () => {
  const cur = liveConsole;
  if (!cur) return;
- const sess = await remoteApi.startSession(deviceId, 'vmconsole', undefined, undefined, cur.vmId);
- setLiveConsole((prev) => (prev ? { ...prev, token: sess.sessionToken ?? null, sessionId: String(sess.id) } : prev));
- }, [deviceId, liveConsole]);
+ // Any throw here stops the viewer's reconnect loop; say why first
+ // (e.g. 409 = the host agent went away).
+ let sess: RemoteSession;
+ try {
+ sess = await remoteApi.startSession(deviceId, 'vmconsole', undefined, undefined, cur.vmId);
+ } catch (e) {
+ const msg = remoteStartErrorMessage(e, t, t('hyperv.consoleError', 'Could not open the interactive console'), 'vmconsole');
+ if (msg) toast.error(msg);
+ throw e;
+ }
+ try {
+ requireSessionToken(sess);
+ } catch (e) {
+ remoteApi.endSession(String(sess.id)).catch(() => {});
+ throw e;
+ }
+ setLiveConsole((prev) => (prev ? { ...prev, token: sess.sessionToken, sessionId: String(sess.id) } : prev));
+ }, [deviceId, liveConsole, t]);
  const [installingConsole, setInstallingConsole] = useState(false);
  const handleInstallConsole = async () => {
  setInstallingConsole(true);
@@ -5506,8 +5551,11 @@ export function DeviceDetailPage() {
  setHeaderRemoteOpen(true);
  setIsStartingRemote(true);
  headerOrWtsSessionIdRef.current = wtsSessionId;
+ let startedId: string | null = null;
  try {
  const session = await remoteApi.startSession(deviceId, 'oblireach', undefined, wtsSessionId);
+ startedId = session.id;
+ requireSessionToken(session);
  const socket = getSocket();
  if (socket) {
  const onReady = (s: RemoteSession) => {
@@ -5519,8 +5567,10 @@ export function DeviceDetailPage() {
  remoteReadyListenerRef.current = onReady;
  socket.on('REMOTE_TUNNEL_READY', onReady);
  }
- } catch {
- toast.error('Failed to start Oblireach session');
+ } catch (err) {
+ if (startedId) remoteApi.endSession(startedId).catch(() => {});
+ const msg = remoteStartErrorMessage(err, t, t('deviceDetail.remote.reachStartFailed', 'Failed to start Oblireach session'), 'oblireach');
+ if (msg) toast.error(msg);
  setHeaderRemoteOpen(false);
  } finally {
  setIsStartingRemote(false);
@@ -5534,6 +5584,13 @@ export function DeviceDetailPage() {
  const session = await remoteApi.startSession(
  deviceId, 'oblireach', undefined, headerOrWtsSessionIdRef.current,
  );
+ // Throwing (no token) stops the viewer's reconnect loop.
+ try {
+ requireSessionToken(session);
+ } catch (err) {
+ remoteApi.endSession(session.id).catch(() => {});
+ throw err;
+ }
  setHeaderRemoteSession(session);
  };
 
@@ -5569,8 +5626,12 @@ export function DeviceDetailPage() {
  // SSH / CMD / PowerShell now go through the global multi-session panel
  // so they can be minimized, switched between, and survive route changes.
  setIsStartingRemote(true);
+ let startedId: string | null = null;
  try {
  const session = await remoteApi.startSession(deviceId, protocol);
+ startedId = session.id;
+ // No relay token = no tunnel to open: never add a tab for it.
+ requireSessionToken(session);
  const deviceName = anonymize(device?.displayName || device?.hostname) || `#${deviceId}`;
  const { useRemoteShellStore } = await import('@/store/remoteShellStore');
  const add = () => useRemoteShellStore.getState().addSession({
@@ -5598,8 +5659,10 @@ export function DeviceDetailPage() {
  } else {
  add();
  }
- } catch {
- toast.error(`Failed to start ${protocol.toUpperCase()} session`);
+ } catch (err) {
+ if (startedId) remoteApi.endSession(startedId).catch(() => {});
+ const msg = remoteStartErrorMessage(err, t, t('shell.startFailed', { protocol: protocol.toUpperCase(), defaultValue: 'Failed to start {{protocol}} session' }), protocol);
+ if (msg) toast.error(msg);
  } finally {
  setIsStartingRemote(false);
  }

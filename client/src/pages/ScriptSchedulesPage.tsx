@@ -448,8 +448,14 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
  toast.success('Schedule updated');
  }
  } else {
- await scriptApi.createSchedule(payload as any);
- toast.success('Schedule created');
+ const { bypassPrivacyApproval } = await scriptApi.createScheduleWithApproval(payload as any);
+ if (bypassPrivacyApproval) {
+ // Restricted tenant: the schedule exists, without the bypass, until
+ // an admin approves the pending setting change.
+ toast.success(t('schedules.privacyBypass.createdPendingApproval', 'Schedule created — the privacy-mode bypass is awaiting admin approval'), { duration: 6000 });
+ } else {
+ toast.success(t('schedules.created', 'Schedule created'));
+ }
  }
  setShowForm(false);
  setEditingSchedule(null);
