@@ -4,7 +4,7 @@
 |---|---|
 | Statut | Conception finale v1.1 (révision « multi-serveurs »), à valider par le propriétaire du produit |
 | Date | 25 septembre 2026 |
-| Révision v1.1 | Plusieurs instances Obliance dans une seule app : profils de serveur, bascule rapide « Serveur › Tenant », notifications et « À traiter » de tous les serveurs en permanence (§2.4) |
+| Révision v1.1 | Plusieurs instances Obliance dans une seule app : profils de serveur, bascule rapide « Serveur › Tenant », notifications et « À traiter » de tous les serveurs en permanence (§2.10) |
 | Périmètre | Application Android **native** (Kotlin, Jetpack Compose, Material 3) pour Obliance, sur un socle réutilisable par les autres apps Obli |
 | Sources | Trois propositions (« astreinte », « flotte », « tablette »), trois jurys (terrain, faisabilité, marque), catalogue d'API relevé dans `server/src`, `shared/src/types.ts` et le client web |
 | Remplace | L'adaptation responsive du web dans la WebView, écartée par le propriétaire |
@@ -138,7 +138,7 @@ L'application doit rendre trois moments excellents :
 └──────────────────────────────────────────────────┘
 ```
 
-- **À gauche : puce de tenant** (`building-2`, nom, chevron). Ouvre S81. Sur le tenant maître : « Default · Vue globale ». Si un filtre de vue globale est actif : « BASH · filtre » avec un point `#FF6868` de 6 dp.
+- **À gauche : puce de périmètre** (`building-2`, nom, chevron). Ouvre S81 « Serveur et tenant ». Sur le tenant maître : « Default · Vue globale ». Si un filtre de vue globale est actif : « BASH · filtre » avec un point `#FF6868` de 6 dp. **Dès que deux serveurs sont configurés**, la puce commence par la tuile monogramme du serveur actif (`[BH] Default · Vue globale ▾`, §2.10) ; sur tablette étendue, le bouton de périmètre du rail porte la même tuile.
 - **Titre** : Rajdhani 600, 24 sp ; se replie au défilement.
 - **À droite** :
   - recherche `⌕` (S82) ;
@@ -154,7 +154,7 @@ L'application doit rendre trois moments excellents :
 - sur le tenant 1 (Default, vue globale), les listes couvrent tous les tenants, mais **les routes d'action restent strictement liées au tenant de session** (`POST /api/commands`, approbations, résultats de conformité, historique de planification, confidentialité) et renvoient 404 sur un appareil d'un tenant enfant ;
 - les événements temps réel des tenants enfants n'arrivent pas sur le socket du tenant maître.
 
-**La feuille de périmètre (S81) a donc deux sections :**
+**La feuille de périmètre (S81 « Serveur et tenant ») a donc deux sections de tenant** (précédées, dès deux serveurs, de la section « Serveurs », §2.10) **:**
 
 | Fonction | Qui | Effet | Affichage |
 |---|---|---|---|
@@ -168,6 +168,7 @@ L'application doit rendre trois moments excellents :
 2. **Agir depuis la vue globale** sur un appareil d'un tenant enfant : la feuille « Agir » affiche une ligne « Pour agir sur SRV-AD2, Obliance doit passer sur le tenant BASH. » et le bouton **Basculer et continuer**. L'action reprend là où elle était. Ensuite, une puce persistante « Revenir à la vue globale » reste dans la barre supérieure. Un réglage permet « Toujours basculer automatiquement ».
 3. **Temps réel en vue globale** : un écran d'appareil d'un tenant enfant ouvert depuis Default affiche « Vue globale — actualisation toutes les 15 s » et interroge le REST. La Flotte interroge `summary` et `group-stats` toutes les 60 s tant qu'elle est visible.
 4. **Sessions distantes** : elles survivent à la bascule (elles sont authentifiées par jeton). Leurs onglets gardent une puce du tenant d'origine.
+5. **Au-dessus du tenant, le serveur** : le périmètre complet est « Serveur › Tenant ». Le tenant se choisit toujours **dans** le serveur actif ; changer de serveur restaure le dernier tenant utilisé sur ce serveur (§2.10).
 
 ### 2.4 Téléphone (largeur compacte < 600 dp)
 
@@ -231,7 +232,8 @@ Les shells et les sessions ObliReach vivent dans un `SessionManager` au niveau d
   2. **Actions** selon le contexte : « Ouvrir PowerShell sur PC-COMPTA-03 », « Redémarrer l'agent de 140 » ;
   3. **Scripts** : « Exécuter « Vider le cache DNS »… » ;
   4. **Aller à** (destinations, onglets) ;
-  5. **Tenants** : « Passer sur BASH ».
+  5. **Tenants** : « Passer sur BASH » ;
+  6. **Serveurs** (avec deux serveurs ou plus) : « Passer sur Atelier ». La recherche d'appareils ne porte que sur le serveur actif ; sans résultat, la palette propose « Chercher « NAS » sur les autres serveurs » (une requête par serveur connecté, résultats groupés par serveur, appui = bascule puis S30).
 - Si le presse-papiers contient une IP ou un nom d'hôte : suggestion « Rechercher « 10.0.0.12 » copié ».
 - Clavier : flèches, Entrée pour exécuter, Tab pour changer de groupe.
 - Une action proposée par la palette passe par les mêmes garde-fous que partout ailleurs (§7.6).
@@ -272,8 +274,60 @@ Les alertes serveur portent un chemin web relatif (`navigateTo`). L'app reçoit 
 | `/admin/supervision` | S87 (v1.1), sinon S90 |
 | `/policies` | S71 (v1.1), sinon S90 |
 | Tout autre chemin du serveur | S90 |
-| `obli-obliance://setup?server=…` | S01 pré-rempli |
-| `obli-obliance://open?path=/devices/123` | Comme le chemin |
+| `obli-obliance://setup?server=…` | S01 pré-rempli ; si un autre serveur est déjà configuré : S93 pré-rempli ; si ce serveur est déjà connu : bascule vers lui |
+| `obli-obliance://open?path=/devices/123` | Comme le chemin, sur le serveur actif |
+| `obli-obliance://open?server=atelier.binaryhearts.me&path=/devices/123` | Comme le chemin, **sur le serveur désigné** (bascule annoncée si ce n'est pas le serveur actif) ; hôte inconnu → « Ce lien vise un serveur qui n'est pas configuré. » [Ajouter ce serveur] |
+
+**Chaque lien est résolu contre un serveur.** Une notification ou une alerte porte l'identifiant local du serveur qui l'a produite ; son `navigateTo` est résolu contre ce serveur, jamais contre le serveur actif. Un App Link se résout par son hôte. Les liens sortants (partage, « Ouvrir dans le navigateur ») portent toujours `server=`.
+
+### 2.10 Plusieurs serveurs (une app, plusieurs instances Obliance)
+
+**Besoin.** Le propriétaire administre trois instances Obliance (BinaryHearts, Atelier, Client Durand, §4) et doit être alerté par les trois en même temps, sur un seul téléphone, sans cloner l'app. Plusieurs techniciens d'un MSP sont dans le même cas (instance du MSP + instances auto-hébergées de clients).
+
+**Modèle.**
+
+| Notion | Définition |
+|---|---|
+| **Profil de serveur** | Adresse HTTPS (origine unique), nom affiché, couleur et monogramme, compte connecté, dernier tenant utilisé, réglages de notification propres. 8 profils au plus. |
+| **Serveur actif** | Le seul dont les écrans Appareils, Détail, Activité, Flotte, Plus et la vue web montrent les données. Un seul socket temps réel, un seul contexte d'action. |
+| **Serveurs connectés** | Tous les profils avec une session valide. Ils alimentent **en permanence** les notifications et « À traiter », qu'ils soient actifs ou non. |
+| **Périmètre** | « Serveur › Tenant ». Le tenant appartient toujours au serveur actif. |
+
+**Ce qui est agrégé et ce qui ne l'est pas.**
+
+| Surface | Portée | Détail |
+|---|---|---|
+| Notifications | Tous les serveurs connectés | Un groupe de canaux Android par serveur (§9), mêmes catégories dans chaque groupe ; titre préfixé du serveur dès qu'il y en a deux (« CRITIQUE · Client Durand › Default — SRV-DURAND01 ») ; regroupement par serveur puis par tenant. |
+| À traiter (S10) | Tous les serveurs connectés, filtrable | Puce « Tous les serveurs ▾ » avant la puce de tenant ; chaque carte porte la tuile de son serveur dans le surtitre ; la carte de corrélation ne regroupe jamais deux serveurs. Approbations et enrôlements : agrégés de la même façon. |
+| Badge d'À traiter, tuile Réglages rapides, widget | Tous les serveurs connectés | Somme des critiques et attentions non lues. |
+| Appareils, Flotte, Activité (lots, planifications), recherche | **Serveur actif** | Les listes restent lisibles et les indicateurs justes ; la palette propose de chercher ailleurs (§2.7). |
+| Sessions distantes | Chacune liée à son serveur | Elles survivent à la bascule (jeton par serveur) ; leurs onglets et la pastille portent la tuile du serveur d'origine en plus du tenant. |
+| Surveillances (« Surveiller ») | Chacune liée à son serveur | Listées dans Activité avec la tuile ; elles continuent quel que soit le serveur actif. |
+
+**Bascule de serveur.**
+1. **Explicite** : puce de périmètre → S81 › section « Serveurs » → appui sur « Atelier ». Aussi par la palette (« Passer sur Atelier »), le raccourci d'app du serveur, `Alt+1…8` avec un clavier physique.
+2. Effets, dans l'ordre : l'écran courant affiche l'instantané du serveur cible s'il existe (bascule perçue < 1 s) → le socket du serveur quitté se ferme, celui du serveur cible s'ouvre → `GET /api/auth/me` du serveur cible → rechargement de l'écran courant → vibration de confirmation → barre « Vous travaillez maintenant sur Atelier ». Les piles de navigation sont **mémorisées par serveur** : revenir sur BinaryHearts rend l'écran d'appareil laissé ouvert.
+3. **Implicite** : ouvrir une carte, une notification ou un lien d'un autre serveur bascule automatiquement, avec la barre « Passé sur Client Durand pour ouvrir SRV-DURAND01 » et **Revenir** pendant 5 s (même modèle que la bascule implicite de tenant, §2.3). Si le tenant de l'élément diffère aussi, une seule barre annonce les deux (« Passé sur Client Durand › Default… »).
+4. **Actions de boîte sans bascule** : marquer lu, supprimer, surveiller, approuver ou refuser un enrôlement (T1) depuis À traiter ou une notification partent vers le serveur de l'élément avec son propre cookie, sans changer le serveur actif. Toute autre action (T1 sur un appareil, T2, T3) exige que l'élément soit sur le serveur actif : la feuille « Agir » ne peut pas s'ouvrir sur un appareil d'un autre serveur.
+5. **Session expirée sur un serveur non actif** : pas de feuille S03 intempestive ; sa ligne dans S81 et S92 passe à « Session expirée · Se reconnecter », ses cartes À traiter sont grisées avec la même mention, et une notification du canal « Compte » de son groupe le signale **une fois**. S03 ne s'affiche que pour le serveur actif.
+
+**Identité visuelle d'un serveur.**
+- **Tuile monogramme** : carré arrondi (20 dp dans les puces et surtitres, 28 dp dans les listes ; rayon 5 dp), fond de la couleur à 18 %, bordure 1 dp à 40 %, deux lettres JetBrains Mono 600 dans la couleur. La forme (tuile à lettres) distingue une identité d'un état (point, pastille).
+- **Palette fermée** de 8 couleurs (§8.2), hors rouge de marque et hors couleurs d'état ; attribuée automatiquement dans l'ordre à l'ajout, modifiable dans S92.
+- **Où elle apparaît** (dès deux serveurs) : puce de périmètre, bouton de périmètre du rail, surtitre des cartes d'À traiter, en-tête de S30 (sous-titre « BinaryHearts › BASH › Siège › Serveurs »), **feuilles de confirmation S41 et invites biométriques** (« Redémarrer SRV-AD2 (BinaryHearts › BASH) ? »), onglets de sessions et pastille, notifications (icône large), raccourcis d'app.
+- **Jamais** : recoloration de l'accent, du chrome ou de l'indicateur de destination par serveur.
+- **Un seul serveur configuré** : aucune tuile, aucune section « Serveurs » dans S81, aucune puce « Tous les serveurs » ; l'app est identique à la conception mono-serveur.
+
+**Ajout, retrait, déconnexion.**
+- **Ajouter** : Plus › Serveurs (S92) › **Ajouter un serveur** (S93), ou lien `obli-obliance://setup?server=…` / QR. Même parcours que S01 ; une session Obligate déjà ouverte dans la WebView pour le même fournisseur est réutilisée (connexion sans saisie).
+- **Deux profils ne peuvent pas partager une origine** (le pot à cookies est indexé par hôte) : « Ce serveur est déjà configuré (BinaryHearts). »
+- **Se déconnecter de ce serveur** : déconnexion de ce seul serveur (§10.5) ; le profil reste, ses notifications s'arrêtent, ses cartes disparaissent d'À traiter.
+- **Retirer ce serveur** (T1, nomme le serveur) : déconnexion + suppression des cookies de son origine, de ses caches et instantanés, de ses surveillances, de son groupe de canaux et de ses raccourcis. Le dernier serveur ne peut pas être retiré (seulement déconnecté).
+- **Serveur actif retiré ou déconnecté** : l'app passe sur le serveur connecté suivant ; sans serveur connecté, S01.
+
+**Mise à jour de l'application.** Chaque serveur publie `GET /api/mobile/android/version`. L'app retient le **plus haut `versionCode`** offert par un serveur connecté, télécharge depuis ce serveur et vérifie comme aujourd'hui le SHA-256 et le **signataire** (empreinte figée dans l'app) : un serveur ne peut pas pousser un APK signé par une autre clé.
+
+**Raccourcis d'app.** Un raccourci dynamique par serveur (« Atelier », icône = tuile), qui ouvre À traiter filtré sur ce serveur et le rend actif ; les raccourcis d'appareils récents portent leur serveur.
 
 ---
 
@@ -327,7 +381,7 @@ Les identifiants sont stables : ils servent aux maquettes, aux tickets, aux test
 | S70 | Flotte | Défilement | Grille 3 colonnes | N | `GET /api/devices/summary`, `/fleet-hourly`, `/fleet-timeseries`, `/group-stats`, `/disk-saturated`, `GET /api/updates/stats` | v1 |
 | S71 | Mises à jour de la flotte | Écran | Liste \| appareils touchés | N | `GET /api/updates/stats`, `GET /api/updates/aggregated`, `/aggregated/:updateUid/devices`, routes d'approbation et de déploiement par appareil | v1.1 |
 | S80 | Plus | Liste | Liste \| contenu | N | `GET /api/auth/me` | v1 |
-| S81 | Périmètre et tenant | Feuille | Menu ancré 320 dp | N | `GET /api/tenants`, `POST /api/tenant/switch`, `GET /api/live-alerts/all` | v1 |
+| S81 | Serveur et tenant (périmètre) | Feuille | Menu ancré 320 dp | N | Registre local des serveurs, `GET /api/tenants`, `POST /api/tenant/switch`, `GET /api/live-alerts/all` (par serveur) | v1 |
 | S82 | Recherche et palette de commandes | Plein écran | Dialogue 640 dp | N | `GET /api/devices?search=`, scripts en cache, `GET /api/tenants` | v1 |
 | S83 | Réglages de l'application | Écran | Liste \| détail | N | `PUT /api/profile` (langue) | v1 |
 | S84 | Notifications et astreinte | Écran | Liste \| détail | N | Local ; `POST /api/mobile/push/subscriptions` (v1.1) | v1 |
@@ -337,6 +391,8 @@ Les identifiants sont stables : ils servent aux maquettes, aux tickets, aux test
 | S88 | Raccourcis clavier | — | Surcouche | N | — | v1 |
 | S90 | Vue web | Plein écran | Volet de détail | W | Pages web du serveur | v1 |
 | S91 | Applications Obli | Feuille | Menu | N | `GET /api/auth/connected-apps`, `GET /api/oblitools/manifest` | v1 |
+| S92 | Serveurs (liste et réglages par serveur) | Écran | Liste \| détail | N | Registre local, `GET /health`, `GET /api/auth/me` et `GET /api/live-alerts/all` de chaque serveur | v1 |
+| S93 | Ajouter un serveur | Plein écran progressif | Dialogue 560 dp | N | Comme S01, sur la nouvelle origine | v1 |
 
 ---
 
@@ -344,11 +400,18 @@ Les identifiants sont stables : ils servent aux maquettes, aux tickets, aux test
 
 Ces noms et valeurs sont utilisés **partout** : spécifications, parcours, maquettes, captures de tests. Ne pas en inventer d'autres.
 
-**Serveur et comptes**
-- Serveur Obliance : `https://rmm.votre-msp.fr`, version 5.1.110 ; Obligate : `id.votre-msp.fr`.
+**Serveurs et comptes**
+
+| Serveur | Adresse | Version | Tuile | Couleur | Compte de Karim | Tenants | Appareils |
+|---|---|---|---|---|---|---|---|
+| **BinaryHearts** (principal, l'instance du MSP) | `https://obliance.binaryhearts.me` ; Obligate `id.binaryhearts.me` | 5.1.110 | BH | violet `#A78BFA` | `og_karim.benali` (Obligate, administrateur de plateforme) | Default, BASH | 312 |
+| **Atelier** (préparation des postes) | `https://atelier.binaryhearts.me` ; même Obligate | 5.1.108 | AT | sarcelle `#2DD4BF` | `og_karim.benali` (Obligate, administrateur de plateforme) | Default | 18 |
+| **Client Durand** (instance auto-hébergée d'un client) | `https://rmm.durand-associes.fr` ; pas d'Obligate | 5.0.94 | CD | fuchsia `#E879F9` | `karim.benali` (compte local, membre d'équipe, 2FA par application) | Default | 42 |
+
+- Serveur actif par défaut dans les planches : **BinaryHearts**. Sauf mention contraire, tout ce qui suit (tenants, appareils, totaux, scripts) concerne BinaryHearts.
 - Dernière version d'agent : 4.5.79 ; ObliReach : 1.8.2.
 - Utilisateurs : Karim Benali (`og_karim.benali`, administrateur de plateforme, d'astreinte), Julien Moreau (`og_julien.moreau`, technicien BASH, non admin), Sophie Martin (`og_sophie.martin`, administratrice de plateforme), Nadia Roux (`nroux`, compte local, admin du tenant BASH).
-- Les planches de maquette montrent la session de **Karim** (tenant Default, vue globale), sauf mention contraire.
+- Les planches de maquette montrent la session de **Karim** (serveur actif BinaryHearts, tenant Default, vue globale, trois serveurs configurés), sauf mention contraire.
 - IP publique de Karim en 4G : 92.184.107.21.
 
 **Tenants**
@@ -376,10 +439,14 @@ Ces noms et valeurs sont utilisés **partout** : spécifications, parcours, maqu
 | **SRV-FILES01** | Default › Infra › Stockage | Windows Server 2019 | 10.20.0.30 | Attention : santé disque | disque 1 Seagate Exos 7E8 4 To, 5 secteurs réalloués |
 | **HV-01** | Default › Infra › Virtualisation | Windows Server 2022 Datacenter | 10.20.0.10 | En ligne | hôte Hyper-V |
 
+**Atelier** : NAS-ATELIER (Default, Debian 12, 10.40.0.20) — Attention : disque `/volume1` à 91 %. **Client Durand** : SRV-DURAND01 (Default › Serveurs, groupe « Toujours actif », Windows Server 2019, 192.168.10.5) — hors ligne depuis 02:53.
+
 **Chronologie de la nuit du 25 septembre 2026 (utilisée dans les parcours)**
+- 01:50 — Atelier : alerte NAS-ATELIER (disque `/volume1` à 91 %).
 - 02:00 — la planification « Vérif sauvegarde » échoue sur SRV-AD2 (code 1).
 - 02:40 — correctif KB5043145 installé sur PC-COMPTA-03.
 - 02:47 — alerte BOB01 (disque `/` à 94 %).
+- 02:58 — Client Durand : alerte « SRV-DURAND01: Hors ligne » (critique).
 - 03:05 — alerte PC-COMPTA-03 critique (CPU 98 %) : `EBP.Compta.exe` bloqué dans la session restée ouverte de m.durand.
 - 03:07–03:09 — cinq serveurs de BASH › Siège › Serveurs cessent de répondre (coupure du site).
 - 03:12 — alerte « SRV-AD2: Hors ligne » (groupe « Toujours actif », donc `critical`).
@@ -387,13 +454,15 @@ Ces noms et valeurs sont utilisés **partout** : spécifications, parcours, maqu
 
 **Alertes** (titres et messages tels que le serveur les produit ; la carte native ajoute la catégorie)
 
-| Heure | Titre serveur | Message serveur | Gravité serveur | Catégorie app | Tenant |
+| Heure | Titre serveur | Message serveur | Gravité serveur | Catégorie app | Serveur › Tenant |
 |---|---|---|---|---|---|
-| 03:12 | SRV-AD2: Hors ligne | Aucun push reçu depuis 4 min. | critical | Hors ligne | BASH |
-| 03:05 | PC-COMPTA-03: Critique | CPU 98 % (seuil 90 %) | critical | Métrique | BASH |
-| 02:47 | BOB01: Alerte | Disque / 94 % (seuil 90 %) | warning | Métrique | Default |
-| 01:30 | SRV-FILES01: santé disque à surveiller | Disque 1 : 5 secteurs réalloués | warning | Santé disque | Default |
-| 00:58 | 140: De retour en ligne | — | info | Rétablissement | Default |
+| 03:12 | SRV-AD2: Hors ligne | Aucun push reçu depuis 4 min. | critical | Hors ligne | BinaryHearts › BASH |
+| 03:05 | PC-COMPTA-03: Critique | CPU 98 % (seuil 90 %) | critical | Métrique | BinaryHearts › BASH |
+| 02:58 | SRV-DURAND01: Hors ligne | Aucun push reçu depuis 5 min. | critical | Hors ligne | Client Durand › Default |
+| 02:47 | BOB01: Alerte | Disque / 94 % (seuil 90 %) | warning | Métrique | BinaryHearts › Default |
+| 01:50 | NAS-ATELIER: Alerte | Disque /volume1 91 % (seuil 90 %) | warning | Métrique | Atelier › Default |
+| 01:30 | SRV-FILES01: santé disque à surveiller | Disque 1 : 5 secteurs réalloués | warning | Santé disque | BinaryHearts › Default |
+| 00:58 | 140: De retour en ligne | — | info | Rétablissement | BinaryHearts › Default |
 
 **Processus de PC-COMPTA-03 (03:06)** : 212 processus · CPU 97 % · 11,4 Go.
 
@@ -443,8 +512,8 @@ Chaque écran précise : rôle, disposition téléphone et tablette, contenu d'e
 #### S01 — Connexion (écran progressif)
 - **Rôle** : saisir le serveur une fois, puis se connecter par Obligate ou par un compte local, puis valider la 2FA locale. Les trois étapes vivent sur un seul écran qui se déroule.
 - **Téléphone** :
-  1. Marque (wordmark sombre, « ance » en blanc). Champ « Adresse du serveur », texte indicatif `rmm.votre-msp.fr`, aide « HTTPS obligatoire », bouton **Continuer**, bouton tonal **Scanner un QR code** (la page profil web affiche `obli-obliance://setup?server=…`).
-  2. Une fois validé, le champ se replie en puce « rmm.votre-msp.fr · Changer » et une carte de résultat apparaît : « Obliance 5.1.110 · Connexion Obligate disponible (id.votre-msp.fr) ».
+  1. Marque (wordmark sombre, « ance » en blanc). Champ « Adresse du serveur », texte indicatif `obliance.binaryhearts.me`, aide « HTTPS obligatoire », bouton **Continuer**, bouton tonal **Scanner un QR code** (la page profil web affiche `obli-obliance://setup?server=…`).
+  2. Une fois validé, le champ se replie en puce « obliance.binaryhearts.me · Changer » et une carte de résultat apparaît : « Obliance 5.1.110 · Connexion Obligate disponible (id.binaryhearts.me) ».
   3. Bouton principal **Se connecter avec Obligate** (si `obligateEnabled`), séparateur « ou », section repliable **Connexion locale** : « Identifiant », « Mot de passe » (remplissage automatique, gestionnaires de mots de passe), **Se connecter**.
   4. Étape 2FA (si `requires2fa`) : contrôle segmenté « Application d'authentification | E-mail », 6 cases (JetBrains Mono 24, focus automatique, envoi automatique au 6e chiffre), puce « Coller 482 913 » si le presse-papiers contient 6 chiffres, **Renvoyer le code** (e-mail, délai 30 s), **Valider**.
 - **Tablette** : deux moitiés. Gauche : panneau de marque (dégradé accent 10 % → `#131728`, « Supervision et gestion à distance »). Droite : carte de formulaire de 440 dp.
@@ -461,9 +530,10 @@ Chaque écran précise : rôle, disposition téléphone et tablette, contenu d'e
   - Utilisateur local avec `enrollmentVersion < 1` → S90 sur `/` (assistant d'accueil).
   - Sinon → S04 au premier lancement, puis S10.
 - **Mot de passe oublié** : lien vers S90.
+- **Serveurs suivants** : S01 ne sert qu'au premier serveur ; les suivants passent par S93, qui reprend les mêmes étapes.
 
 #### S02 — Connexion Obligate (feuille SSO)
-- Feuille WebView plein écran (tablette : dialogue 720 × 640) sur `/auth/sso-redirect`, avec barre native « Obligate · id.votre-msp.fr », barre de progression et **Annuler**.
+- Feuille WebView plein écran (tablette : dialogue 720 × 640) sur `/auth/sso-redirect`, avec barre native « Obligate · id.binaryhearts.me », barre de progression et **Annuler**.
 - Le flux **reste dans la WebView** : `oauthState` vit dans la session, un Custom Tab ne partage pas les cookies.
 - Quand la WebView atteint `https://<serveur>/` après `/auth/callback`, l'app intercepte la navigation, ferme la feuille sans jamais afficher l'app web, et lit `connect.sid` dans le `CookieManager` partagé.
 - `/login?error=sso_failed` → message natif « La connexion via Obligate a échoué. Réessayez ou utilisez la connexion locale. »
@@ -473,7 +543,8 @@ Chaque écran précise : rôle, disposition téléphone et tablette, contenu d'e
 - **Texte** : « Votre session a expiré » / « Reconnectez-vous pour continuer. Vos écrans restent ouverts. Vos 2 sessions distantes restent actives. »
 - **Comportement** : d'abord un **SSO silencieux** (WebView cachée sur `/auth/sso-redirect`, délai 8 s) ; Obligate a souvent encore une session. Sinon, le contenu de S01 s'affiche dans la feuille. Actions : **Se reconnecter**, **Changer de compte**.
 - **Après** : la navigation en attente continue ; les lectures sont rejouées ; **une action n'est jamais rejouée automatiquement**, l'utilisateur la confirme à nouveau. Les données en cache restent lisibles sous un bandeau.
-- **Prévention** : l'app note l'heure du dernier `Set-Cookie`. Six jours après, un bandeau apparaît : « Votre session expire demain. Reconnectez-vous maintenant pour ne pas être interrompu pendant l'astreinte. » [Se reconnecter]
+- **Plusieurs serveurs** : S03 ne concerne que le serveur actif et nomme le serveur (« Votre session sur Client Durand a expiré ») ; un serveur non actif expiré est signalé dans S81, S92 et À traiter (§2.10).
+- **Prévention** : l'app note l'heure du dernier `Set-Cookie`, par serveur. Six jours après, un bandeau apparaît : « Votre session expire demain. Reconnectez-vous maintenant pour ne pas être interrompu pendant l'astreinte. » [Se reconnecter]
 
 #### S04 — Premier lancement
 Trois étapes passables, rouvrables depuis S84 :
@@ -490,20 +561,20 @@ Trois étapes passables, rouvrables depuis S84 :
 
 ```
 ┌────────────────────────────────────────────┐
-│ [▣ Default · Vue globale ▾] À traiter  ⌕ (KB)│
+│ [BH Default · Vue globale ▾] À traiter ⌕ (KB)│
 ├────────────────────────────────────────────┤
-│ (Alertes 5) (Approbations 1) (Enrôlements 1) │
-│ [Tous les tenants ▾] [Critique] [Attention]  │
+│ (Alertes 7) (Approbations 1) (Enrôlements 1) │
+│ [Tous les serveurs ▾] [Tous les tenants ▾] … │
 │ ┌ Possible coupure de site ───────────────┐  │
 │ │ 5 appareils de BASH › Siège › Serveurs   │  │
 │ │ hors ligne entre 03:07 et 03:09. [Voir]  │  │
 │ └─────────────────────────────────────────┘  │
 │ NON LUES                                     │
-│ ▌CRITIQUE · BASH · 03:12 · il y a 4 min      │
+│ ▌[BH] CRITIQUE · BASH · 03:12 · il y a 4 min │
 │ ▌SRV-AD2 — Hors ligne               [ ◎ ]    │
 │ ▌Aucun push reçu depuis 4 min.               │
 │ ▌● Toujours hors ligne                       │
-│ ▌CRITIQUE · BASH · 03:05                     │
+│ ▌[BH] CRITIQUE · BASH · 03:05                │
 │ ▌PC-COMPTA-03 — Métrique critique   [ ≡ ]    │
 │ ▌CPU 98 % (seuil 90 %)                       │
 │ ▌● Critique · 97 % en direct                 │
@@ -516,7 +587,7 @@ Trois étapes passables, rouvrables depuis S84 :
 - **Régions** :
   1. Barre supérieure (§2.2).
   2. Contrôle segmenté avec compteurs en mono : **Alertes** (tous) ; **Approbations** (administrateurs de plateforme ; le demandeur suit ses demandes dans Activité) ; **Enrôlements** (admins ou `agent_config:approval`). Un segment sans droit est masqué.
-  3. Puces de filtre : périmètre des tenants (« Tous les tenants », « Default », « BASH » ; `/live-alerts/all` couvre toutes les appartenances) et gravité.
+  3. Puces de filtre : **serveurs** (« Tous les serveurs », puis un par serveur avec sa tuile ; présente dès deux serveurs), périmètre des tenants du serveur actif (« Tous les tenants », « Default », « BASH » ; `/live-alerts/all` couvre toutes les appartenances) et gravité.
   4. **Carte de corrélation** (calculée côté client) : au moins 3 alertes « Hors ligne » du même tenant en moins de 5 min ; groupe résolu depuis le cache d'appareils du tenant concerné. Formulation prudente et horodatée : « Possible coupure de site ». Bouton **Voir les 5** → S20 filtrée.
   5. Liste en sections : « NON LUES » triées par **priorité calculée** puis par heure ; « LUES — DERNIÈRES 24 H » repliée.
 - **Priorité calculée (règles, en attendant un champ `category` serveur)** :
@@ -524,21 +595,22 @@ Trois étapes passables, rouvrables depuis S84 :
   - rang : critique serveur > Hors ligne d'un serveur (OS contenant « Server », ou appareil surveillé) même si le serveur l'a envoyée en `info` > attention > le reste. Une alerte « Hors ligne » d'un poste de travail envoyée en `info` reste en bas et ne réveille personne.
 - **Carte d'incident (`IncidentCard`)** :
   - barre de gravité de 3 dp à gauche (critique `#DC2626`, attention `#F59E0B`, info `#3B82F6`, rétablissement `#22C55E`) ;
-  - surtitre mono majuscule : gravité · tenant · heure · âge relatif ;
+  - surtitre mono majuscule : [tuile du serveur, dès deux serveurs] gravité · tenant · heure · âge relatif ;
   - titre `titleSmall` : nom de l'appareil — catégorie localisée ; ligne secondaire : message serveur tel quel ;
-  - **ligne d'état en direct** : pour les appareils du tenant courant (ou tous en vue globale), tenue à jour par `DEVICE_UPDATED` et `DEVICE_METRICS_PUSHED` : « ● Toujours hors ligne » (pulsation) ou « ● Rétabli à 03:19 » (vert). Autres tenants : « État actuel : ouvrez pour vérifier » ;
+  - **ligne d'état en direct** : pour les appareils du tenant courant (ou tous en vue globale), tenue à jour par `DEVICE_UPDATED` et `DEVICE_METRICS_PUSHED` : « ● Toujours hors ligne » (pulsation) ou « ● Rétabli à 03:19 » (vert). Autres tenants : « État actuel : ouvrez pour vérifier » ; autres serveurs : « Autre serveur · ouvrez pour vérifier » ;
   - **une action rapide contextuelle** de 48 dp : Hors ligne → **Surveiller** (`circle-dot`) ; CPU ou RAM → **Processus** ; disque → **Scripts** ; santé disque → **Disques** ;
   - les alertes répétées d'un même appareil se regroupent : « 3 alertes · BOB01 » ;
   - **fusion de rétablissement** : quand une alerte de rétablissement arrive pour un appareil qui a une carte critique ou attention non lue, la carte d'origine passe au vert (« Rétabli à 03:19 ») au lieu d'empiler une nouvelle carte ;
   - marqueur non lu : point `#60A5FA` (jamais le rouge de marque).
-- **Contenu d'exemple (Alertes)** : les 5 alertes du §4 ; action rapide respective : Surveiller, Processus, Scripts, Disques, aucune.
+- **Contenu d'exemple (Alertes)** : les 7 alertes du §4, tous serveurs confondus, dans l'ordre SRV-AD2, PC-COMPTA-03, SRV-DURAND01 (Client Durand), BOB01, NAS-ATELIER (Atelier), SRV-FILES01, 140 ; action rapide respective : Surveiller, Processus, Surveiller, Scripts, Scripts, Disques, aucune.
+- **Plusieurs serveurs** : une seule liste triée par priorité calculée, toutes origines confondues ; la carte de corrélation ne mélange jamais deux serveurs ; appui sur une carte d'un autre serveur → bascule implicite (§2.10) ; balayages et « Surveiller » partent vers le serveur de la carte sans bascule ; « Tout marquer comme lu » agit sur **chaque** serveur affiché (un appel par serveur, libellé « Tout marquer comme lu (3 serveurs) »). Un serveur injoignable ajoute en tête une ligne discrète « Atelier injoignable depuis 03:02 — alertes jusqu'à 03:02 » ; un serveur dont la session a expiré : « Session expirée sur Client Durand · Se reconnecter ».
 - **Segment Approbations** : carte « Désinstaller l'agent — PC-ATELIER-02 », « Demandé par Julien Moreau · BASH · 03:21 », **anneau d'expiration** « expire dans 27 min » (ambre sous 10 min, rouge sous 3 min), boutons **Refuser** (tonal) et **Examiner** (plein) → S11. Jamais d'approbation depuis la liste.
 - **Segment Enrôlements** : « KIOSK-ACCUEIL-02 · Windows 11 IoT Enterprise · clé « Site Siège » · 10.0.3.41 · il y a 12 min », **Refuser** et **Approuver** en ligne ; en-tête **Tout approuver (3)** (T1).
 - **Actions** :
   - appui sur une carte → S30 en mode incident (téléphone) ou dans le panneau appareil (tablette) ;
   - balayage vers la droite → **Marquer comme lu** (immédiat, vibration de seuil) ;
   - balayage vers la gauche → **Supprimer**, barre « Alerte supprimée — Annuler » pendant 5 s avant l'appel ;
-  - menu : « Tout marquer comme lu (BASH) » (le serveur n'agit que sur le tenant courant, le libellé le dit), « Effacer les alertes lues » ;
+  - menu : « Tout marquer comme lu (BASH) » (le serveur n'agit que sur le tenant courant, le libellé le dit ; avec plusieurs serveurs, voir ci-dessus), « Effacer les alertes lues » ;
   - appui long → sélection multiple (lu, supprimer). Chaque balayage a une action TalkBack équivalente.
 - **Tablette** : liste 380 dp | **panneau appareil intégré** : carte d'alerte, en-tête de S30, contexte d'incident, métriques en direct, actions rapides (Processus, Services, Terminal, Voir l'écran, Redémarrer l'agent). Le technicien agit sans quitter la boîte. Touches : J/K pour naviguer, E pour marquer lu, Entrée pour ouvrir l'appareil complet.
 - **États** :
@@ -1028,16 +1100,19 @@ Panneau latéral de 320 dp sur tablette, feuille sur téléphone :
 ### Plus
 
 #### S80 — Plus
-- Carte de compte : avatar, « Karim Benali », « og_karim.benali · Compte Obligate », puce du tenant courant.
+- Carte de compte : avatar, « Karim Benali », « og_karim.benali · Compte Obligate », puce « [BH] BinaryHearts › Default » (le compte affiché est celui du serveur actif).
+- Entrée **Serveurs** (`server`, « 3 serveurs · BinaryHearts actif ») → S92, sous la carte de compte ; avec un seul serveur, elle devient « Serveur · obliance.binaryhearts.me » et mène aussi à S92.
 - Sections du §2.8 ; éléments masqués selon le rôle (jamais désactivés) ; badges (approbations en attente, mise à jour de l'app) ; la section « Administration — Vue web » porte l'icône `globe` et l'étiquette « Vue web » sur chaque ligne.
 
-#### S81 — Périmètre et tenant
+#### S81 — Serveur et tenant
+- **Section « Serveurs »** (dès deux serveurs, en tête) : une ligne de 56 dp par serveur : tuile 28 dp, nom, hôte en mono, ligne d'état (« Actif · temps réel connecté », « Vérifié à 03:20 », « Injoignable depuis 03:02 », « Session expirée · Se reconnecter »), alertes non lues (« 5 non lues »), coche sur le serveur actif. Appui → bascule de serveur (§2.10). Dernière ligne : **Gérer les serveurs** → S92.
+- Les sections de tenant qui suivent portent le nom du serveur actif : « Tenants de BinaryHearts ». Un serveur à un seul tenant n'a pas de section tenant.
 - **Section « Filtrer la vue globale »** (session maître) : puces multi-sélection avec mini-ruban (« BASH 248 · 1 crit. », « Default 64 ») ; **Tous les tenants**.
 - **Section « Travailler dans un tenant »** : recherche au-delà de 8 tenants ; lignes « Default » (badge « Vue globale »), « BASH » (rôle en mono) ; point d'état (pire état) ; alertes non lues par tenant (« 5 alertes non lues ») ; coche sur le tenant courant.
-- Pied : « Le changement recharge les données et le temps réel. Vos 2 sessions restent ouvertes. »
+- Pied : « Le changement recharge les données et le temps réel. Vos 2 sessions restent ouvertes. » ; avec plusieurs serveurs : « … Les alertes des 3 serveurs continuent d'arriver. »
 - **Bascule** : `POST /api/tenant/switch` → « Passage sur BASH… » → reconnexion socket → invalidation des caches → rechargement → vibration de confirmation → barre « Vous travaillez maintenant dans BASH ».
 - Erreur 403 : « Vous n'êtes pas membre de ce tenant. »
-- **Tablette** : menu ancré de 320 dp depuis le bouton de tenant du rail (Alt+T).
+- **Tablette** : menu ancré de 320 dp depuis le bouton de périmètre du rail (Alt+T ; Alt+1…8 pour passer directement à un serveur).
 
 #### S82 — Recherche et palette
 Voir §2.7. Aucun résultat : « Aucun résultat pour « 10.0.0.99 ». La recherche porte sur le nom, les IP, la MAC, l'utilisateur, l'UUID et les tags. » ; multi-tenant : « Passer sur un autre tenant ? ». Hors ligne : recherche dans le cache, « Résultats hors connexion ».
@@ -1049,21 +1124,22 @@ Voir §2.7. Aucun résultat : « Aucun résultat pour « 10.0.0.99 ». La recher
 - **Sessions** : barre de touches auto / toujours / jamais ; mode tactile ObliReach par défaut par format ; codec préféré.
 - **Langue** : Français / English / langue du système (langue par app, synchronisée avec `preferredLanguage`).
 - **Données** : « Économie de données sur réseau mobile » ; « Vider le cache hors ligne ».
-- **Serveur** : adresse, « Changer de serveur » (efface les caches).
+- **Serveurs** : liste des serveurs (tuile, nom, hôte) → S92 ; **Ajouter un serveur** → S93. « Changer de serveur » disparaît : on ajoute, on bascule, on retire.
 - **Diagnostic** : exporter des journaux expurgés.
 
 #### S84 — Notifications et astreinte
-- **Carte d'acheminement** : v1 « Vérification toutes les 15 min — Android peut retarder les alertes » ; v1.1 « Temps réel : UnifiedPush via ntfy — connecté » ; « Optimisation de batterie : désactivée ✓ ».
+- **Carte d'acheminement** (une ligne par serveur quand il y en a plusieurs) : v1 « Vérification toutes les 15 min — Android peut retarder les alertes » ; v1.1 « Temps réel : UnifiedPush via ntfy — connecté » ; « Optimisation de batterie : désactivée ✓ ».
 - **Astreinte** : interrupteur (aussi tuile Réglages rapides) ; horaire ; tenants couverts ; « Les critiques ignorent Ne pas déranger » ; « Rappeler une alerte critique non lue toutes les 5 min (3 fois max) » ; hors astreinte : « Critiques seulement / Silencieuses / Aucune ».
 - **Matrice par catégorie** (Appareils critiques, Appareils en attention, Rétablissements, Approbations, Enrôlements, Automations, Sessions, Compte) : Son / Vibration / Silencieux / Désactivé, reflétant les canaux Android (les réglages système restent la référence).
-- **Par tenant** : « Recevoir les alertes de : Default ✓ · BASH ✓ ».
+- **Par serveur** (dès deux serveurs) : une carte par serveur avec sa tuile : « Notifications : toutes / critiques seulement / aucune », tenants couverts (« Default ✓ · BASH ✓ »), « Inclus dans l'astreinte » ; lien vers les réglages Android du **groupe de canaux** du serveur. L'horaire d'astreinte reste commun.
+- **Par tenant** (un seul serveur) : « Recevoir les alertes de : Default ✓ · BASH ✓ ».
 - **Diagnostic** : « Envoyer une notification de test ».
 
 #### S85 — Profil et sécurité
 - Nom affiché, identifiant (préfixe `og_` = « Compte Obligate »), e-mail ; 2FA « Application d'authentification : activée · E-mail : désactivé » (configuration dans la vue web) ; **Adresses IP de confiance** (**Révoquer**, **Tout révoquer**) ; « Session valide jusqu'au 02/10 10:42 » (déduit du dernier `Set-Cookie`) ; applications connectées ; **Gérer le profil (vue web)** ; **Se déconnecter** (URL de déconnexion Obligate d'abord, puis déconnexion locale, puis effacement des caches).
 
 #### S86 — À propos et mises à jour
-- Version de l'app, « Serveur Obliance 5.1.110 » ; **Rechercher une mise à jour** (programme existant : vérification SHA-256 et signataire) ; notes de version ; licences (Inter, Rajdhani, JetBrains Mono sous OFL ; termlib Apache-2.0 ; libvterm MIT ; OkHttp) ; « Copier le diagnostic » (versions, état du socket et du push ; **jamais** de jetons, d'URL de tunnel, ni de noms d'hôte en mode anonyme).
+- Version de l'app, « BinaryHearts · Obliance 5.1.110 » (une ligne par serveur) ; la mise à jour proposée est la plus récente offerte par l'un des serveurs, avec sa source (« Proposée par BinaryHearts ») ; **Rechercher une mise à jour** (programme existant : vérification SHA-256 et signataire) ; notes de version ; licences (Inter, Rajdhani, JetBrains Mono sous OFL ; termlib Apache-2.0 ; libvterm MIT ; OkHttp) ; « Copier le diagnostic » (versions, état du socket et du push ; **jamais** de jetons, d'URL de tunnel, ni de noms d'hôte en mode anonyme).
 
 #### S87 — Supervision (v1.1)
 - **Sessions distantes** : actives d'abord (« Julien Moreau · PowerShell · PC-COMPTA-01 (BASH) · depuis 6 min »), puis historique ; **Terminer** (T2).
@@ -1079,6 +1155,18 @@ Voir §2.8. Erreur de page : « Cette page n'a pas pu être chargée. » [Réess
 #### S91 — Applications Obli
 - Feuille « Applications Obli » : point coloré et nom (Obliview `#2BC4BD`, Obliguard `#F5A623`, …). Appui : ouvre l'app installée (intent `tools.obli.action.OPEN_URL`), sinon un Custom Tab. Depuis S30 : « Ouvrir dans Obliview » passe le contexte de l'appareil.
 
+
+#### S92 — Serveurs
+- **Rôle** : liste et réglages de chaque serveur. Accès : Plus › Serveurs, S81 › Gérer les serveurs, S83.
+- **Liste** : une carte par serveur : tuile 28 dp, nom, hôte (mono), « Obliance 5.1.110 », compte (« og_karim.benali · Obligate » / « karim.benali · compte local »), état (« Actif · temps réel connecté », « Vérifié à 03:20 », « Session expirée »), portée des notifications (« Toutes » / « Critiques seulement »). Poignée pour réordonner (l'ordre donne `Alt+1…8` et l'ordre des puces). Pied : « 3 serveurs sur 8 au plus ». Bouton tonal **Ajouter un serveur** → S93.
+- **Détail d'un serveur** (écran poussé ; volet de détail sur tablette) : nom affiché ; couleur (8 pastilles de 48 dp, libellées pour TalkBack : « Fuchsia, sélectionné ») et aperçu de la tuile ; « Recevoir les notifications » (Toutes / Critiques seulement / Aucune) ; « Inclure dans À traiter » ; tenants couverts ; « Ajouter un raccourci sur l'écran d'accueil » ; session (« Valide jusqu'au 29/09 ») et **Se reconnecter** ; **Se déconnecter de ce serveur** ; **Retirer ce serveur** (texte `#F87171` dans le menu de l'écran, T1 : « Retirer Client Durand ? Ses alertes, ses caches et ses raccourcis seront supprimés de ce téléphone. Rien n'est modifié sur le serveur. »).
+- **États** : un seul serveur → la liste ne montre que lui, sans poignée ni couleur ; serveur injoignable → « Injoignable depuis 03:02 · Réessayer ».
+
+#### S93 — Ajouter un serveur
+- **Rôle** : S01 pour un serveur supplémentaire, sans quitter l'app.
+- **Déroulé** : « Adresse du serveur » (QR possible) → sonde `GET /health` et `GET /api/auth/sso-config` → carte « Obliance 5.1.108 · Connexion Obligate disponible (id.binaryhearts.me) » et, si une session Obligate existe déjà, « Votre session Obligate existante sera réutilisée. » → **Nom affiché** (prérempli par le nom de l'instance ou l'hôte), **couleur** (première couleur libre de la palette) et aperçu de la tuile → **Se connecter avec Obligate** ou connexion locale et 2FA (comme S01) → « Atelier est ajouté. Ses alertes arrivent désormais sur ce téléphone. » [Passer sur Atelier] [Rester sur BinaryHearts].
+- **Erreurs** : celles de S01, plus « Ce serveur est déjà configuré (BinaryHearts). » et « Vous avez atteint 8 serveurs. Retirez-en un pour en ajouter un autre. »
+- **Tablette** : dialogue de 560 dp.
 ---
 
 ## 6. Parcours clés
@@ -1087,8 +1175,8 @@ Voir §2.8. Erreur de page : « Cette page n'a pas pu être chargée. » [Réess
 
 | Étape | Écran | Ce qui se passe | API |
 |---|---|---|---|
-| 1 | — | Karim scanne le QR de sa page profil web (`obli-obliance://setup?server=https://rmm.votre-msp.fr`) ou installe l'APK depuis `/api/mobile/android/download`. Un utilisateur de la coquille actuelle reçoit l'app native par le programme de mise à jour signé et garde son cookie. | — |
-| 2 | S01 | Adresse préremplie ; carte « Obliance 5.1.110 · Connexion Obligate disponible (id.votre-msp.fr) ». **Continuer**. | `GET /api/auth/sso-config`, `GET /health` |
+| 1 | — | Karim scanne le QR de sa page profil web (`obli-obliance://setup?server=https://obliance.binaryhearts.me`) ou installe l'APK depuis `/api/mobile/android/download`. Un utilisateur de la coquille actuelle reçoit l'app native par le programme de mise à jour signé et garde son cookie. | — |
+| 2 | S01 | Adresse préremplie ; carte « Obliance 5.1.110 · Connexion Obligate disponible (id.binaryhearts.me) ». **Continuer**. | `GET /api/auth/sso-config`, `GET /health` |
 | 3 | S01 → S02 | **Se connecter avec Obligate** : Obligate demande mot de passe et TOTP ; le retour arrive sur `/` ; l'app ferme la feuille et récupère `connect.sid`. | `/auth/sso-redirect`, `/auth/callback` |
 | 3′ | S01 (local) | Variante Obligate indisponible : identifiant et mot de passe natifs → `requires2fa` → « Application d'authentification » → 6 chiffres. | `POST /api/auth/login`, `POST /api/profile/2fa/verify` |
 | 4 | — | Sonde de session : utilisateur, permissions, tenant courant (Default) ; tenants Default et BASH. | `GET /api/auth/me`, `GET /api/tenants` |
@@ -1096,7 +1184,7 @@ Voir §2.8. Erreur de page : « Cette page n'a pas pu être chargée. » [Réess
 | 6 | S04 | Notifications, astreinte (« Tous les jours 19:00–08:00 », deux tenants), verrou biométrique, exemption de batterie, tuile Réglages rapides. | — |
 | 7 | S10 | Le socket se connecte (anneau de l'avatar vert). La boîte affiche 2 alertes non lues. | Socket.IO avec le cookie en `extraHeaders`, `GET /api/live-alerts/all` |
 
-Objectif : moins de 60 s du lancement à la boîte.
+Objectif : moins de 60 s du lancement à la boîte. Les serveurs Atelier et Client Durand s'ajoutent ensuite par S93 (F9).
 
 ### F2 — De l'alerte à la correction (Karim, 03:05, téléphone)
 
@@ -1196,6 +1284,8 @@ Durée : environ 45 s, d'une main.
 
 **Cohérence web** : les pages S90 s'ouvrent dans le nouveau tenant ; une bascule faite dans une page web est détectée à la fermeture (`/auth/me`) et répercutée.
 
+**Changer de serveur (Karim, trois serveurs)** : puce « [BH] Default · Vue globale » → S81 › Serveurs › « Atelier · Vérifié à 03:20 · 1 non lue » → instantané d'Atelier affiché aussitôt → socket de BinaryHearts fermé, socket d'Atelier ouvert → `GET /api/auth/me` sur Atelier → barre « Vous travaillez maintenant sur Atelier ». La puce devient « [AT] Default ». Revenir sur BinaryHearts rend la vue globale et l'écran laissé ouvert.
+
 ### F8 — Session expirée au milieu de la nuit
 1. Karim appuie sur une notification ; `GET /api/auth/me` renvoie 401.
 2. S03 s'affiche par-dessus l'écran de l'appareil, qui montre les données en cache.
@@ -1203,6 +1293,23 @@ Durée : environ 45 s, d'une main.
 4. L'écran se rafraîchit ; aucune action n'a été rejouée automatiquement.
 
 La veille, le bandeau « Votre session expire demain » lui avait proposé de se reconnecter.
+
+### F9 — Astreinte sur trois serveurs (Karim, téléphone)
+
+**Mise en place (une fois)** :
+1. Plus › Serveurs › **Ajouter un serveur** (S93) → `atelier.binaryhearts.me` → « Obliance 5.1.108 · Connexion Obligate disponible » → nom « Atelier », couleur sarcelle proposée → **Se connecter avec Obligate** : la session Obligate existante est réutilisée, aucune saisie. « Atelier est ajouté. » **Rester sur BinaryHearts**.
+2. Idem pour `rmm.durand-associes.fr` : pas d'Obligate → compte local `karim.benali`, mot de passe, code TOTP → « Client Durand », fuchsia. Dans S92 › Client Durand : « Notifications : critiques seulement ».
+3. S84 affiche trois cartes d'acheminement et trois groupes de canaux dans les réglages Android.
+
+**La nuit** :
+1. **02:58** — notification du groupe « Client Durand », canal « Appareils critiques » : « CRITIQUE · Client Durand › Default — SRV-DURAND01 », « Hors ligne : aucun push reçu depuis 5 min. », actions **Ouvrir** · **Surveiller** · **Marquer lu**. Le serveur actif de l'app est BinaryHearts.
+2. Karim appuie sur **Surveiller** → authentification → la surveillance est créée sur Client Durand **sans bascule** ; la notification devient « Surveillance active — prévenu au retour ».
+3. **03:12** — SRV-AD2 (BinaryHearts) tombe. Karim ouvre l'app : À traiter montre 7 alertes des trois serveurs, tuiles BH, CD, AT dans les surtitres ; la surveillance de SRV-DURAND01 est listée dans Activité avec la tuile CD.
+4. Il traite SRV-AD2 comme en F2b, sur BinaryHearts.
+5. **03:31** — « SRV-DURAND01 de nouveau en ligne » (groupe Client Durand). Karim appuie sur la notification → bascule implicite : barre « Passé sur Client Durand pour ouvrir SRV-DURAND01 · Revenir » → S30 sur Client Durand (sous-titre « Client Durand › Default › Serveurs »). Il vérifie l'uptime, puis **Revenir** : retour sur BinaryHearts, à l'écran laissé.
+6. L'alerte NAS-ATELIER (attention, 01:50) reste dans À traiter ; elle n'a pas sonné (hors astreinte, attention).
+
+**Cas limites** : Client Durand injoignable (VPN du client coupé) → ligne « Client Durand injoignable depuis 03:02 » en tête d'À traiter, sans notification répétée ; session locale expirée sur Client Durand → une seule notification « Session expirée sur Client Durand », ses cartes grisées, **aucune** feuille S03 tant que Karim reste sur BinaryHearts.
 
 ---
 
@@ -1274,13 +1381,14 @@ Toute action adossée à une commande affiche un suivi à l'endroit où elle a �
 | Palier | Expérience | Actions |
 |---|---|---|
 | **T0** Immédiat | Aucune confirmation ; barre d'annonce si utile | Actualiser, envoyer les mesures, analyses (inventaire, mises à jour, conformité), marquer lu, lister les services, ouvrir un onglet |
-| **T1** Confirmer | Feuille compacte qui nomme l'appareil et le tenant, un bouton, **sans délai** | Démarrer / redémarrer un service, terminer un processus non critique, redémarrer l'agent, script sur 1 appareil, approuver / refuser un enrôlement, mettre en pause une planification, terminer sa propre session distante, déplacer un appareil de groupe |
+| **T1** Confirmer | Feuille compacte qui nomme l'appareil et le tenant (et le serveur, avec sa tuile, dès deux serveurs), un bouton, **sans délai** | Démarrer / redémarrer un service, terminer un processus non critique, redémarrer l'agent, script sur 1 appareil, approuver / refuser un enrôlement, mettre en pause une planification, terminer sa propre session distante, déplacer un appareil de groupe |
 | **T2** Confirmer + biométrie | Feuille + BiometricPrompt (biométrie forte ou code de l'appareil) dont le sous-titre nomme l'appareil et le tenant | Arrêter un service, redémarrer, mettre en veille, isoler du réseau, script sur 2 à 9 appareils, déployer des mises à jour, approuver une demande à deux, révéler une clé BitLocker ou Windows, terminer un processus critique, terminer la session d'un autre, annuler des exécutions de scénario |
 | **T3** Maintenir + biométrie | Maintien 1,5 s (anneau, vibrations à 25/50/75 %) puis biométrie ; **actions groupées ≥ 10 : saisir le nombre** ; alternative sans délai sous TalkBack | Éteindre, rétablir le réseau (isolement levé), désinstaller l'agent, désactiver le mode confidentialité, actions d'alimentation groupées, script sur 10 appareils ou plus, supprimer un appareil (v2) |
 
 - **Fenêtre de confiance** : 60 s après une biométrie T2 réussie sur le même appareil, les T2 suivantes ne redemandent pas (la feuille indique « Confirmé par empreinte il y a 12 s »). Jamais pour T3 ni pour les actions groupées.
 - **Pas de double demande** : une chaîne T2 suivie d'une vérification 2FA compte comme une seule confirmation.
 - **Les garde-fous serveur s'ajoutent toujours**, dans l'ordre : `401 twoFactorRequired` → S42 ; `202 pending_approval` → S43 ; `423` → S44 ; `409` legacy, `403` capacité, `503` hors ligne → messages clairs.
+- **Plusieurs serveurs** : toute confirmation (S41, invite biométrique, maintien) nomme le serveur dès que deux serveurs sont configurés : « Redémarrer SRV-AD2 (BinaryHearts › BASH) ? ». Une action n'est jamais envoyée à un autre serveur que celui de l'élément.
 - **Actions depuis une notification** : T0 ou T1 uniquement, toujours avec `setAuthenticationRequired(true)`. Tout T2 et au-delà ouvre l'écran de l'app. Jamais d'approbation de demande à deux depuis une notification.
 - **Hors ligne** : aucune action n'est mise en file, sauf « marquer lu » et la suppression d'une surveillance locale. Jamais d'action rejouée automatiquement après une reconnexion.
 
@@ -1317,7 +1425,8 @@ Toute action adossée à une commande affiche un suivi à l'endroit où elle a �
 |---|---|---|
 | Global | `Ctrl+K` ou `/` | Recherche et palette |
 | Global | `Ctrl+1…5` | À traiter, Appareils, Activité, Flotte, Plus |
-| Global | `Alt+T` | Périmètre et tenant |
+| Global | `Alt+T` | Serveur et tenant |
+| Global | `Alt+1…8` | Passer sur le serveur n (ordre de S92 ; dès deux serveurs) |
 | Global | `Ctrl+F` · `Ctrl+R` / `F5` · `Échap` | Filtrer la liste · actualiser · fermer ou revenir |
 | Global | `Ctrl+J` · `Ctrl+/` | Dock des sessions · aide des raccourcis |
 | Listes | `↑↓` / `J K` · `Entrée` · `Espace` · `Maj+↑↓` · `Ctrl+A` | Naviguer · ouvrir · sélectionner · étendre · tout sélectionner |
@@ -1416,6 +1525,8 @@ Pastille = couleur à 12 % en fond + libellé de la couleur + point de 8 dp.
 
 **Deltas** : amélioration `#4ADE80`, dégradation `#FACC15`, neutre `textMuted`, toujours avec une flèche. Jamais le rouge de marque.
 
+**Identité de serveur** (palette fermée, constantes du socle, §2.10) : violet `#A78BFA` · sarcelle `#2DD4BF` · fuchsia `#E879F9` · indigo `#818CF8` · cyan `#67E8F9` · sable `#D6B98C` · lavande `#C4B5FD` · menthe `#5EEAD4`. Aucune n'est proche du rouge de marque, du rouge critique, de l'ambre, du vert ou du bleu d'information ; toutes dépassent 7:1 sur `bg` et `surface1`. Elles ne s'emploient **que** dans la tuile monogramme (fond 18 %, bordure 40 %, lettres pleines), jamais comme fond de bouton, couleur de texte courant ou indicateur d'état.
+
 **Réglage Material 3** : `surfaceTint = Transparent`, `tonalElevation = 0` partout (pas de teinte rouge sur les surfaces élevées).
 
 ### 8.3 Discipline du rouge (règle du design system)
@@ -1496,9 +1607,11 @@ Les couleurs ConPTY et PSReadLine passent telles quelles ; le « noir vif » (pr
 
 | Composant | Anatomie | Socle ou Obliance |
 |---|---|---|
-| `ObliTopBar` | Puce de tenant, titre Rajdhani, recherche, avatar avec anneau temps réel ; repli au défilement | Socle |
+| `ObliTopBar` | Puce de périmètre (tuile de serveur + tenant), titre Rajdhani, recherche, avatar avec anneau temps réel ; repli au défilement | Socle |
 | `ObliNavigationSuite` | Barre (compacte) ou rail (moyenne et plus), fond `chrome`, badges | Socle |
-| `ObliTenantChip` | Fond `hover`, `building-2` 16 dp, nom, chevron ; variante maître avec micro-badge « Vue globale » ; variante filtre avec point `accent2` 6 dp | Socle |
+| `ObliTenantChip` | Fond `hover`, `building-2` 16 dp (remplacé par la tuile du serveur dès deux serveurs), nom, chevron ; variante maître avec micro-badge « Vue globale » ; variante filtre avec point `accent2` 6 dp | Socle |
+| `ObliServerTile` | Carré arrondi 20 / 28 dp (rayon 5), fond couleur 18 %, bordure 1 dp 40 %, deux lettres JetBrains Mono 600 ; description TalkBack = nom du serveur ; absent avec un seul serveur | Socle |
+| `ServerRow` | Tuile 28 dp · nom · hôte mono · ligne d'état · compteur de non lues · coche ; 56 dp ; utilisé par S81 et S92 | Socle |
 | `IncidentCard` | Barre de gravité 3 dp · surtitre mono · titre · message serveur · ligne d'état en direct avec pulsation · action rapide 48 dp · affordances de balayage ; `surface1`, rayon 12 ; marqueur non lu `#60A5FA` | Obliance |
 | `ContextCard` | Carte imbriquée `surface2`, surtitre « CONTEXTE », jusqu'à 4 faits avec icône (`git-commit` changement, `network` voisins, `wrench` maintenance, `rotate-ccw` redémarrage), chacun cliquable | Obliance |
 | `CorrelationCard` | Carte `surface1`, surtitre « POSSIBLE COUPURE DE SITE », phrase horodatée, bouton tonal « Voir les 5 » | Obliance |
@@ -1512,10 +1625,10 @@ Les couleurs ConPTY et PSReadLine passent telles quelles ; le « noir vif » (pr
 | `FreshnessStamp` | Légende mono avec point : vert « En direct », gris « Mis à jour à 03:14 », ambre « Données de 03:02 » | Socle |
 | `ActionBar` | 4 emplacements égaux, icône au-dessus du libellé, 64 dp, fond `chrome`, séparateur `divider` ; emplacement 4 « Agir » tonal ; devient rail vertical libellé sur tablette | Socle (contenu Obliance) |
 | `ActionSheet` | En-tête d'appareil, groupes avec surtitres, élément = icône + libellé + conséquence, zone sensible séparée | Socle (contenu Obliance) |
-| `ConfirmSheet` | Titre (action + cible + tenant), ligne mono de contexte, conséquence, bouton selon palier (simple, biométrie, maintien) | Socle |
+| `ConfirmSheet` | Titre (action + cible + serveur › tenant dès deux serveurs), ligne mono de contexte, conséquence, bouton selon palier (simple, biométrie, maintien) | Socle |
 | `HoldToConfirmButton` | `#DC2626`, anneau de progression 1,5 s, vibrations à 25/50/75 %, alternative sans délai sous TalkBack | Socle |
 | `ObliOtpField` | 6 cases 48 × 56, `surface2`, mono 24, anneau de focus `accent2`, collage | Socle |
-| `SessionPill` / `SessionDock` / `SessionTab` | Pastille flottante (téléphone) ; dock 44 dp (tablette) ; onglet = icône de protocole (`square-terminal` / `monitor-play`), appareil, point d'état, puce de tenant si différent, fermer ; aperçu au survol ou appui long | Socle |
+| `SessionPill` / `SessionDock` / `SessionTab` | Pastille flottante (téléphone) ; dock 44 dp (tablette) ; onglet = icône de protocole (`square-terminal` / `monitor-play`), appareil, point d'état, tuile du serveur (dès deux serveurs), puce de tenant si différent, fermer ; aperçu au survol ou appui long | Socle |
 | `KeyBar` | Touches 44 dp (zone 48 dp) sur `surface2`, libellés mono 13 ; modificateur : éteint / une fois (texte `accent2`) / verrouillé (fond accent + soulignement) ; pages avec points | Socle |
 | `ObliOutputView` | Texte mono avec rendu ANSI SGR, numéros de ligne, surlignage de recherche `#FACC15` à 30 % | Socle |
 | `ObliBanner` | Pleine largeur, icône à gauche, fond couleur 10 % ; variantes isolement (bleu), confidentialité (orange), planification en échec (orange), désinstallation (orange, compte à rebours), note (gris) | Socle |
@@ -1528,19 +1641,19 @@ Les couleurs ConPTY et PSReadLine passent telles quelles ; le « noir vif » (pr
 
 | # | Fonctionnalité | Valeur | Spécification | Version | Travail serveur |
 |---|---|---|---|---|---|
-| 1 | **Notifications actionnables** | Agir sans ouvrir l'app | Canaux et actions ci-dessous ; `setAuthenticationRequired(true)` sur chaque action ; un rétablissement met à jour la notification d'origine (« Rétabli à 03:19 ») ; regroupement par tenant avec résumé (« BASH · 5 alertes ») ; écran verrouillé : `VISIBILITY_PRIVATE` avec version publique « Alerte critique · BASH » | v1 (sondage) / v1.1 (push) | v1 : alertes d'approbation et d'enrôlement + `category` (S1) ; v1.1 : abonnements push (S6) |
+| 1 | **Notifications actionnables** | Agir sans ouvrir l'app | Canaux et actions ci-dessous ; `setAuthenticationRequired(true)` sur chaque action ; un rétablissement met à jour la notification d'origine (« Rétabli à 03:19 ») ; regroupement par serveur puis par tenant avec résumé (« BinaryHearts · 5 alertes », « BASH · 5 alertes ») ; un groupe de canaux par serveur ; écran verrouillé : `VISIBILITY_PRIVATE` avec version publique « Alerte critique · BASH » | v1 (sondage) / v1.1 (push) | v1 : alertes d'approbation et d'enrôlement + `category` (S1) ; v1.1 : abonnements push (S6) |
 | 2 | **Mode astreinte** | Le bon bruit au bon moment | Horaire, tenants, canal critique autorisé à passer Ne pas déranger, rappels des critiques non lues (5 min, 3 fois, local), silence des autres canaux hors astreinte | v1 | — |
 | 3 | **Tuile Réglages rapides « Astreinte »** | Activer l'astreinte depuis le volet ; voir le nombre de critiques | `TileService` : actif = astreinte ; sous-titre « 1 critique » ; appui long → S84 ; `requestAddTileService` proposé dans S04 | v1 | — |
 | 4 | **Surveiller un appareil** | Redémarrer, poser le téléphone, être prévenu au retour | Surveillance locale (appareil, condition « de retour en ligne » ou « retour à la normale », expiration 30 min à 4 h), alimentée par les alertes de rétablissement que le serveur produit déjà (« De retour en ligne », « retour à la normale », « santé disque revenue à la normale ») et par le socket ; listée dans Activité ; **armée automatiquement** après un redémarrage ou une extinction | v1 (socket + sondage) / v1.1 (push, instantané) | — |
 | 5 | **Service de premier plan pour les sessions** | Les shells survivent au passage par l'authentificateur | Type `specialUse` (distribution hors Play) ; notification « 2 sessions actives » + **Tout terminer** | v1 | — |
 | 6 | **Biométrie, presse-papiers sensible, blocage de capture par écran** | Sécurité d'un téléphone perdu ou prêté | §7.6 ; `EXTRA_IS_SENSITIVE` et effacement après 60 s ; `FLAG_SECURE` toujours sur S45, S53, S60, S62 | v1 | — |
-| 7 | **Raccourcis d'app** | Deux appuis vers le bon endroit | Statiques : « Rechercher un appareil », « À traiter », « Exécuter un script », « Dernier terminal » ; dynamiques : 4 derniers appareils ; épinglés depuis S30 | v1 (statiques, dynamiques) / v1.1 (épinglés) | — |
+| 7 | **Raccourcis d'app** | Deux appuis vers le bon endroit | Statiques : « Rechercher un appareil », « À traiter », « Exécuter un script », « Dernier terminal » ; dynamiques : 4 derniers appareils (avec leur serveur) et un raccourci par serveur (§2.10), dans la limite de 4 dynamiques (serveurs prioritaires) ; épinglés depuis S30 | v1 (statiques, dynamiques) / v1.1 (épinglés) | — |
 | 8 | **Partage sortant** | Transmettre à un collègue ou un ticket | Résumé d'appareil en texte, sortie de script (.txt), rapport de lot, commande d'installation d'agent (v1.1) | v1 | — |
 | 9 | **Intégration QR** | Un technicien configuré en un scan | La page profil web affiche `obli-obliance://setup?server=…` en QR ; lecteur dans S01 | v1 | Client web |
 | 10 | **Clavier physique et souris** | L'établi tablette | §7.9, S88, menus contextuels, pointeurs | v1 | — |
 | 11 | **Widgets (Glance)** | État en un coup d'œil | « À traiter » 4 × 2 (compteurs critique, attention, approbations + 3 incidents, appui → S30) ; « Santé de la flotte » 2 × 2 ; mode anonyme respecté ; contenu masqué sur l'écran verrouillé | v1.1 | — |
 | 12 | **Image dans l'image ObliReach** | Regarder un redémarrage en faisant autre chose | PiP en quittant la visionneuse ; saisie désactivée ; fermeture après 5 min | v1.1 | — |
-| 13 | **Cache hors ligne** | Sous-sols et trains | Liste d'appareils, groupes, alertes (v1) ; 20 derniers détails ouverts (v1.1), par tenant, horodatés ; jamais de sortie de script, de clé ni de secret ; effacé à la déconnexion ou au changement de serveur | v1 / v1.1 | — |
+| 13 | **Cache hors ligne** | Sous-sols et trains | Liste d'appareils, groupes, alertes (v1) ; 20 derniers détails ouverts (v1.1), par serveur et par tenant, horodatés ; jamais de sortie de script, de clé ni de secret ; effacé à la déconnexion du serveur ou à son retrait | v1 / v1.1 | — |
 | 14 | **Multi-fenêtre et glisser-déposer (tablette)** | ObliReach dans une fenêtre, PowerShell dans l'autre ; DeX | `FLAG_ACTIVITY_LAUNCH_ADJACENT` ; chaque fenêtre se lie au `SessionManager` partagé ; glisser un nom d'hôte ou une IP vers une autre app ; glisser un appareil sur un groupe (T1) | v1.1 | — |
 | 15 | **App Links** | Liens ntfy, Teams ou e-mail qui ouvrent l'écran natif | Schéma `obli-obliance://open?path=…` toujours valable ; App Links vérifiés seulement si l'hôte est connu à la compilation et que le serveur sert `/.well-known/assetlinks.json` | v1.1 | S9 |
 | 16 | **Wear OS** | Voir les critiques au poignet | Relais des notifications seulement ; actions T0/T1 | Gratuit avec la v1 | — |
@@ -1550,9 +1663,11 @@ Les couleurs ConPTY et PSReadLine passent telles quelles ; le « noir vif » (pr
 
 **Canaux de notification**
 
+Les canaux ci-dessous existent **une fois par serveur**, dans un groupe de canaux Android au nom du serveur (`NotificationChannelGroup` « BinaryHearts », « Atelier », « Client Durand »). L'utilisateur peut ainsi, dans les réglages système, laisser passer les critiques de BinaryHearts en Ne pas déranger et rendre Client Durand silencieux. Avec un seul serveur, un seul groupe sans nom visible. Le canal « Sessions actives » reste unique (service de premier plan). Identifiants : `<serverId>.<catégorie>` ; retirer un serveur supprime son groupe.
+
 | Canal (FR) | Sources | Importance | Actions |
 |---|---|---|---|
-| Appareils critiques | Hors ligne d'un serveur ou d'un groupe « Toujours actif », métrique critique, santé disque critique | Haute ; peut passer Ne pas déranger en astreinte | Ouvrir · Surveiller · Marquer lu (+ Processus pour CPU/RAM) |
+| Appareils critiques | Hors ligne d'un appareil serveur ou d'un groupe « Toujours actif », métrique critique, santé disque critique | Haute ; peut passer Ne pas déranger en astreinte | Ouvrir · Surveiller · Marquer lu (+ Processus pour CPU/RAM) |
 | Appareils en attention | Métrique en attention, disque, santé disque à surveiller | Normale | Ouvrir · Marquer lu |
 | Rétablissements | « De retour en ligne », « retour à la normale » | Basse, silencieuse (met à jour la notification d'origine) | — |
 | Approbations | Demande à deux créée | Haute, sensible au temps (« expire à 03:51 ») | Examiner |
@@ -1570,7 +1685,7 @@ Hors astreinte, une alerte « Hors ligne » d'un poste de travail (gravité serv
 ### 10.1 Continuité avec la coquille existante
 
 - **Même `applicationId` (`tools.obli.obliance`) et même clé de signature**, `versionCode` supérieur. Les installations actuelles se mettent à jour sur place par le programme signé et **restent connectées** (`CookieManager` conserve `connect.sid`).
-- Migration unique : `ShellPrefs` (URL du serveur, réglages du verrou, repère d'alertes, état de la permission de notification) → DataStore.
+- Migration unique : `ShellPrefs` (URL du serveur, réglages du verrou, repère d'alertes, état de la permission de notification) → DataStore ; l'URL du serveur devient le **premier profil** du `ServerRegistry` (nom = hôte, couleur violet), son repère d'alertes devient celui de ce profil.
 - **Chaîne d'outils inchangée** : Gradle 9.7, AGP 9.3.1 à **Kotlin intégré 2.2.10** (ne jamais appliquer `org.jetbrains.kotlin.android`), Compose BOM 2026.08.00, compileSdk / targetSdk 37, minSdk 26, JDK 21 (cible JVM 17).
 - **Les autres apps Obli gardent la coquille WebView** (leurs flavors) jusqu'à ce qu'elles reçoivent des modules natifs ; la coquille devient un consommateur des mêmes modules `core:*`.
 - Réutilisé tel quel puis déplacé dans le socle : `nav/` (Origins, NavigationPolicy, ServerMeta), `net/ServerUrl`, `web/` (WebHost), `bridge/`, `update/`, `alerts/` (parseur et Worker), `lock/`, `notify/`, `core/` (préférences, UA, réinitialisation de session, liens entrants).
@@ -1581,17 +1696,17 @@ Hors astreinte, une alerte « Hors ligne » d'un poste de travail (gravité serv
 mobile/android/
 ├── build-logic/                 plugins de convention (android-library, compose, feature, jvm) + contrôle du graphe
 ├── core/                        ── AGNOSTIQUE : aucun type Obliance ──
-│   ├── model/        (JVM)      ServerInfo, ObliUser, Tenant, UserPermissions, LiveAlert, SessionState, nombres tolérants
+│   ├── model/        (JVM)      ServerId, ServerProfile, ServerInfo, ObliUser, Tenant, UserPermissions, LiveAlert, SessionState, nombres tolérants
 │   ├── common/       (JVM)      dispatchers, types de résultat, horloge, formats FR/EN, expurgation des journaux
 │   ├── designsystem/            ObliTheme (Operator / Nuit / Daylight, accent injecté), jetons, polices, icônes, composants §8.9, thème terminal
 │   ├── ui-adaptive/             classes de fenêtre, scènes de volets, dock de sessions, registre de raccourcis, palette
 │   ├── navigation/              contrats NavKey, SPI ObliAppModule, routeur de liens, route de vue web
 │   ├── network/                 OkHttp 5, CookieManagerJar, enveloppes, ApiOutcome, garde de Content-Type
-│   ├── auth/                    S01–S03 : serveur, SSO WebView, connexion locale + 2FA, SSO silencieux, déconnexion, tenants
-│   ├── realtime/                RealtimeClient (Socket.IO), état de connexion, bus d'événements typés, reconnexion au changement de tenant
+│   ├── auth/                    ServerRegistry (profils, serveur actif), ServerSession par serveur ; S01–S03, S92–S93 : SSO WebView, connexion locale + 2FA, SSO silencieux, déconnexion, tenants
+│   ├── realtime/                RealtimeClient (Socket.IO) du serveur actif, état de connexion, bus d'événements typés, reconnexion au changement de tenant ou de serveur
 │   ├── security/                ActionRunner (paliers + garde-fous serveur), BiometricConfirm, S41–S43, SecureWindow, SensitiveClipboard, verrou (S00)
-│   ├── notifications/           registre de canaux, publication, actions, astreinte, tuile, moteur de surveillance, AlertsWorker, récepteur UnifiedPush (v1.1)
-│   ├── data/                    SnapshotStore (JSON chiffré), DataStore, politiques de cache, migration ShellPrefs
+│   ├── notifications/           registre de canaux (un groupe par serveur), publication, actions, astreinte, tuile, moteur de surveillance, AlertsWorker multi-serveurs, sondeur des serveurs non actifs, récepteur UnifiedPush (v1.1)
+│   ├── data/                    SnapshotStore (JSON chiffré, espace par serveur), DataStore, politiques de cache, migration ShellPrefs
 │   ├── webfallback/             WebHost durci + pont ObliNative, S90
 │   ├── updater/                 programme de mise à jour signé existant
 │   ├── tunnel/                  TunnelSocket (WS OkHttp, attente de « paired », ping, file bornée)
@@ -1641,12 +1756,33 @@ interface ObliAppModule {
 }
 ```
 
-`AppContext` expose l'utilisateur, les permissions, le tenant courant, les capacités et la classe de fenêtre. Le `WebShellModule` par défaut renvoie une seule destination (la WebView). Obliview démarrera avec `core:*` + ses modules + un `ObliAppModule` : connexion, périmètre, boîte d'alertes, garde-fous, notifications, mise à jour, vue web, Plus, profil, tunnel et terminal lui sont fournis.
+`AppContext` expose le serveur actif (`ServerProfile`), l'utilisateur, les permissions, le tenant courant, les capacités et la classe de fenêtre.
+
+**Registre des serveurs (socle, `core:auth`)** :
+
+```kotlin
+@JvmInline value class ServerId(val value: String)               // UUID local, jamais l'hôte
+data class ServerProfile(
+    val id: ServerId, val origin: HttpsOrigin, val displayName: String,
+    val color: ServerColor, val monogram: String, val order: Int,
+    val notify: NotifyScope, val includeInTriage: Boolean, val lastTenantId: Long?,
+)
+interface ServerRegistry {
+    val profiles: StateFlow<List<ServerProfile>>                  // 1..8, ordre utilisateur
+    val active: StateFlow<ServerId>
+    suspend fun add(origin: HttpsOrigin, name: String, color: ServerColor): ServerProfile // refuse une origine déjà connue
+    suspend fun remove(id: ServerId)                              // purge cookies de l'origine, caches, canaux, raccourcis
+    suspend fun activate(id: ServerId)
+    fun session(id: ServerId): ServerSession                      // client HTTP, état d'auth, API de l'app pour ce serveur
+}
+```
+
+`ServerSession` porte tout ce qui dépend d'un serveur : base URL, `ApiOutcome` et `ActionRunner` liés à l'origine, état d'authentification, repère d'alertes, instantanés. Les dépôts de l'app sont créés **par `ServerSession`** (un `AppGraph` enfant par serveur, créé paresseusement) ; les écrans ne voient que ceux du serveur actif, sauf l'agrégateur d'À traiter et le moteur de notifications qui itèrent sur tous. Aucun type Obliance dans le registre : Obliview et les autres apps Obli héritent du multi-serveurs. Le `WebShellModule` par défaut renvoie une seule destination (la WebView). Obliview démarrera avec `core:*` + ses modules + un `ObliAppModule` : connexion, périmètre, boîte d'alertes, garde-fous, notifications, mise à jour, vue web, Plus, profil, tunnel et terminal lui sont fournis.
 
 ### 10.4 Couche de données
 
 - **HTTP** : OkHttp 5, un seul client ; délais 10 s (connexion) / 20 s (lecture) ; `User-Agent` = UA actuel + ` ObliApp/<version> (obliance; Android)` ; HTTPS uniquement (option « Faire confiance aux autorités installées par l'utilisateur » désactivée par défaut, pour les MSP à AC interne) ; pas de nouvelle tentative automatique sur les POST.
-- **Un seul pot à cookies** : `CookieManagerJar : okhttp3.CookieJar` adossé à `android.webkit.CookieManager` (`getCookie`, `setCookie`, `flush`). Appels natifs, poignée de main Socket.IO et vue web partagent une session et un tenant.
+- **Un seul pot à cookies** : `CookieManagerJar : okhttp3.CookieJar` adossé à `android.webkit.CookieManager` (`getCookie`, `setCookie`, `flush`). Appels natifs, poignée de main Socket.IO et vue web partagent une session et un tenant **par origine** : le `CookieManager` indexe par hôte, donc plusieurs serveurs coexistent sans mélange, à condition que deux profils n'aient jamais la même origine (refusé à l'ajout). Obligate (`id.binaryhearts.me`) est partagé par BinaryHearts et Atelier, ce qui permet la réutilisation de session à l'ajout.
 - **Garde de Content-Type** : une réponse 200 non JSON sur `/api/*` (le serveur peut renvoyer `index.html`) devient une erreur.
 - **Enveloppes déclarées par endpoint** : A `{success, data}`, B `{data}`, brut, 204 sans corps.
 - **Sérialisation** : kotlinx.serialization, plugin de compilation 2.2.10 appliqué comme le plugin Compose (preuve en phase 0 ; repli : décodeurs manuels `JsonElement` existants) ; `ignoreUnknownKeys`, `explicitNulls = false`, `coerceInputValues` ; sérialiseurs `LenientDouble` / `LenientLong` (les colonnes `numeric` arrivent en chaînes, par exemple `ramTotalGb: "15.87"`) ; correctifs `DEVICE_UPDATED` décodés en `JsonObject` et fusionnés.
@@ -1685,17 +1821,18 @@ Un 202 est distingué par la forme de `data` (`approvalId` + `pending_approval` 
 - **Permissions** : `PermissionResolver` calcule le niveau d'un appareil (ro/rw) en remontant les ancêtres du groupe (`parentId` de `/api/groups`), plus `ungrouped:0`, la clé API par défaut et le contournement admin ; `DenialMemory` retient les 403 de capacité par (appareil, capacité) pour la session.
 - **Pagination** : admins pagination serveur (100) ; non-admins une requête `pageSize=2000` puis pagination locale.
 - **Cache** :
-  - v1 : mémoire (stale-while-revalidate, clé `(serveur, utilisateur, tenant, requête)`) + `SnapshotStore` : instantanés JSON chiffrés (AES-GCM, clé Keystore) dans `noBackupFilesDir` pour la liste d'appareils, l'arbre, le résumé et les alertes ;
+  - v1 : mémoire (stale-while-revalidate, clé `(serverId, utilisateur, tenant, requête)`) + `SnapshotStore` : instantanés JSON chiffrés (AES-GCM, clé Keystore) dans `noBackupFilesDir` pour la liste d'appareils, l'arbre, le résumé et les alertes ;
   - v1.1 : 20 derniers détails ; Room si la preuve KSP2 sur AGP 9 réussit, sinon SQLDelight (plugin Gradle, sans KSP) ;
   - **jamais sur disque** : clés BitLocker ou Windows, sorties de scripts, paramètres secrets, jetons de tunnel, codes OTP, déverrouillages de confidentialité ;
-  - purge à la déconnexion, au changement de serveur, à la perte d'un tenant ; durée de vie 7 jours.
+  - purge à la déconnexion d'un serveur (ses données seulement), à son retrait, à la perte d'un tenant ; durée de vie 7 jours. Instantanés rangés par `serverId`.
 
 ### 10.5 Authentification
 
 - **SSO** : WebView intégrée (`WebHost`) sur `/auth/sso-redirect`, politique de navigation actuelle (serveur et Obligate dans la WebView) ; fin détectée à la première navigation principale vers `https://<serveur>/` ou `/login?error=` ; puis `/auth/me`.
 - **Local + 2FA** : natif (S01).
+- **Par serveur** : chaque profil a sa propre session, sa sonde et son bandeau de prévention ; `SessionExpired` sur un serveur non actif ne lève pas S03 (§2.10).
 - **Session** : sonde au démarrage et au retour après 5 min ; `SessionExpired` → S03 avec SSO silencieux (8 s) ; cookie valable 7 jours après le dernier `Set-Cookie` (une bascule de tenant le renouvelle) ; bandeau de prévention au 6e jour.
-- **Déconnexion** : `GET /api/auth/sso-logout-url` → `POST /api/auth/logout` → page de déconnexion Obligate dans une WebView cachée → effacement des cookies du serveur → purge des caches → déconnexion du socket → annulation des Workers → S01.
+- **Déconnexion** (d'un serveur ; « Se déconnecter » dans S85 vise le serveur actif, S92 propose aussi « Se déconnecter de tous les serveurs ») : `GET /api/auth/sso-logout-url` → `POST /api/auth/logout` → page de déconnexion Obligate dans une WebView cachée → effacement des cookies du serveur → purge des caches du serveur → déconnexion du socket → retrait du serveur de l'agrégation et des Workers → serveur connecté suivant, ou S01 s'il n'en reste aucun. La déconnexion Obligate peut fermer la session Obligate d'un autre serveur du même fournisseur : l'app le dit (« Atelier utilise aussi Obligate : vous devrez peut-être vous y reconnecter »).
 - `requires2faSetup` et `enrollmentVersion < 1` → vue web, avec carte d'explication native.
 
 ### 10.6 Temps réel
@@ -1703,7 +1840,8 @@ Un 202 est distingué par la forme de `data` (`approvalId` + `pending_approval` 
 - **Client** : `io.socket:socket.io-client` 2.x (Engine.IO v4, compatible Socket.IO 4.7 du serveur), `transports=["websocket"]`, `extraHeaders = {Cookie: connect.sid=…}`, reconnexion avec attente croissante (1 → 30 s). Le serveur ignore `handshake.auth.userId` et utilise la session.
   - Risque : dépendance OkHttp 3/4 de la bibliothèque contre OkHttp 5 → preuve en phase 0.
   - Repli : client Engine.IO v4 / Socket.IO v5 minimal sur WebSocket OkHttp (ouverture, `40`, `42[...]`, accusés, ping/pong ; environ 400 lignes) dans le socle.
-- **`RealtimeClient`** : `state: StateFlow<Connecting|Connected|Reconnecting|Disconnected>`, `events(name)`, `emit(name, payload, ack)` ; `connect_error 'Unauthorized'` → `SessionExpired` ; **reconnexion à chaque changement de tenant**.
+- **`RealtimeClient`** : `state: StateFlow<Connecting|Connected|Reconnecting|Disconnected>`, `events(name)`, `emit(name, payload, ack)` ; `connect_error 'Unauthorized'` → `SessionExpired` ; **reconnexion à chaque changement de tenant** ; fermeture et ouverture sur le nouveau serveur à chaque changement de serveur.
+- **Un seul socket, celui du serveur actif.** Les serveurs non actifs sont **sondés** : `GET /api/live-alerts/all` (au-delà de leur repère) et, pour les admins, `GET /api/approvals?limit=50`, toutes les 60 s tant que l'app est au premier plan, par le `AlertsWorker` en arrière-plan (v1) puis par push (v1.1). Un socket par serveur a été écarté : batterie, et aucun écran n'en a besoin (les listes restent sur le serveur actif).
 - **Routeur d'événements Obliance** :
 
 | Événement | Traitement |
@@ -1734,9 +1872,9 @@ Un 202 est distingué par la forme de `data` (`approvalId` + `pending_approval` 
 
 ### 10.8 Notifications et push
 
-- **v1** : le `AlertsWorker` existant (15 min, `GET /api/live-alerts/all` au-delà du repère) est étendu : classement par `classifyAlert` (catégorie déduite du titre serveur, priorité selon appareil serveur, groupe « Toujours actif », appareil surveillé), canaux et actions, mise à jour ou annulation au rétablissement, rappels d'astreinte par alarmes inexactes. Pour les administrateurs de plateforme, il lit aussi `GET /api/approvals?limit=50` (nouveaux ids). App vivante : le socket livre instantanément.
-- **v1.1 — UnifiedPush** (distributeur ntfy, déjà prévu dans `docs/obli-mobile.md` §7) : l'app enregistre son point de terminaison par `POST /api/mobile/push/subscriptions {endpoint, tenants, categories}` ; le serveur envoie une **charge minimale** `{alertId, tenantId, severity, category}` ; l'app récupère le détail avec son cookie : aucun nom d'hôte ne transite par le relais. Le Worker reste un filet (toutes les heures), dédoublonné par `alertId`. Une flavor FCM reste optionnelle.
-- **Actions** : `BroadcastReceiver` → bus d'actions du socle → gestionnaire de l'app. T0/T1 directement (marquer lu, approuver ou refuser un enrôlement, surveiller) ; le reste ouvre l'app par une activité translucide qui porte S41 et la biométrie.
+- **v1** : le `AlertsWorker` existant (15 min, `GET /api/live-alerts/all` au-delà du repère) est étendu à **tous les serveurs connectés** (une passe par serveur, en parallèle, délai 20 s chacun ; un serveur injoignable n'empêche pas les autres) : classement par `classifyAlert` (catégorie déduite du titre serveur, priorité selon appareil serveur, groupe « Toujours actif », appareil surveillé), canaux et actions, mise à jour ou annulation au rétablissement, rappels d'astreinte par alarmes inexactes. Pour les administrateurs de plateforme, il lit aussi `GET /api/approvals?limit=50` (nouveaux ids). App vivante : le socket livre instantanément.
+- **v1.1 — UnifiedPush** (distributeur ntfy, déjà prévu dans `docs/obli-mobile.md` §7) : l'app enregistre **un point de terminaison par serveur** (une instance UnifiedPush par `serverId`) par `POST /api/mobile/push/subscriptions {endpoint, tenants, categories}` sur chaque serveur ; le serveur envoie une **charge minimale** `{alertId, tenantId, severity, category}` ; l'app récupère le détail avec son cookie : aucun nom d'hôte ne transite par le relais. Le Worker reste un filet (toutes les heures), dédoublonné par `alertId`. Une flavor FCM reste optionnelle.
+- **Actions** : chaque intent de notification porte le `serverId` ; `BroadcastReceiver` → bus d'actions du socle → gestionnaire de l'app, exécuté sur la `ServerSession` de l'élément. T0/T1 directement (marquer lu, approuver ou refuser un enrôlement, surveiller) ; le reste ouvre l'app par une activité translucide qui porte S41 et la biométrie.
 
 ### 10.9 Accès distant
 
@@ -1751,7 +1889,8 @@ Un 202 est distingué par la forme de `data` (`approvalId` + `pending_approval` 
 - `FLAG_SECURE` par écran (S45, S53, S60, S62 toujours ; partout en option) ; IME sans apprentissage sur les saisies distantes ; presse-papiers sensible.
 - Journaux expurgés dans `core:common` : cookies, jetons, URL de tunnel, codes TOTP, mots de passe ; noms d'hôte en mode anonyme. Aucun rapporteur de plantage qui envoie des données hors de l'appareil ; export manuel.
 - Biométrie `BIOMETRIC_STRONG or DEVICE_CREDENTIAL` pour T2 et T3 ; secrets en mémoire uniquement.
-- Mode anonyme appliqué au niveau des ViewModels : écrans, widgets, notifications et partages le respectent.
+- Mode anonyme appliqué au niveau des ViewModels : écrans, widgets, notifications et partages le respectent ; le nom affiché des serveurs reste visible, leurs hôtes sont masqués.
+- **Multi-serveurs** : un appel ne part jamais vers une autre origine que celle de sa `ServerSession` (contrôle dans le client HTTP) ; un `navigateTo` ou un lien qui pointe vers un hôte absolu étranger à son serveur est refusé ; les jetons de tunnel et les cookies restent par origine ; la mise à jour de l'app n'accepte que le signataire figé, quel que soit le serveur qui la propose.
 
 ### 10.11 Budgets de performance et tests
 
@@ -1766,7 +1905,7 @@ Un 202 est distingué par la forme de `data` (`approvalId` + `pending_approval` 
 | Couche | Outils | Contenu |
 |---|---|---|
 | Contrats d'analyse | JUnit + **fixtures JSON enregistrées sur un serveur 5.1.x** (script rejoué avant chaque version ; un écart fait échouer la CI) | Enveloppes A/B/brut, nombres en chaînes, 4 variantes de `DEVICE_UPDATED`, corps 401/202/403/409/423, distinction des 202 |
-| Logique | JUnit, coroutines-test, Turbine | `ActionRunner` (renvoi du même corps, 202 jamais succès, confidentialité, refus appris), `AlertClassifier`, corrélation, résolveur de permissions, `agentSupportsCommand`, routeur de liens, cron en français |
+| Logique | JUnit, coroutines-test, Turbine | `ActionRunner` (renvoi du même corps, 202 jamais succès, confidentialité, refus appris), `AlertClassifier`, corrélation, résolveur de permissions, `agentSupportsCommand`, routeur de liens (avec `server=`), cron en français, `ServerRegistry` (origines uniques, 8 au plus, retrait et purge), agrégateur d'À traiter multi-serveurs |
 | Temps réel et tunnel | JVM + faux serveur | Fusion des correctifs, reconnexion à la bascule, filtrage de visibilité, ordre `paired` → `resize`, découpe UTF-8 |
 | Interface | **Roborazzi** (Robolectric ; la machine de build n'a pas d'émulateur) + contrôles ATF | Chaque écran × {compacte, moyenne, étendue} × {FR, EN} × {police 1,0 / 2,0} × {normal, vide, erreur, hors ligne} × {Operator, Nuit} |
 | Contraste | Test unitaire sur les jetons | Toute paire texte/fond déclarée ≥ 4,5:1 (3:1 pour les grands textes et icônes) |
@@ -1796,6 +1935,7 @@ Un 202 est distingué par la forme de `data` (`approvalId` + `pending_approval` 
 | S17 | Reprise de session shell (l'agent garde le PTY N secondes) | Survivre au passage Wi-Fi ↔ 4G | 3–5 j | v2 |
 | S18 | Validation liée à l'appareil (clé Keystore enregistrée, défi signé accepté comme action sensible) | Biométrie au lieu de TOTP | 4–6 j + revue | v2 |
 | S19 | N° de série carte mère / BIOS et tag d'actif dans la recherche | Scan en salle serveur | 0,5 j | v2 |
+| S20 | `GET /health` expose un **identifiant d'instance** stable et le nom de l'instance (facultatif) | Détecter qu'une adresse différente mène à une instance déjà configurée ; préremplir le nom dans S93 | 0,5 j | v1 (confort) |
 
 S2, S3 et S4 corrigent aussi des défauts qui existent aujourd'hui sur le web.
 
@@ -1811,13 +1951,13 @@ S2, S3 et S4 corrigent aussi des défauts qui existent aujourd'hui sur le web.
 |---|---|
 | Découpage en modules, plugins de convention, déplacement de l'updater, du verrou, du WebHost et du Worker dans `core:*` ; les autres flavors se construisent toujours | 1,5 |
 | `core:designsystem` : jetons Operator et Nuit, polices, icônes, composants §8.9, aperçus, test de contraste | 1,5 |
-| `core:network` (pot à cookies, enveloppes, `ApiOutcome`, `ActionRunner`) + `core:auth` (S01–S03) | 1,5 |
+| `core:network` (pot à cookies, enveloppes, `ApiOutcome`, `ActionRunner`) + `core:auth` (S01–S03) **avec `ServerRegistry` et `ServerSession` dès le socle** (tout est indexé par `serverId`, même avec un seul serveur) | 1,5 |
 | `core:realtime` + preuve Socket.IO contre OkHttp 5 avec le cookie | 0,5 |
 | Preuves : termlib 0.2.0 dans la chaîne (IME, ConPTY, taille) ; Navigation 3 adaptative contre 2.9 ; plugin kotlinx-serialization et KSP2 sur AGP 9 ; décodage H.264 sur 3 SoC | 1,0 |
 
 **Sortie** : rapport de preuves avec décision sur termlib, la bibliothèque temps réel, Navigation 3 et Room / SQLDelight.
 
-### v1 — « Astreinte » (≈ 16 semaines · ≈ 31 ps)
+### v1 — « Astreinte » (≈ 17 semaines · ≈ 34 ps)
 
 | Élément | ps |
 |---|---|
@@ -1834,22 +1974,23 @@ S2, S3 et S4 corrigent aussi des défauts qui existent aujourd'hui sur le web.
 | S62 visionneuse web ObliReach dans son activité | 0,5 |
 | S70 Flotte (admin et non-admin) | 1,0 |
 | Notifications : classement, canaux, actions, astreinte, tuile, moteur de surveillance, extension du Worker | 2,0 |
+| **Multi-serveurs** : S92, S93, section Serveurs de S81, bascule de serveur (piles par serveur, instantanés), agrégateur d'À traiter, sondeur des serveurs non actifs, Worker multi-serveurs, groupes de canaux, liens `server=`, raccourcis par serveur, mise à jour « plus haut versionCode » | 2,6 |
 | S04, S80, S83–S86, migration depuis la coquille | 1,0 |
 | Clavier et souris : raccourcis, menus contextuels, S88 | 1,0 |
 | Qualité : recette, accessibilité, relecture FR/EN (vouvoiement), performance à 2 000 appareils, captures | 2,5 |
-| Marge (15 %) | 4,0 |
-| **Total** | **≈ 31** |
+| Marge (15 %) | 4,4 |
+| **Total** | **≈ 34** |
 
-- **Jalon M1** (≈ semaine 9 après la phase 0) : alpha interne en lecture (À traiter, appareils, détail, alertes) ; remplace l'accueil de la coquille pour l'astreinte du propriétaire.
+- **Jalon M1** (≈ semaine 9 après la phase 0) : alpha interne en lecture (À traiter, appareils, détail, alertes) **sur les trois serveurs du propriétaire** (le multi-serveurs de base — registre, bascule, Worker multi-serveurs — est tiré dans M1) ; remplace l'accueil de la coquille pour l'astreinte du propriétaire.
 - **Jalon M2** (≈ semaine 13) : actions, garde-fous, scripts, terminal ; bêta pour 3 à 5 techniciens.
-- **Jalon M3** : version v1, environ 19 semaines après le lancement du projet.
-- **Serveur en parallèle** : S1, S2, S3, S4, S5 (~1,5 ps).
+- **Jalon M3** : version v1, environ 20 semaines après le lancement du projet.
+- **Serveur en parallèle** : S1, S2, S3, S4, S5, S20 (~1,6 ps).
 
 ### v1.1 — « Temps réel » (≈ 11 semaines · ≈ 22 ps)
 
 | Élément | ps |
 |---|---|
-| Client UnifiedPush, réglages de catégories, surveillance instantanée | 1,5 |
+| Client UnifiedPush (un point de terminaison par serveur), réglages de catégories, surveillance instantanée | 1,5 |
 | ObliReach natif (H.264 + JPEG, tactile, clavier, presse-papiers, Ctrl+Alt+Suppr, reconnexion, image dans l'image) + S63 | 6,5 |
 | Mises à jour : onglet appareil + S71 flotte (agrégats existants) | 1,5 |
 | Hyper-V (alimentation, points de contrôle, console de VM) + Veeam | 1,5 |
@@ -1887,7 +2028,7 @@ Serveur : S15–S19 (~2 ps + revue de sécurité).
 
 **Chemin critique** : preuves de phase 0 (termlib, Socket.IO) → terminal et temps réel v1 ; S1 et S2 avant la sortie de la v1 ; ObliReach natif (développeur A à plein temps) conditionne la v1.1.
 
-**Avec un 3e développeur** : la v1 passe à ~12 semaines, ou l'ObliReach natif remonte en v1 sans décaler la date.
+**Avec un 3e développeur** : la v1 passe à ~13 semaines, ou l'ObliReach natif remonte en v1 sans décaler la date.
 
 ---
 
@@ -1907,6 +2048,9 @@ Serveur : S15–S19 (~2 ps + revue de sécurité).
 | R10 | Dérive de forme côté serveur (pas de versionnage d'API) | Plantages après une mise à jour serveur | Décodeurs tolérants, fixtures rejouées à chaque version, détection de fonctionnalités par la version `/health` |
 | R11 | Chaîne d'outils AGP 9 à Kotlin intégré qui bloque sérialisation, Navigation 3 ou KSP | Retard des fondations | Preuves en semaine 1 avec replis nommés (décodeurs manuels, Navigation 2.9, SQLDelight) |
 | R12 | Charge de `DEVICE_METRICS_PUSHED` sur 2 000+ appareils | Batterie et données | Filtrage à l'écran, économie de données ; S14 |
+| R13 | Agir sur la mauvaise instance (même nom de tenant « Default » sur trois serveurs) | Action chez le mauvais client | Tuile et nom du serveur dans chaque confirmation et invite biométrique ; aucune action sur un autre serveur que l'actif (sauf T0/T1 de boîte) ; bascule toujours annoncée |
+| R14 | Alertes des serveurs non actifs retardées (sondage 60 s au premier plan, 15 min en arrière-plan) | Incident d'une instance cliente vu tard | Même parade que R1 ; push par serveur en v1.1 ; état d'acheminement par serveur dans S84 |
+| R15 | Déconnexion Obligate partagée (BinaryHearts et Atelier utilisent le même fournisseur) | Une déconnexion en coupe deux | Avertissement dans la confirmation ; SSO silencieux à la reprise |
 
 ---
 
@@ -1925,21 +2069,25 @@ Serveur : S15–S19 (~2 ps + revue de sécurité).
 11. **Confirmation T3 par maintien** au lieu de la saisie du nom d'hôte : plus rapide mais moins délibérée. Validez-vous ?
 12. **Notifications de postes de travail hors ligne** : le serveur les envoie en `info`. Faut-il qu'elles restent silencieuses même en astreinte (proposition actuelle) ?
 13. **`script.execute_manual` sensible par défaut** : chaque exécution manuelle depuis le mobile demandera un TOTP (sauf IP de confiance, peu durable en 4G). Faut-il revoir ce défaut, ou attendre la validation liée à l'appareil (v2) ?
-14. **Équipe** : 2 développeurs (v1 à ~19 semaines du lancement) ou 3 ?
+14. **Équipe** : 2 développeurs (v1 à ~20 semaines du lancement) ou 3 ?
 15. **Seconde app sur le socle** : Obliview est-elle bien la prochaine app à passer en natif ?
+16. **Multi-serveurs — sondage des serveurs non actifs** : un seul socket (serveur actif) et un sondage de 60 s au premier plan pour les autres (proposition), ou un socket par serveur connecté (alertes instantanées partout, plus de batterie) ?
+17. **Multi-serveurs — actions sans bascule** : limiter aux actions de boîte T0/T1 (marquer lu, supprimer, surveiller, enrôlement) comme proposé, ou autoriser aussi l'approbation d'une demande à deux d'un autre serveur sans bascule ?
+18. **Multi-serveurs — couleurs** : palette fermée de 8 (proposée) ou couleur libre ? Et les noms « BinaryHearts », « Atelier », « Client Durand » vous conviennent-ils comme données d'exemple (« Atelier » est aussi le nom du groupe Siège › Atelier de BASH) ?
+19. **S20 (identifiant d'instance dans `/health`)** : à ajouter côté serveur, ou l'origine suffit-elle ?
 
 ---
 
 ## 14. Maquette
 
-Prototype cliquable de 22 planches. Cadres : **téléphone 390 × 844** (portrait) ou **tablette 1280 × 800** (paysage). Toutes les planches utilisent exclusivement le jeu de données du §4, le thème Operator, le français au vouvoiement, les jetons du §8. La planche de notifications montre des cartes de notification sans fausse barre d'état.
+Prototype cliquable de 24 planches. Cadres : **téléphone 390 × 844** (portrait) ou **tablette 1280 × 800** (paysage). Toutes les planches utilisent exclusivement le jeu de données du §4, le thème Operator, le français au vouvoiement, les jetons du §8. La planche de notifications montre des cartes de notification sans fausse barre d'état.
 
 | ID | Fichier | Cadre | Titre | Écrans | Liens (prototype) |
 |---|---|---|---|---|---|
 | A01 | `SignIn.dc.html` | Téléphone 390 × 844 | Connexion : serveur, Obligate, compte local | S01 (serveur validé, Obligate, connexion locale repliée) | A02 (après connexion) |
-| A02 | `Triage.dc.html` | Téléphone 390 × 844 | À traiter | S10 : segment Alertes, carte de corrélation, 4 cartes d'incident (SRV-AD2, PC-COMPTA-03, BOB01, SRV-FILES01), barre de navigation | A03 (carte SRV-AD2), A08 (carte PC-COMPTA-03, action Processus), A16 (segment Approbations), A19 (puce de tenant), A06 (nav Appareils), A11 (nav Activité), A05 (nav Flotte), A17 (nav Plus) |
+| A02 | `Main.dc.html` | Téléphone 390 × 844 | À traiter | S10 agrégé sur trois serveurs : segment Alertes (7), puce « Tous les serveurs », carte de corrélation, cartes d'incident avec tuiles de serveur (SRV-AD2, PC-COMPTA-03, SRV-DURAND01…), barre de navigation | A03 (carte SRV-AD2), A08 (carte PC-COMPTA-03, action Processus), A16 (segment Approbations), A19 (puce de tenant), A06 (nav Appareils), A11 (nav Activité), A05 (nav Flotte), A17 (nav Plus) |
 | A03 | `AlertDetail.dc.html` | Téléphone 390 × 844 | Incident : SRV-AD2 hors ligne | S30 en mode incident (bandeau, contexte, barre d'actions hors ligne) | A02 (retour), A06 (« Voir les 5 » → liste filtrée), A09 (Agir) |
-| A04 | `Notifications.dc.html` | Téléphone 390 × 844 | Exemples de notifications | Cartes : critique SRV-AD2 (Ouvrir · Surveiller · Marquer lu), critique PC-COMPTA-03 (Processus), approbation PC-ATELIER-02 (Examiner, expire à 03:51), enrôlement KIOSK-ACCUEIL-02 (Approuver · Refuser), rétablissement 140, script terminé (2 réussis, 1 échec), session persistante, groupe « BASH · 5 alertes » | A03 (SRV-AD2), A08 (Processus), A16 (Examiner), A13 (Voir la sortie) |
+| A04 | `Notifications.dc.html` | Téléphone 390 × 844 | Exemples de notifications | Cartes nommant leur serveur (« Obliance · BinaryHearts ») : critique SRV-DURAND01 (Client Durand), résumés par serveur, puis critique SRV-AD2 (Ouvrir · Surveiller · Marquer lu), critique PC-COMPTA-03 (Processus), approbation PC-ATELIER-02 (Examiner, expire à 03:51), enrôlement KIOSK-ACCUEIL-02 (Approuver · Refuser), rétablissement 140, script terminé (2 réussis, 1 échec), session persistante, groupe « BASH · 5 alertes » | A03 (SRV-AD2), A08 (Processus), A16 (Examiner), A13 (Voir la sortie) |
 | A05 | `Fleet.dc.html` | Téléphone 390 × 844 | Flotte | S70 : carte vedette 312 et ruban, grille d'indicateurs, attention requise, activité 24 h, par tenant | A06 (tuiles et puces de légende), A08 (PC-COMPTA-03 dans Attention requise), A19 (puce de tenant), A02, A11, A17 (nav) |
 | A06 | `DeviceList.dc.html` | Téléphone 390 × 844 | Appareils | S20 : puces rapides, sections CRITIQUE / ATTENTION / HORS LIGNE / EN LIGNE, 6 lignes d'exemple, ligne BOB01 en balayage « Agir » | A07 (filtre), A08 (PC-COMPTA-03), A09 (balayage Agir), A02, A11, A05, A17 (nav) |
 | A07 | `DeviceFilters.dc.html` | Téléphone 390 × 844 | Filtres et tri | S21 en feuille pleine hauteur sur la liste assombrie | A06 (Afficher 12 appareils, Réinitialiser) |
@@ -1952,13 +2100,15 @@ Prototype cliquable de 22 planches. Cadres : **téléphone 390 × 844** (portrai
 | A14 | `Terminal.dc.html` | Téléphone 390 × 844 | PowerShell · PC-COMPTA-03 | S60 : sortie `Get-Process`, barre de touches page 1, clavier IME esquissé | A08 (réduire) |
 | A15 | `ReachPhone.dc.html` | Téléphone 390 × 844 | ObliReach · PC-COMPTA-03 | S62 natif (cible v1.1) : flux en letterbox, pilule d'outils, curseur trackpad, suggestion de rotation, étiquette de statistiques | A08 (réduire) |
 | A16 | `ApprovalDetail.dc.html` | Téléphone 390 × 844 | Approbation : désinstaller l'agent de PC-ATELIER-02 | S11 vu par Karim : anneau d'expiration 27:14, demandeur Julien Moreau, cible PC-ATELIER-02, conséquence, motif, Refuser / Approuver | A02 (après décision) |
-| A17 | `More.dc.html` | Téléphone 390 × 844 | Plus | S80 : carte de compte, sections, bloc « Administration — Vue web » | A18 (Réglages de l'application), A19 (tenant), A02, A06, A11, A05 (nav) |
-| A18 | `AppSettings.dc.html` | Téléphone 390 × 844 | Réglages de l'application | S83 : sécurité, apparence (Operator / Nuit), sessions, langue, données, serveur | A17 (retour) |
-| A19 | `TenantSwitch.dc.html` | Téléphone 390 × 844 | Périmètre et tenant | S81 : sections « Filtrer la vue globale » et « Travailler dans un tenant », sessions préservées | A02 (après bascule) |
+| A17 | `More.dc.html` | Téléphone 390 × 844 | Plus | S80 : carte de compte (« BinaryHearts › Default »), entrée Serveurs, sections, bloc « Administration — Vue web » | A23 (Serveurs), A18 (Réglages de l'application), A19 (tenant), A02, A06, A11, A05 (nav) |
+| A18 | `AppSettings.dc.html` | Téléphone 390 × 844 | Réglages de l'application | S83 : sécurité, apparence (Operator / Nuit), sessions, langue, données, section Serveurs (3 serveurs, Ajouter) | A17 (retour), A23, A24 |
+| A19 | `TenantSwitch.dc.html` | Téléphone 390 × 844 | Serveur et tenant | S81 : section Serveurs (BinaryHearts actif, Atelier, Client Durand), puis « Tenants de BinaryHearts » (filtrer, travailler dans un tenant), sessions préservées | A02 (après bascule), A23 (Gérer les serveurs) |
 | A20 | `TabletDeviceListDetail.dc.html` | Tablette 1280 × 800 | Appareils · arbre, liste et détail | S20 + S30 étendus : rail, arbre BASH, liste, détail PC-COMPTA-03 avec rail d'actions libellé, dock (PowerShell PC-COMPTA-03, SSH 140) | A21 (Voir l'écran ou onglet du dock), A22 (rail Flotte) |
 | A21 | `TabletRemoteSession.dc.html` | Tablette 1280 × 800 | Session ObliReach · PC-COMPTA-03 (tablette) | S62 dans le volet de détail, panneau S63 ouvert, dock des sessions, minicarte des écrans | A20 (réduire) |
+| A23 | `ServerManage.dc.html` | Téléphone 390 × 844 | Serveurs | S92 : trois cartes de serveur, détail de Client Durand (nom, couleur, notifications, raccourci, déconnexion, retrait) | A17 (retour), A24 (Ajouter un serveur) |
+| A24 | `AddServer.dc.html` | Téléphone 390 × 844 | Ajouter un serveur | S93 : atelier.binaryhearts.me vérifié, session Obligate réutilisée, nom, couleur, tuile « AT » | A23 (retour) |
 | A22 | `TabletFleetDashboard.dc.html` | Tablette 1280 × 800 | Flotte (tablette) | S70 en 3 colonnes : carte vedette et attention requise, indicateurs et mises à jour, tenants et tendance 30 j | A20 (tuiles ou rail Appareils) |
 
-Enchaînement principal du prototype : A01 → A02 → A08 → A09 → A14, puis A02 → A03, A02 → A16, A11 → A12 → A13 ; tablette : A22 → A20 → A21.
+Enchaînement principal du prototype : A01 → A02 → A08 → A09 → A14, puis A02 → A03, A02 → A16, A11 → A12 → A13 ; multi-serveurs : A02 → A19 → A23 → A24 ; tablette : A22 → A20 → A21.
 
 *Build à lancer : aucun — ce document ne modifie ni le serveur, ni le client, ni l'agent.*
