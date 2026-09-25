@@ -123,28 +123,34 @@ Tout ce qui suit est sur la branche de la PR vers `dev`, **rien n'est déployé*
   `PATCH /schedules/:id` : quand le contournement est restreint, le reste du
   formulaire n'est pas enregistré (202 et retour).
 
-### C. App Android — Phase 0 COMMENCÉE
-- Vérifié dans le cloud : SDK installé, `./gradlew test testOblianceDebugUnitTest
-  assembleOblianceDebug lintOblianceDebug` **vert** (la coquille existante
-  compris : ses 97 tests passent toujours).
-- Modules créés : `core:common` (utilitaires JVM de la coquille déplacés,
-  paquets inchangés), `core:model`, `core:network` (`ApiOutcome` +
-  `ApiResponses`), `core:auth` (`ServerRegistry` multi-serveurs),
-  `core:designsystem` (jetons Operator / Nuit, `ObliTheme`, typographie,
-  `ObliServerTile`, pastille d'état, tests de contraste), `obliance:domain`
-  (classement des alertes, À traiter multi-serveurs, corrélation « coupure de
-  site »). Règles du graphe de modules vérifiées à chaque build.
-- Preuve faite : plugin kotlinx.serialization avec Kotlin intégré 2.2.10.
-- Relevés pour les preuves restantes : `socket.io-client` 2.1.2 dépend
-  d'OkHttp **3.12** (OkHttp courant 5.5.0) → conflit à prouver (R5) ;
-  `termlib` est en **0.3.5** (le doc fige 0.2.0) ; Navigation 3 publiée
-  (1.3.0-alpha01 la plus récente, adaptatif 1.4.0-alpha02).
-- **Reste de la Phase 0** : déplacer updater / verrou / WebHost / Worker dans
-  `core:*` ; `core:network` côté Android (OkHttp 5, `CookieManagerJar`,
-  `ActionRunner`) ; `ServerSession` et stockage DataStore du registre ;
-  `core:realtime` + preuve Socket.IO / OkHttp 5 ; preuves termlib, Navigation 3
-  vs 2.9, KSP2 ; polices embarquées (Inter, Rajdhani, JetBrains Mono : fichiers
-  à ajouter dans `res/font`, `ObliFonts.install`) ; captures Roborazzi.
+### C. App Android — Phase 0 : socle et preuves FAITS, reste le déplacement de la coquille
+- Vérifié dans le cloud : `./gradlew test assembleDebug lintOblianceDebug` **vert**
+  (7 flavors ; les 77 tests restés dans `:app` passent sur chaque flavor ; 100 tests
+  dans les nouveaux modules).
+- Modules du socle : `core:common` (utilitaires JVM de la coquille déplacés,
+  paquets inchangés), `core:model` (profils de serveur, utilisateur),
+  `core:network` (`ObliHttp` OkHttp 5 lié à une origine, `ApiOutcome` /
+  `ApiResponses`, `WebCookieJar`), `core:auth` (`ServerRegistry`,
+  `ServerSession`, `ServerSessions` : un seul socket, celui du serveur actif),
+  `core:realtime` (Socket.IO sur OkHttp 5), `core:security` (`ActionRunner` :
+  paliers, 2FA avec renvoi du même corps, approbation, confidentialité, jamais de
+  rejeu), `core:data` (Android : `CookieManager`, registre en DataStore),
+  `core:designsystem` (jetons Operator / Nuit, thème, typographie avec **polices
+  embarquées** Inter / Rajdhani / JetBrains Mono, `ObliServerTile`, pastilles,
+  tests de contraste, **captures Roborazzi**), `obliance:domain` (classement des
+  alertes, À traiter multi-serveurs, corrélation). Graphe de modules vérifié à
+  chaque build.
+- **Preuves : `docs/mobile/phase0-proofs.md`** — sérialisation ✅, Socket.IO sur
+  OkHttp 5 contre un vrai serveur Socket.IO 4.8 ✅, termlib **0.2.1** ✅ (0.3.x en
+  Kotlin 2.4 ❌), Navigation 3 adaptative ✅, Room avec **KSP 2.3.12** ✅
+  (KSP 2.2.10-2.0.2 ❌), Roborazzi ✅. H.264 : à faire sur appareil.
+- **Reste de la Phase 0** : déplacer updater / verrou / WebHost / Worker /
+  notifications dans `core:*`. Ils dépendent de `BuildConfig`, des ressources, du
+  singleton `Shell` et de `MainActivity` : il faut une abstraction `AppInfo` /
+  `AppGraph` et une recette sur le téléphone (la coquille 1.0.0 est en
+  production) → à faire avec le début de la coquille native (v1).
+- Le module `:proofs` n'est jamais embarqué ; il reste comme garde-fou de la chaîne
+  d'outils (une montée d'AGP / Kotlin qui casse une preuve casse le build).
 
 ## ÉTAT AU MOMENT DE LA BASCULE CLOUD (2026-09-25, historique)
 
