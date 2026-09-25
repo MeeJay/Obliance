@@ -2,27 +2,29 @@ package tools.obli.core.designsystem
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 
 /**
- * Type scale of design doc §8.4. The three families (Inter, Rajdhani,
- * JetBrains Mono, OFL) are bundled by the app module and installed with
- * [ObliFonts.install]; until then the system sans / mono fallbacks are used.
+ * Type scale of design doc §8.4 with the bundled OFL families (res/font):
+ * Inter (text), Rajdhani 600 (titles ≥ 24 sp, KPIs), JetBrains Mono (overlines,
+ * IPs, terminal). No Google Fonts service. Licences: assets/licenses/.
  */
 object ObliFonts {
-    var sans: FontFamily = FontFamily.SansSerif
-        private set
-    var display: FontFamily = FontFamily.SansSerif
-        private set
-    var mono: FontFamily = FontFamily.Monospace
-        private set
-
-    fun install(sans: FontFamily, display: FontFamily, mono: FontFamily) {
-        this.sans = sans; this.display = display; this.mono = mono
-    }
+    val sans: FontFamily = FontFamily(
+        Font(R.font.inter_regular, FontWeight.Normal),
+        Font(R.font.inter_medium, FontWeight.Medium),
+        Font(R.font.inter_semibold, FontWeight.SemiBold),
+    )
+    val display: FontFamily = FontFamily(Font(R.font.rajdhani_semibold, FontWeight.SemiBold))
+    val mono: FontFamily = FontFamily(
+        Font(R.font.jetbrainsmono_regular, FontWeight.Normal),
+        Font(R.font.jetbrainsmono_medium, FontWeight.Medium),
+        Font(R.font.jetbrainsmono_semibold, FontWeight.SemiBold),
+    )
 }
 
 object ObliTypography {
