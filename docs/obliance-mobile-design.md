@@ -61,7 +61,7 @@ ps = personne-semaine. Les travaux serveur avancent en parallèle (§10.12).
 | Gravité des alertes | Classement par **règles explicites** (catégorie déduite du titre, appareil serveur, surveillé) en attendant un champ `category` serveur | Tri par la gravité brute du serveur | Le serveur envoie « Hors ligne » en `info` sauf si le groupe est « Toujours actif ». |
 | Cache et outillage | v1 : cache mémoire + instantanés JSON chiffrés ; injection manuelle (`AppGraph`) ; Room en v1.1 (**preuve faite** avec KSP 2.3.12, `docs/mobile/phase0-proofs.md`) | Room, Hilt et KSP d'emblée | La chaîne AGP 9.3.1 à Kotlin intégré 2.2.10 est contrainte. |
 | Taille de la v1 | ≈ 34 ps centrées sur la boucle d'astreinte, dont ≈ 3 ps de multi-serveurs (sans lui, le propriétaire ne peut pas faire son astreinte sur ses trois serveurs) | 44 ps (« flotte »), 42 ps à 3 développeurs (« tablette ») | La boucle alerte → appareil → correction doit arriver tôt. |
-| Thèmes | Sombre « Operator » par défaut + variante **Nuit** ; clair « Daylight » en v2 avec jetons corrigés | Trois thèmes dès la v1 | Triple la surface de recette ; le Daylight actuel échoue AA. |
+| Thèmes | **Le thème de l'utilisateur sur le serveur actif** : Operator (défaut), **Neon**, Modern (repris du web, textes corrigés pour l'AA) ; variante **Nuit** locale ; clair « Daylight » en v2 (repli Operator d'ici là) | Un seul thème pour tous les serveurs | Demande du propriétaire (25/09) : sa prod est en Operator, sa dev en Neon — l'app doit ressembler au web du serveur affiché, ce qui aide aussi à ne pas confondre les instances. |
 
 ---
 
@@ -315,7 +315,7 @@ Les alertes serveur portent un chemin web relatif (`navigateTo`). L'app reçoit 
 - **Tuile monogramme** : carré arrondi (20 dp dans les puces et surtitres, 28 dp dans les listes ; rayon 5 dp), fond de la couleur à 18 % **posé sur un fond `chrome` opaque** (sinon le violet et l'indigo tombent sous 4,5:1 sur `hover` et `active`), bordure 1 dp à 40 %, deux lettres JetBrains Mono 600 dans la couleur. La forme (tuile à lettres) distingue une identité d'un état (point, pastille).
 - **Palette fermée** de 8 couleurs (§8.2), hors rouge de marque et hors couleurs d'état ; attribuée automatiquement dans l'ordre à l'ajout, modifiable dans S92.
 - **Où elle apparaît** (dès deux serveurs) : puce de périmètre, bouton de périmètre du rail, surtitre des cartes d'À traiter, en-tête de S30 (sous-titre « Obliance Prod › ACME › Siège › Serveurs »), **feuilles de confirmation S41 et invites biométriques** (« Redémarrer SRV-AD2 (Obliance Prod › ACME) ? »), onglets de sessions et pastille, notifications (icône large), raccourcis d'app.
-- **Jamais** : recoloration de l'accent, du chrome ou de l'indicateur de destination par serveur.
+- **Thème du serveur (décision du 25/09)** : l'app applique le **thème choisi par l'utilisateur sur le serveur actif** (`preferences.preferredTheme` de `GET /api/auth/me` : `obli-operator`, `neon`, `modern`, `obli-daylight`), comme le web de ce serveur ; changer de serveur change l'apparence (fondu de 200 ms). Le thème porte les surfaces, le texte et l'accent ; les **couleurs d'état et de gravité restent constantes** dans tous les thèmes (§8.2, §8.3 : le rouge du contenu signifie toujours critique). Réglage local S83 « Thème : suivre le serveur (défaut) / Operator / Nuit ». La tuile du serveur reste affichée.
 - **Un seul serveur configuré** : aucune tuile, aucune section « Serveurs » dans S81, aucune puce « Tous les serveurs » ; l'app est identique à la conception mono-serveur.
 
 **Ajout, retrait, déconnexion.**
@@ -383,7 +383,7 @@ Les identifiants sont stables : ils servent aux maquettes, aux tickets, aux test
 | S80 | Plus | Liste | Liste \| contenu | N | `GET /api/auth/me` | v1 |
 | S81 | Serveur et tenant (périmètre) | Feuille | Menu ancré 320 dp | N | Registre local des serveurs, `GET /api/tenants`, `POST /api/tenant/switch`, `GET /api/live-alerts/all` (par serveur) | v1 |
 | S82 | Recherche et palette de commandes | Plein écran | Dialogue 640 dp | N | `GET /api/devices?search=`, scripts en cache, `GET /api/tenants` | v1 |
-| S83 | Réglages de l'application | Écran | Liste \| détail | N | `PUT /api/profile` (langue) | v1 |
+| S83 | Réglages de l'application | Écran | Liste \| détail | N | `PUT /api/profile` (langue), thème lu dans `GET /api/auth/me` (`preferences.preferredTheme`) | v1 |
 | S84 | Notifications et astreinte | Écran | Liste \| détail | N | Local ; `POST /api/mobile/push/subscriptions` (v1.1) | v1 |
 | S85 | Profil et sécurité | Écran | Liste \| détail | N/W | `GET /api/profile`, `/profile/2fa/status`, `GET/DELETE /api/profile/trusted-ips`, `/auth/connected-apps`, `/auth/sso-logout-url`, `POST /api/auth/logout` | v1 |
 | S86 | À propos et mises à jour | Écran | Liste \| détail | N | `GET /health`, `GET /api/mobile/android/version` | v1 |
@@ -1121,7 +1121,7 @@ Voir §2.7. Aucun résultat : « Aucun résultat pour « 10.0.0.99 ». La recher
 #### S83 — Réglages de l'application
 - **Notifications et astreinte** → S84.
 - **Sécurité** : verrou biométrique ; délai (immédiat / 1 / 5 / 15 min) ; « Bloquer les captures d'écran partout » (terminal, ObliReach, BitLocker toujours bloqués) ; « Confirmer par biométrie : actions sensibles (obligatoire) / toutes les actions ».
-- **Apparence** : Operator / Nuit / Système ; « Nuit automatique de 22:00 à 07:00 » ou avec le mode coucher d'Android ; densité (Auto, Confort, Compacte) ; deuxième ligne des appareils ; taille du terminal ; **mode anonyme** (masque noms d'hôte, IP, MAC et utilisateurs à l'écran, dans les widgets et les notifications).
+- **Apparence** : « Thème : suivre le serveur (défaut) / Operator / Nuit » (le thème suivi est celui de l'utilisateur sur le serveur actif, §2.10) ; « Nuit automatique de 22:00 à 07:00 » ou avec le mode coucher d'Android ; densité (Auto, Confort, Compacte) ; deuxième ligne des appareils ; taille du terminal ; **mode anonyme** (masque noms d'hôte, IP, MAC et utilisateurs à l'écran, dans les widgets et les notifications).
 - **Sessions** : barre de touches auto / toujours / jamais ; mode tactile ObliReach par défaut par format ; codec préféré.
 - **Langue** : Français / English / langue du système (langue par app, synchronisée avec `preferredLanguage`).
 - **Données** : « Économie de données sur réseau mobile » ; « Vider le cache hors ligne ».
@@ -1527,6 +1527,21 @@ Pastille = couleur à 12 % en fond + libellé de la couleur + point de 8 dp.
 **Deltas** : amélioration `#4ADE80`, dégradation `#FACC15`, neutre `textMuted`, toujours avec une flèche. Jamais le rouge de marque.
 
 **Identité de serveur** (palette fermée, constantes du socle, §2.10) : violet `#A78BFA` · sarcelle `#2DD4BF` · fuchsia `#E879F9` · indigo `#818CF8` · cyan `#67E8F9` · sable `#D6B98C` · lavande `#C4B5FD` · menthe `#5EEAD4`. Aucune n'est proche du rouge de marque, du rouge critique, de l'ambre, du vert ou du bleu d'information ; toutes dépassent 6:1 sur `bg` (indigo 6,5:1, les autres au-delà de 8:1). Elles ne s'emploient **que** dans la tuile monogramme (fond 18 % sur `chrome` opaque, bordure 40 %, lettres pleines ≥ 4,5:1), jamais comme fond de bouton, couleur de texte courant ou indicateur d'état.
+
+**Thèmes serveur** (repris de `client/src/index.css`, surfaces et texte ; les couleurs d'état ci-dessus ne changent pas) :
+
+| Jeton | Operator (`obli-operator`) | Neon (`neon`) | Modern (`modern`) |
+|---|---|---|---|
+| `bg` | `#0B0D1A` | `#07080A` | `#0E0B0C` |
+| `surface1` | `#131728` | `#0D0E11` | `#161112` |
+| `surface2` | `#181C30` | `#131418` | `#1E1819` |
+| `hover` / `active` | `#1D2238` / `#222740` | `#1B1B20` / `#24242A` | `#282021` / `#322628` |
+| `divider` | `#2A3048` | `#323339` | `#3E3234` |
+| `text` / `text2` | `#F0F4FC` / `#B4BCD7` | `#F0EAE2` / `#988A76` → **`#A89A86`** (AA) | `#EBE4E4` / `#94888A` → **`#A0949A`** (AA) |
+| `textMuted` | `#828CAF` | `#6A5E4E` → **`#8C7F6C`** (AA, 4,6:1) | `#706668` → **`#8A8082`** (AA) |
+| `accentFill` / `accent2` | `#C83232` / `#FF6868` | `#C2001B` / `#E01E37` | `#C2001B` / `#E01E37` |
+
+Les valeurs en gras corrigent le web là où le texte échoue au contraste AA sur son fond ; le test de contraste (§10.11) couvre les trois thèmes. Neon ajoute un liseré lumineux sous la barre supérieure et sur l'élément de navigation actif (comme le web), jamais sur les points d'état.
 
 **Réglage Material 3** : `surfaceTint = Transparent`, `tonalElevation = 0` partout (pas de teinte rouge sur les surfaces élevées).
 
