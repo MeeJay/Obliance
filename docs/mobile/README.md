@@ -1,6 +1,7 @@
 # Obliance mobile — document de reprise (sessions cloud et locales)
 
 > CLAUDE.md est local (ignoré par git). Ce fichier porte ce qu'une session **cloud** doit savoir pour reprendre le chantier mobile. Le lire en entier avant de coder.
+> **État d'avancement courant : `docs/mobile/AVANCEMENT.md`.**
 
 ## Règles du projet à respecter
 - Branche de travail : `dev` (la prod sort de `main` via le script de promotion local). En cloud : travailler sur une branche `mobileappdev/...` (ou `claude/...`) et ouvrir une PR vers `dev` ; le propriétaire redescend le travail en local avec `sync-cloud.ps1`.
