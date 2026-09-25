@@ -17,9 +17,6 @@ kotlin {
 }
 
 dependencies {
-    api(project(":core:common"))
-    api(libs.okhttp)
-    api(libs.kotlinx.coroutines.core)
+    api(project(":core:network"))
     testImplementation(libs.junit)
-    testImplementation(libs.okhttp.mockwebserver)
 }

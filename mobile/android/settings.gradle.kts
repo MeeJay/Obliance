@@ -24,6 +24,8 @@ include(":core:model")
 include(":core:network")
 include(":core:auth")
 include(":core:designsystem")
+include(":core:realtime")
+include(":core:security")
 
 // Obliance.
 include(":obliance:domain")

@@ -29,6 +29,11 @@ biometric = "1.1.0"
 # use the compiler plugin (@Serializable), proven with built-in Kotlin 2.2.10.
 kotlinxSerialization = "1.9.0"
 kotlinxCoroutines = "1.10.2"
+# One HTTP stack for REST, Socket.IO and the tunnels (design doc §10.4).
+okhttp = "5.5.0"
+# Engine.IO v4 / Socket.IO v5 client (server: socket.io 4.x). It declares
+# OkHttp 3.12; it is forced onto OkHttp 5 (phase 0 proof, RealtimeProofTest).
+socketIoClient = "2.1.2"
 
 # --- Test --------------------------------------------------------------------
 junit = "4.13.2"
@@ -54,6 +59,10 @@ compose-material3 = { module = "androidx.compose.material3:material3" }
 
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
+okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+okhttp-mockwebserver = { module = "com.squareup.okhttp3:mockwebserver3", version.ref = "okhttp" }
+socketio-client = { module = "io.socket:socket.io-client", version.ref = "socketIoClient" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
 
 junit = { module = "junit:junit", version.ref = "junit" }
