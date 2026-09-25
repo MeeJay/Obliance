@@ -1,0 +1,390 @@
+{
+ "area": "shell: app shell, layout (AppLayout, Sidebar, Header, TenantSwitcher, NotificationCenter, LiveAlerts, GlobalAddAgentModal, GlobalChatPanel, GlobalShellPanel, SshBastionButton, DesktopUpdateBanner, ProtectedRoute), components/common/*, index.html, main.tsx, App.tsx, index.css, tailwind.config.ts, Login/Forgot/Reset/NotFound/Download pages",
+ "filesReviewed": [
+  "D:\\Obliance\\client\\index.html",
+  "D:\\Obliance\\client\\tailwind.config.ts",
+  "D:\\Obliance\\client\\vite.config.ts",
+  "D:\\Obliance\\client\\package.json",
+  "D:\\Obliance\\client\\src\\main.tsx",
+  "D:\\Obliance\\client\\src\\App.tsx",
+  "D:\\Obliance\\client\\src\\index.css",
+  "D:\\Obliance\\client\\src\\store\\uiStore.ts",
+  "D:\\Obliance\\client\\src\\hooks\\useNativeTopOffset.ts",
+  "D:\\Obliance\\client\\src\\api\\client.ts",
+  "D:\\Obliance\\client\\src\\components\\layout\\AppLayout.tsx",
+  "D:\\Obliance\\client\\src\\components\\layout\\Sidebar.tsx",
+  "D:\\Obliance\\client\\src\\components\\layout\\Header.tsx",
+  "D:\\Obliance\\client\\src\\components\\layout\\TenantSwitcher.tsx",
+  "D:\\Obliance\\client\\src\\components\\layout\\NotificationCenter.tsx",
+  "D:\\Obliance\\client\\src\\components\\layout\\LiveAlerts.tsx",
+  "D:\\Obliance\\client\\src\\components\\layout\\GlobalAddAgentModal.tsx",
+  "D:\\Obliance\\client\\src\\components\\layout\\GlobalChatPanel.tsx",
+  "D:\\Obliance\\client\\src\\components\\layout\\GlobalShellPanel.tsx",
+  "D:\\Obliance\\client\\src\\components\\layout\\SshBastionButton.tsx",
+  "D:\\Obliance\\client\\src\\components\\layout\\DesktopUpdateBanner.tsx",
+  "D:\\Obliance\\client\\src\\components\\layout\\ProtectedRoute.tsx",
+  "D:\\Obliance\\client\\src\\components\\VirtualKeyPanel.tsx",
+  "D:\\Obliance\\client\\src\\components\\common\\Button.tsx",
+  "D:\\Obliance\\client\\src\\components\\common\\Input.tsx",
+  "D:\\Obliance\\client\\src\\components\\common\\ToggleSwitch.tsx",
+  "D:\\Obliance\\client\\src\\components\\common\\GroupPicker.tsx",
+  "D:\\Obliance\\client\\src\\components\\common\\DeviceMultiSelect.tsx",
+  "D:\\Obliance\\client\\src\\components\\common\\TargetTenantsPicker.tsx",
+  "D:\\Obliance\\client\\src\\components\\common\\FanOutChips.tsx",
+  "D:\\Obliance\\client\\src\\components\\common\\ThresholdsEditor.tsx",
+  "D:\\Obliance\\client\\src\\components\\common\\PerDiskThresholdsEditor.tsx",
+  "D:\\Obliance\\client\\src\\components\\common\\PeriodSelector.tsx",
+  "D:\\Obliance\\client\\src\\components\\common\\TenantBadge.tsx",
+  "D:\\Obliance\\client\\src\\components\\common\\TenantFilterChips.tsx",
+  "D:\\Obliance\\client\\src\\components\\common\\TwoFactorGate.tsx",
+  "D:\\Obliance\\client\\src\\components\\common\\TwoFactorPromptModal.tsx",
+  "D:\\Obliance\\client\\src\\components\\common\\Logo.tsx",
+  "D:\\Obliance\\client\\src\\components\\common\\LoadingSpinner.tsx",
+  "D:\\Obliance\\client\\src\\pages\\LoginPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\ForgotPasswordPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\ResetPasswordPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\NotFoundPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\DownloadPage.tsx",
+  "D:\\LifeTrack\\apps\\android\\app\\build.gradle.kts"
+ ],
+ "globalFindings": [
+  {
+   "problem": "The shell does not adapt to viewport size at all. There is no matchMedia/innerWidth/breakpoint logic anywhere in the client, and only 3 breakpoint prefixes appear in the whole shell/common area (all in GlobalShellPanel.tsx L614/648/698). The sidebar is always a pinned column. uiStore already has `sidebarOpen`/`toggleSidebar`/`setSidebarOpen` (uiStore.ts L4, L57, L63-64), but nothing in the app ever calls them. So there is no hamburger, no drawer and no auto-collapse, and every page inherits a main column that is 80 px wide on a 360 px phone and 488 px wide on a 768 px portrait tablet.",
+   "fix": "Fix this once in the shell. Add hooks/useMediaQuery.ts (or useBreakpoint), then change AppLayout.tsx as follows. Below `lg` (1024 px), render <Sidebar/> as an off-canvas drawer using `fixed inset-y-0 left-0 w-[min(85vw,320px)]` plus a backdrop. Drive it with the existing `sidebarOpen`, default it to false below lg, and close it on route change (useLocation effect) and on backdrop tap. Add a hamburger (Menu icon, at least 40 px) as the first child of Header.tsx, shown only below lg. On `(pointer: coarse)`, disable floating mode, the collapsed 64 px rail and the resize handles. Between 768 and 1023 px, optionally keep the 64 px rail (it already exists, Sidebar.tsx L776-860) and have it open the drawer instead of expanding. This single change makes most pages usable on phone and on portrait tablet.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\layout\\AppLayout.tsx",
+    "D:\\Obliance\\client\\src\\components\\layout\\Header.tsx",
+    "D:\\Obliance\\client\\src\\components\\layout\\Sidebar.tsx",
+    "D:\\Obliance\\client\\src\\store\\uiStore.ts"
+   ]
+  },
+  {
+   "problem": "There is no shared Modal component: components/common has no Modal. The codebase has 50 hand-rolled `fixed inset-0` overlays across 31 files, and they are inconsistent. Several have no max-height and no internal scroll: TwoFactorPromptModal.tsx L56-58, AdminTenantsPage.tsx L151-152, SettingsPage.tsx L540-541, DeviceDetailPage.tsx L3542/3583/5486/5520, TransferTenantModal.tsx L71-73, DeviceTable.tsx L1299/1367. Some have a fixed pixel width (ScenarioGraphEditor.tsx L2150 `w-[480px]`). The rest use `max-h-[80vh]`/`[90vh]`, which ignores the soft keyboard. Close buttons usually scroll away with the content (GlobalAddAgentModal.tsx L78-82). None of them can be closed with the Android back button.",
+   "fix": "Create components/common/Modal.tsx and migrate the overlays to it. Overlay: `fixed inset-0 overflow-y-auto` with padding for the safe-area insets. Panel: `max-h-[calc(100dvh-2rem)] flex flex-col`, with a sticky header (close button at least 40 px), an `overflow-y-auto` body and a sticky footer. Below `sm`, render it as a full-screen or bottom sheet (`w-full h-dvh sm:h-auto sm:max-w-*`). Close it on Escape and on Android back (see the platform finding). Only autofocus when `(pointer: fine)`. Make backdrop-dismiss opt-in so a stray tap cannot cancel a sensitive action.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\common\\TwoFactorPromptModal.tsx",
+    "D:\\Obliance\\client\\src\\components\\layout\\GlobalAddAgentModal.tsx",
+    "D:\\Obliance\\client\\src\\pages\\AdminTenantsPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\SettingsPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\DeviceDetailPage.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\TransferTenantModal.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\DeviceTable.tsx",
+    "D:\\Obliance\\client\\src\\components\\scenarios\\ScenarioGraphEditor.tsx"
+   ]
+  },
+  {
+   "problem": "There is no shared Popover/Dropdown component. Two patterns repeat. (1) `<div className=\"fixed inset-0 z-10\" onClick={close}/>` followed by an `absolute right-0 top-full w-56` menu, in DeviceTable.tsx L689/734/851/908/977, HyperVVmTable.tsx L330/368/488, BackupJobTable.tsx L329, ScenariosPage.tsx L42, UpdatesPage.tsx L889 and ObliReachViewer.tsx L977. (2) An outside-click handler bound to `mousedown`, in TenantSwitcher.tsx L31, NotificationCenter.tsx L155, SshBastionButton.tsx L46 and GroupPicker.tsx L143. The menus have fixed widths, are anchored to their trigger with no clamping to the viewport, and get clipped by ancestor `overflow` containers (modals, tables). Touch scrolls never fire mousedown, so these menus stay open while the page scrolls.",
+   "fix": "Create components/common/Popover.tsx: render through a portal, clamp and flip against the viewport, close on a `pointerdown` outside, and turn into a bottom sheet below `sm`. Put the outside-click logic in hooks/useOutsideClick.ts using pointerdown. Migrate the header dropdowns (TenantSwitcher, NotificationCenter, SshBastionButton) first, because the header is being reorganised anyway.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\layout\\TenantSwitcher.tsx",
+    "D:\\Obliance\\client\\src\\components\\layout\\NotificationCenter.tsx",
+    "D:\\Obliance\\client\\src\\components\\layout\\SshBastionButton.tsx",
+    "D:\\Obliance\\client\\src\\components\\common\\GroupPicker.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\DeviceTable.tsx",
+    "D:\\Obliance\\client\\src\\components\\hyperv\\HyperVVmTable.tsx",
+    "D:\\Obliance\\client\\src\\components\\veeam\\BackupJobTable.tsx"
+   ]
+  },
+  {
+   "problem": "Tap targets are undersized everywhere because there is no IconButton primitive and no touch-aware sizing. Icon-only buttons are written as `p-0.5`/`p-1` with 12-15 px icons, which gives 14-27 px hit areas (examples: Sidebar.tsx L258, L874-893; NotificationCenter.tsx L67-73, L191-205, L218-241; GlobalShellPanel.tsx L567-581, L753-774; GlobalChatPanel.tsx L404-420, L532-537; LiveAlerts.tsx L76-85). Button.tsx L18-21 gives `sm` a 32 px height and `md` 36 px. tailwind.config.ts defines no `coarse`/touch variant.",
+   "fix": "Add a variant plugin to tailwind.config.ts, e.g. `plugin(({addVariant}) => addVariant('coarse', '@media (pointer: coarse)'))`. Create components/common/IconButton.tsx with at least a 40x40 hit area (padding, or an `::after` hit-slop), `aria-label` always required and `title` optional. Add `coarse:min-h-[40px]` to Button sizes and `coarse:min-h-[40px] coarse:text-base` to Input. Then replace the ad-hoc icon buttons in the shell.",
+   "files": [
+    "D:\\Obliance\\client\\tailwind.config.ts",
+    "D:\\Obliance\\client\\src\\components\\common\\Button.tsx",
+    "D:\\Obliance\\client\\src\\components\\common\\Input.tsx"
+   ]
+  },
+  {
+   "problem": "Touch has no hover gating. tailwind.config.ts has no `future.hoverOnlyWhenSupported`, and index.css (base layer L274-296) sets no `-webkit-tap-highlight-color` or `touch-action`. As a result every `hover:` style sticks after a tap and Android draws its tap-highlight flash. The pattern `opacity-0 group-hover:opacity-100` hides actions until hover in 22 places, and on touch these are revealed only by a sticky-hover side effect that is unreliable: AdminUsersPage.tsx L674-710/859/864, GroupManagePage.tsx L530-558, NotificationsPage.tsx L593-612, DeviceDetailPage.tsx L4787/4910/5723, GroupSidePanel.tsx L216/259, FileExplorerTab.tsx L930, ProfilePage.tsx L226. Separately, 417 `title=` attributes are the only label or explanation for many icon-only controls.",
+   "fix": "The order matters. First make hover-revealed actions visible on touch (`opacity-100 lg:opacity-0 lg:group-hover:opacity-100`, or better `coarse:opacity-100`), or move them into a kebab menu. Only then enable `future: { hoverOnlyWhenSupported: true }` in tailwind.config.ts. Doing it the other way round makes those actions permanently invisible on touch. Add `html { -webkit-tap-highlight-color: transparent; } button, a, [role=button] { touch-action: manipulation; }` to index.css. For icon-only controls, rely on `aria-label` plus a visible label in touch contexts instead of `title`.",
+   "files": [
+    "D:\\Obliance\\client\\tailwind.config.ts",
+    "D:\\Obliance\\client\\src\\index.css",
+    "D:\\Obliance\\client\\src\\pages\\AdminUsersPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\GroupManagePage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\NotificationsPage.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\GroupSidePanel.tsx"
+   ]
+  },
+  {
+   "problem": "Drag-and-drop is configured for mouse only. dnd-kit uses PointerSensor alone, without `touch-action:none`, a TouchSensor or an activation delay, in Sidebar.tsx L534-536, GroupSidePanel.tsx L526 and GroupManagePage.tsx L96. On touch, an intentional drag is unreliable because a scroll cancels it, while an accidental sideways swipe of 8 px or more starts one. HTML5 `draggable` is used in GlobalShellPanel.tsx L506 and does not work on touch in a WebView. None of these drag interactions has a non-drag alternative.",
+   "fix": "Create hooks/useDndSensors.ts returning `useSensors(useSensor(MouseSensor,{activationConstraint:{distance:8}}), useSensor(TouchSensor,{activationConstraint:{delay:250,tolerance:5}}), useSensor(KeyboardSensor))`, and use it in all three call sites. Also provide a non-drag path: a 'Move to group…' menu (Sidebar, GroupSidePanel), a 'Reparent…' picker (GroupManagePage), and an 'Add to split' action in the shell tab menu (GlobalShellPanel).",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\layout\\Sidebar.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\GroupSidePanel.tsx",
+    "D:\\Obliance\\client\\src\\pages\\GroupManagePage.tsx",
+    "D:\\Obliance\\client\\src\\components\\layout\\GlobalShellPanel.tsx"
+   ]
+  },
+  {
+   "problem": "Native-shell detection is scattered, and it is desktop-specific. `__obliance_is_native_app` means the ObliTools desktop shell, which has its own tenant tab bar. It is read separately in Header.tsx L16, TenantSwitcher.tsx L36, DesktopUpdateBanner.tsx L38, DownloadPage.tsx L18 and useSocket.ts L20, and api/client.ts L9 checks `__obliview_is_native_app`, which looks copy-pasted from Obliview. If the Android shell sets the same flag, three things break: TenantSwitcher returns null with no replacement, the update banner compares the Android version against the desktop MSI version, and the Download page offers a Windows MSI. There is also no typed bridge for the things an Android WebView does NOT do by default.",
+   "fix": "Create utils/platform.ts exporting `platform: 'web' | 'desktop' | 'android'`, `isTouch`, and a typed `window.ObliNative?` bridge (e.g. `saveFile(name,mime,base64)`, `copy(text)`, `openExternal(url)`, `insets()`, `appVersion`). Replace all direct flag reads with it. On Android: hide the Header Download link, repoint /download at the APK, and give DesktopUpdateBanner an Android-specific version endpoint. The mobile apps of the other Obli products can reuse this module unchanged.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\layout\\Header.tsx",
+    "D:\\Obliance\\client\\src\\components\\layout\\TenantSwitcher.tsx",
+    "D:\\Obliance\\client\\src\\components\\layout\\DesktopUpdateBanner.tsx",
+    "D:\\Obliance\\client\\src\\pages\\DownloadPage.tsx",
+    "D:\\Obliance\\client\\src\\hooks\\useSocket.ts",
+    "D:\\Obliance\\client\\src\\api\\client.ts"
+   ]
+  },
+  {
+   "problem": "Several browser features the app relies on fail silently inside an Android WebView unless the native side implements them.\n(a) Dialogs: `confirm()` is called 50 times (DeviceDetailPage 9×, SoftwareCompliancePage 4×, AdminUsersPage 3×, …) and `prompt()` 6 times (FileExplorerTab.tsx L499, ApprovalsPage.tsx L76/L90, DashboardPage.tsx L688, DeviceDetailPage.tsx L3951, SoftwareCompliancePage.tsx L1594). Without WebChromeClient.onJsConfirm/onJsPrompt these return false/null, so most deletions and several creations are unreachable.\n(b) Blob downloads: `URL.createObjectURL` + `a.download` is used at 12 sites (DeviceTable.tsx L292, FileExplorerTab.tsx L377, HyperVVmTable.tsx L135, ExportDiscoveryModal.tsx L112, GenerateDeployScriptModal.tsx L100, ObliReachViewer.tsx L720/745, AuditLogPage.tsx L178, DeviceDetailPage.tsx L2030, ImportExportPage.tsx L226, ScenariosPage.tsx L14, SettingsPage.tsx L799). DownloadListener cannot fetch `blob:` URLs. Authenticated URL downloads (GlobalAddAgentModal.tsx L197/L251, DownloadPage.tsx L82) also need the session cookie copied into DownloadManager.\n(c) Clipboard: `navigator.clipboard` is called directly in 8 files, with no fallback in GlobalAddAgentModal.tsx L12, AdminDevicesPage.tsx L155/215 and GenerateDeployScriptModal.tsx L86. `readText` (ObliReachViewer.tsx L624) is not available in a WebView.\n(d) New windows: `window.open`/`target=_blank` (DeviceRow.tsx L155, ReportsPage.tsx L278, CvesPage.tsx L238/439, DeviceCvesSection.tsx L125, DeviceDetailPage.tsx L5778, ProfilePage.tsx L199, SettingsPage.tsx L466) either no-ops or replaces the app page.\n(e) File inputs: 6 `<input type=file>` elements (including GlobalChatPanel.tsx L415) need onShowFileChooser.\n(f) Fullscreen: GlobalShellPanel.tsx L110 needs onShowCustomView.\n(g) Back button: there is no overlay stack, so Android back would navigate away instead of closing the open modal, drawer or shell panel.",
+   "fix": "Add web-side helpers that route to the native bridge when it is present and fall back to the browser API otherwise: components/common/ConfirmDialog.tsx exposing promise-based `confirmDialog()`/`promptDialog()` (also i18n-ready, which native confirm() is not), utils/download.ts `saveBlob(blob, filename)`, utils/clipboard.ts `copyText()` with an `execCommand('copy')` fallback, and utils/platform.ts `openExternal(url)` which opens Custom Tabs on Android. Add hooks/useBackHandler.ts, an overlay stack that Modal, drawer and GlobalShellPanel register with, and expose `window.__obliHandleBack(): boolean` for the Activity's OnBackPressedCallback. Record the native contract in a short doc that Obliance and the other Obli apps share: WebChromeClient dialogs, file chooser and custom view; shouldOverrideUrlLoading allowlist; CookieManager persistence; adjustResize; onPause/pauseTimers.",
+   "files": [
+    "D:\\Obliance\\client\\src\\pages\\DeviceDetailPage.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx",
+    "D:\\Obliance\\client\\src\\pages\\ApprovalsPage.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\DeviceTable.tsx",
+    "D:\\Obliance\\client\\src\\pages\\AuditLogPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\ImportExportPage.tsx",
+    "D:\\Obliance\\client\\src\\components\\layout\\GlobalAddAgentModal.tsx",
+    "D:\\Obliance\\client\\src\\components\\ObliReachViewer.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\DeviceRow.tsx",
+    "D:\\Obliance\\client\\src\\pages\\ReportsPage.tsx"
+   ]
+  },
+  {
+   "problem": "Safe areas and the soft keyboard are not handled anywhere. The viewport meta (index.html L5) lacks `viewport-fit=cover` and `interactive-widget=resizes-content`. The shell uses `h-screen`/100vh (AppLayout.tsx L120, ProtectedRoute.tsx L26, GlobalChatPanel.tsx L478 `calc(100vh - 100px)`), and modals use `max-h-[90vh]`. No `env(safe-area-inset-*)` is used anywhere. This matters because Android 15+ enforces edge-to-edge, and it cannot be opted out of when targeting SDK 36+ (LifeTrack targets 37). The 52 px header would then sit under the status bar, and bottom-fixed UI (LiveAlerts L127, chat FAB L457, shell pill L472, Toaster) under the gesture bar. The existing useNativeTopOffset only covers the ObliTools margin, and it runs a whole-document MutationObserver with getComputedStyle on every mutation (useNativeTopOffset.ts L19-20), mounted 5 times.",
+   "fix": "Set the viewport meta to `width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content`. In index.css, define `--safe-top: max(env(safe-area-inset-top), var(--native-inset-top, 0px))` and the equivalent for bottom, left and right. Apply them to Header (padding-top), Toaster and LiveAlerts offsets, the FABs and GlobalShellPanel. Replace `h-screen` with `h-dvh` (Tailwind 3.4 has it) and `100vh` with `100dvh`. Replace useNativeTopOffset with a single store fed by the platform bridge or a ResizeObserver on #root. On the native side, the default should be adjustResize plus WindowInsets padding on the WebView, or injecting `--native-inset-*`.",
+   "files": [
+    "D:\\Obliance\\client\\index.html",
+    "D:\\Obliance\\client\\src\\index.css",
+    "D:\\Obliance\\client\\src\\components\\layout\\AppLayout.tsx",
+    "D:\\Obliance\\client\\src\\components\\layout\\ProtectedRoute.tsx",
+    "D:\\Obliance\\client\\src\\components\\layout\\GlobalChatPanel.tsx",
+    "D:\\Obliance\\client\\src\\hooks\\useNativeTopOffset.ts",
+    "D:\\Obliance\\client\\src\\App.tsx"
+   ]
+  },
+  {
+   "problem": "There is no shared table primitive (23 `<table>` elements in 14 files, each with its own overflow behaviour). `<main>` (AppLayout.tsx L189) is the only scroll container, so any wide table scrolls the whole page horizontally, page title and tabs included.",
+   "fix": "Add components/common/ResponsiveTable.tsx: an `overflow-x-auto` wrapper with an optional sticky first column and a card layout below `md`. Add `min-w-0` to `<main>` so pages cannot widen it. The page-level auditors should migrate the tables.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\layout\\AppLayout.tsx"
+   ]
+  },
+  {
+   "problem": "The shell components that must be refactored for mobile contain hard-coded English user-facing strings, against the project's i18n rule. Examples: NotificationCenter.tsx L193 'Notification Center', L216 'Notifications', L261 'Local'/'All Tenants', L293 'No notifications'. Also GlobalShellPanel.tsx (all titles, 'Open remote session', 'Search devices...'), DesktopUpdateBanner.tsx L76-103, TwoFactorPromptModal.tsx L63-123, and the Sidebar toasts at L557/559.",
+   "fix": "When these components are touched for the mobile refactor, convert their strings to `t('ns.key') || 'fallback'`. New mobile-only labels (hamburger aria-label, 'More' menu, drawer close) must go through t() from the start.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\layout\\NotificationCenter.tsx",
+    "D:\\Obliance\\client\\src\\components\\layout\\GlobalShellPanel.tsx",
+    "D:\\Obliance\\client\\src\\components\\layout\\DesktopUpdateBanner.tsx",
+    "D:\\Obliance\\client\\src\\components\\common\\TwoFactorPromptModal.tsx"
+   ]
+  }
+ ],
+ "issues": [
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\layout\\AppLayout.tsx",
+   "loc": "L166-185 (pinned sidebar), L130 body row; uiStore.ts L22 MIN 220, L38 default 280, L57 sidebarOpen:true, L63-64 unused toggles",
+   "severity": "blocker",
+   "problem": "The sidebar is always pinned beside the content with `flex-shrink-0` at the persisted width (220-600 px, default 280), whatever the viewport. There is no hamburger or drawer, and `toggleSidebar`/`setSidebarOpen` are never called anywhere. On a 360 px phone this leaves an 80 px main column, which makes every page unusable. On a 768 px portrait tablet it leaves 488 px. The only escape is the ChevronsLeft collapse to 64 px (Sidebar.tsx L874-880), which users will not find on a phone.",
+   "fix": "Below lg, turn the sidebar into an off-canvas drawer driven by `sidebarOpen` (default false below lg, closed on navigation and on backdrop tap), and add a hamburger to the Header. See the global finding on the responsive shell."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\layout\\Header.tsx",
+   "loc": "L88 header row; L93-95 logo; L99 TenantSwitcher; L107-133 app pills; L135-207 right cluster (Download L137-145, SSH L148, socket L151-172, bell L175, user chip L179-198, logout L199-205); AppLayout.tsx L120 overflow-hidden",
+   "severity": "blocker",
+   "problem": "The header is one flex row with no wrap, no `min-w-0` and no overflow menu. Its min-content width is about 138 (logo) + about 200 (tenant switcher) + about 100 per app pill (up to 7) + about 500 (right cluster), roughly 1,300 px for a 4-app suite with several tenants. The root `h-screen overflow-hidden` then clips the right side. The notification bell, SSH bastion, user chip and logout are cut off at 768 px, and at 1024-1280 px once 5 or more pills are present. On a phone everything after the logo is lost. NotificationCenter and the SSH bastion have no other entry point.",
+   "fix": "Make the header responsive. Below md, show hamburger, logo mark, bell and avatar menu. Move the app switcher into a compact dot-grid dropdown or into the drawer, and move Download/SSH/logout/profile into the avatar menu. Give the tenant switcher `min-w-0` with truncation, or move it into the drawer on phones. Hide the Download link on Android."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\layout\\AppLayout.tsx",
+   "loc": "L132-164 (floating mode), L137-141 8 px onMouseEnter strip, L153-154 onMouseEnter/onMouseLeave; toggle in Sidebar.tsx L882-893; persisted in uiStore.ts L71-78",
+   "severity": "blocker",
+   "problem": "Floating (auto-hide) sidebar mode opens only via `onMouseEnter` on an 8 px strip at the left screen edge, which on Android overlaps the system back-gesture zone, and it hides on mouseleave. On touch, navigation becomes effectively unreachable once a user taps the Pin button. The un-float button is inside the hidden panel, and the choice is persisted to localStorage, so the user stays trapped across restarts.",
+   "fix": "Ignore or disable `sidebarFloating` when `(pointer: coarse)` or below lg, because the drawer replaces it. Hide the Pin/float toggle on touch. If floating is kept for desktop, also open it from the header hamburger."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\layout\\GlobalShellPanel.tsx",
+   "loc": "L504-533 HTML5 draggable tabs; L544-557 Ctrl/Cmd+click toggle; L634-650 Broadcast only in group mode",
+   "severity": "blocker",
+   "problem": "Split view (grouping terminals) can only be entered by HTML5 drag-and-drop of one tab onto another, or by Ctrl/Cmd+click. Neither works on touch: WebView has no touch HTML5 DnD, and a soft keyboard has no modifiers. Broadcast depends on split mode, so multi-terminal and broadcast are unreachable on a tablet. The instructions exist only in `title=` tooltips.",
+   "fix": "Add an explicit per-tab control (long-press or a kebab menu with 'Add to split / Remove from split') or a 'Split' toggle in the toolbar, and keep drag as a desktop enhancement."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\layout\\NotificationCenter.tsx",
+   "loc": "L191-205 bell (14 px icon, no padding); L218-241 header icon buttons (14 px, no padding); L67-73 per-alert dismiss X (12 px) inside a clickable row L37-44; L90-103 toggle h-4 w-7; L211 panel anchored right-0; L289 max-h-96",
+   "severity": "major",
+   "problem": "Every control is 12-20 px. The dismiss X sits inside a row whose click marks the alert read and navigates. For cross-tenant alerts that click switches the tenant and hard-reloads (L295-302), so a missed tap on dismiss does a tenant switch. The panel (header plus max-h-96 list, about 490 px) is taller than a landscape phone and is anchored to the bell rather than clamped to the viewport.",
+   "fix": "Use at least 40 px IconButtons, move dismiss out of the row's hit area (swipe-to-dismiss or a trailing 40 px button), and render as a full-height sheet below sm using the shared Popover."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\layout\\GlobalChatPanel.tsx",
+   "loc": "L476-478 fixed width:400 / height:620 / maxHeight calc(100vh-100px); L404-405 '/' quick-reply button (text-xs, no padding); L417-420 paperclip 16 px; L532-537 tab close span (10 px icon) nested inside a <button>; L457 FAB bottom-6 right-6",
+   "severity": "major",
+   "problem": "On phones narrower than 416 px, the 400 px chat panel anchored `right-4` extends past the left edge, cutting off the avatar and title. Its bottom input is positioned from 100vh, so it can end up under the soft keyboard. The quick-reply, attach and tab-close controls are 8-16 px targets, and the tab close is an interactive span inside a button, so taps activate the tab instead.",
+   "fix": "Use `w-[min(400px,calc(100vw-1rem))]`, full-screen below sm (`inset-0`, h-dvh), and bottom padding that accounts for the keyboard and safe area. Use 40 px IconButtons, make tab close a sibling button, and add `enterKeyHint=\"send\"` on the input."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\layout\\LiveAlerts.tsx",
+   "loc": "L127 bottom-right stack (up to 10, w-80); L10 60 s lifetime; L76-85 dismiss X 13 px, no padding; overlaps GlobalShellPanel.tsx L472 pill and GlobalChatPanel.tsx L457 FAB",
+   "severity": "major",
+   "problem": "The default bottom-right stack can hold 10 cards of about 70 px each, nearly full screen width on a phone, for 60 s. It covers bottom actions, the chat input and the shell pill, and it ignores the gesture-bar inset. The dismiss control is tiny. Chat FAB, shell pill and toasts all compete for the same bottom-right corner.",
+   "fix": "On phones, show only the newest alert as a top banner (the existing 'top-center' mode) with a 40 px dismiss and swipe-to-dismiss. Add safe-area bottom offsets, and stack the FABs through a single bottom-right dock."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\layout\\Sidebar.tsx",
+   "loc": "L126-176 DraggableDeviceItem (listeners on the whole row, L154-159); L534-536 PointerSensor distance 8 only; L553 deviceApi.update on drop",
+   "severity": "major",
+   "problem": "Drag-to-regroup uses PointerSensor only, with no `touch-action:none`, TouchSensor or delay. On touch an intentional drag is unreliable, because a vertical scroll fires pointercancel. A sideways swipe of 8 px or more activates a drag, and releasing over a nested or parent group droppable immediately PATCHes `groupId`. That reassigns the device and fires the `group_join` scenario trigger, i.e. scripts can run on the machine from an accidental gesture.",
+   "fix": "Use a shared touch-aware sensor hook (TouchSensor with delay 250 and tolerance 5). Require a confirm on drop when the pointer is coarse, and add a 'Move to group…' action as the touch path."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\layout\\Sidebar.tsx",
+   "loc": "L258-266 group collapse chevron (p-1, 12 px); L279 counts legend only in title=; L695-704 tenant bucket header (py-1, 10 px text); L874-893 collapse/float buttons (p-1.5, 15 px); L927-944 layout chip py-0.5 text-xs; L938-944 / L972-978 split toggles (p-0.5/p-1, 12-13 px); L160-168 device rows py-1.5 13 px; L814 collapsed rail labels only via title=",
+   "severity": "major",
+   "problem": "Most sidebar controls are 16-30 px tall, which is hard to hit on a phone. The collapsed 64 px rail shows icons with no visible labels (title= only), and the meaning of the group status counts is available only in a tooltip.",
+   "fix": "In the drawer, use at least 40 px rows (`coarse:py-2.5`), 40 px chevron buttons and labelled nav items, and drop the collapsed rail on touch. Show a legend or a status-count popover on tap."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\layout\\AppLayout.tsx",
+   "loc": "L90-117 handleMouseDown, L159-162 and L180-183 w-1 resize handles; Sidebar.tsx L564-582, L963-966 split handle",
+   "severity": "minor",
+   "problem": "The sidebar width and side-by-side split handles are 4 px wide and handle `onMouseDown` only, so they cannot be resized on touch (the width floor is 220 px anyway).",
+   "fix": "Hide the resize handles on coarse pointers because the drawer has a fixed width, or switch to pointer events with at least a 16 px invisible hit area."
+  },
+  {
+   "file": "D:\\Obliance\\client\\index.html",
+   "loc": "L5 viewport meta; plus AppLayout.tsx L120 h-screen, GlobalShellPanel.tsx L486 fixed inset panel",
+   "severity": "major",
+   "problem": "With Chrome's default resizes-visual keyboard behaviour, 100vh/fixed layouts do not shrink when the keyboard opens. The terminal prompt (GlobalShellPanel), the chat input and the 2FA modal buttons then end up under the keyboard unless the native Activity uses adjustResize. The meta also lacks `viewport-fit=cover`, which safe-area insets under Android 15+ edge-to-edge require.",
+   "fix": "Use `<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content\">`, h-dvh, and safe-area CSS variables (see the global finding). Configure adjustResize natively."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\layout\\GlobalShellPanel.tsx",
+   "loc": "L313-320 sendRawToActive (term.focus after each key) + L793 VirtualKeyPanel (VirtualKeyPanel.tsx L44-54, L71-73)",
+   "severity": "major",
+   "problem": "Tapping a virtual key blurs xterm's hidden textarea, so the soft keyboard closes, and then `term.focus()` reopens it. On every key press the keyboard flickers and the terminal refits. There is no sticky Ctrl/Alt modifier, so combinations missing from the fixed list are impossible from a soft keyboard: nano ^O/^X, tmux ^B, vim Ctrl-V, any Alt-x. Keys are about 36x24 px. Android IME composition with xterm 5.3 should also be tested (known duplicated-character issues with Gboard).",
+   "fix": "Add `onPointerDown={e => e.preventDefault()}` to the virtual keys so focus stays in the terminal. Add latching Ctrl/Alt/Shift modifiers that transform the next typed character. Use at least 40 px keys in a horizontally scrollable row docked above the keyboard, and show the panel by default on coarse pointers."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\layout\\GlobalShellPanel.tsx",
+   "loc": "L567-581 tab reconnect/close (p-0.5, 14 px) inside the activating tab; L753-774 tile header buttons (p-0.5); L672-683 fullscreen (Fullscreen API); L837 picker autoFocus; L893 protocol buttons px-2.5 py-1 text-xs",
+   "severity": "major",
+   "problem": "The destructive tab close is an 18 px target next to the tab-activation area. Fullscreen is a no-op in a WebView unless native onShowCustomView exists. The device picker autofocuses its search, so the keyboard pops up and covers most of the `max-h-[70vh]` list on a phone. The CMD/PowerShell/SSH buttons are about 24 px.",
+   "fix": "Use 40 px IconButtons, and move close/reconnect into a per-tab menu on touch. Hide Fullscreen when it is unsupported, or route it through the native bridge. Only autofocus on fine pointers, and use at least 40 px protocol buttons."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\layout\\GlobalAddAgentModal.tsx",
+   "loc": "L142-155 OS tabs (flex-1 px-3 + icon + label); L9-25 CopyButton (no try/catch, p-1 14 px); L82 close × (text-xl, no padding, scrolls away with the content, L78); L197-203 and L251-257 <a download> wizard; L169-179 and L230-237 selects text-[11px] py-1",
+   "severity": "major",
+   "problem": "At phone width (about 272 px usable) the four OS tabs need about 370 px, so the modal scrolls horizontally and the FreeBSD/macOS tabs are clipped. Copying the command is the purpose of this modal, yet `navigator.clipboard.writeText` has no error handling or fallback, so failures in the WebView are silent. The close control is tiny and not sticky. The wizard downloads need a native DownloadListener that carries the session cookie.",
+   "fix": "Make the tabs `grid grid-cols-2 sm:grid-cols-4`, or icon-only below sm with an aria-label. Use the shared copyText() with a fallback and a toast. Build on the shared Modal (sticky 40 px close). Route downloads through utils/download or platform. Use at least 40 px selects."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\common\\TwoFactorPromptModal.tsx",
+   "loc": "L56 overlay (items-center, no overflow, onClick=onClose); L58 card without max-h; L34 autofocus; L112/L119 buttons px-3 py-1.5 text-xs",
+   "severity": "major",
+   "problem": "This is the singleton gate for every sensitive action. The overlay is not scrollable and the card has no max-height, so on a phone in landscape or a split-screen tablet with the numeric keyboard up, the Verify button can sit off-screen. Enter on the keyboard still submits, but that is not discoverable. Any tap on the backdrop cancels and rejects the pending request, which is easy to do by accident while dismissing the keyboard. The buttons are about 28 px.",
+   "fix": "Build it on the shared Modal: scrollable overlay, max-h-dvh, sticky footer, backdrop-dismiss disabled for this dialog, and at least 40 px buttons."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\common\\GroupPicker.tsx",
+   "loc": "L148-152 autofocus search on open; L176 absolute dropdown max-h-64 under the trigger; L107-115 expand chevron is a 14 px span inside the select button; L168-170 trigger label not truncated; L189-191 clear X unpadded",
+   "severity": "major",
+   "problem": "Opening the picker (usually inside a modal) immediately raises the soft keyboard, which covers the 256 px dropdown rendered below the trigger. The dropdown is also clipped by the modal's overflow. Tapping near the expand chevron selects the group instead of expanding it. Long group names overflow the trigger.",
+   "fix": "Use the shared Popover (portal, flip upward, bottom sheet on phone), autofocus only on fine pointers, make the chevron a separate 40 px button, and add `min-w-0 truncate` on the label."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\LoginPage.tsx",
+   "loc": "L55 window.location.href='/auth/sso-redirect' (cross-origin Obligate); Header.tsx L68-79 goApp cross-app redirect",
+   "severity": "major",
+   "problem": "SSO and app switching leave the Obliance origin. In a WebView without a shouldOverrideUrlLoading allowlist these navigations may open the external browser, so the session cookie lands there and login loops. If Obligate federates to Google or Microsoft, those IdPs refuse embedded WebViews (disallowed_useragent). For SSO tenants this becomes a login blocker.",
+   "fix": "This is part of the native contract: keep the Obligate host and the Obli* hosts inside the WebView and persist cookies (CookieManager.flush). If an external IdP is involved, run SSO in a Custom Tab/AppAuth and hand the session back through a deep link, or use the X-Auth-Token path already supported in api/client.ts L7-31."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\layout\\TenantSwitcher.tsx",
+   "loc": "L36-37 returns null when __obliance_is_native_app; L79-82 'TENANT' label + max-w-[140px] name; L31 mousedown outside-click",
+   "severity": "major",
+   "problem": "The tenant selector hides itself whenever the desktop native flag is set. If the Android shell reuses that flag, multi-tenant users lose tenant switching entirely. The trigger also costs about 220 px of header width on a phone.",
+   "fix": "Gate it on `platform === 'desktop'` from the new utils/platform.ts. On phones, show the tenant inside the drawer (or as a compact chip without the 'TENANT' label), using the shared Popover or sheet."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\DownloadPage.tsx",
+   "loc": "L65-83 (MSI only; window.location.href download); Header.tsx L137-145 'Download app' link; DesktopUpdateBanner.tsx L38-60, L73-104",
+   "severity": "minor",
+   "problem": "The 'Download app' link and page only offer the Windows MSI, which is useless inside the Android app. A raw `window.location.href` download does nothing in a WebView without a DownloadListener. If the native flag is reused, the desktop update banner would nag Android users with the desktop version.",
+   "fix": "Hide the Download link on Android. Add an Android APK entry for web visitors, which gives the new app a download page. Give Android its own version check."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\layout\\SshBastionButton.tsx",
+   "loc": "L113 dropdown absolute right-0 w-[22rem]; L181-187 copy button p-1 13 px; L133-139 revoke px-2 py-0.5",
+   "severity": "minor",
+   "problem": "The dropdown is anchored to the SSH button rather than clamped to the viewport, and it will overflow the left edge once the header is reorganised on narrow screens. The copy and revoke buttons are about 20 px.",
+   "fix": "Put it in the avatar menu on phone, use the shared Popover, and use 40 px buttons."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\common\\Button.tsx",
+   "loc": "L18-21 sizes (sm 32 px, md 36 px); Input.tsx L27 text-sm; ToggleSwitch.tsx L27-28 32x16 / 40x20",
+   "severity": "minor",
+   "problem": "The shared primitives fall below the 40-44 px touch target. The 14 px Input font would trigger zoom on iOS, which is harmless on Android. A ToggleSwitch without a label is a 32x16 target.",
+   "fix": "Add `coarse:min-h-[40px]` to Button/Input, `coarse:text-base` to Input, and an invisible hit-slop (a padded wrapper) around ToggleSwitch."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\common\\PerDiskThresholdsEditor.tsx",
+   "loc": "L113-129 w-14 py-0.5 text-xs inputs; warn/crit meaning only via title= L119/L128; L107-110 small checkbox",
+   "severity": "minor",
+   "problem": "The number inputs are about 20 px tall, and on touch the only cue for which one is Warning and which is Critical is text colour.",
+   "fix": "Add visible 'Warn'/'Crit' labels, give the inputs `coarse:py-2` and `inputMode=\"numeric\"`, and use a 40 px checkbox hit area or a ToggleSwitch."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\common\\ThresholdsEditor.tsx",
+   "loc": "L72 grid-cols-[120px_1fr_1fr]; L117/L124 inputs px-2 py-1 text-xs",
+   "severity": "minor",
+   "problem": "The inputs are about 24 px tall with 12 px text. The 120 px fixed label column is fine, but it leaves roughly 90 px per input on a phone inside a padded modal.",
+   "fix": "Use `coarse:py-2 coarse:text-base` and `grid-cols-[minmax(0,6rem)_1fr_1fr]`."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\common\\PeriodSelector.tsx",
+   "loc": "L24 px-3 py-1 text-xs",
+   "severity": "minor",
+   "problem": "The segmented period buttons are about 24 px tall, and this control is reused on the dashboard and detail charts.",
+   "fix": "Use `coarse:py-2 coarse:px-4`."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\common\\TenantFilterChips.tsx",
+   "loc": "L67 chips py-1 text-xs; L82 'clear' text-[10px] with no padding; TargetTenantsPicker.tsx L65 chips, L81 clear link; DeviceMultiSelect.tsx L70/L74 select-all/clear links (11 px)",
+   "severity": "minor",
+   "problem": "The chips are about 26 px tall and the clear or select-all links are about 14 px tap targets.",
+   "fix": "Use `coarse:py-2` on chips and render the links as padded buttons at least 40 px tall."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\common\\FanOutChips.tsx",
+   "loc": "L25 title= only; TenantBadge.tsx L222 title= only; Header.tsx L153-157 socket status only via title=",
+   "severity": "minor",
+   "problem": "Explanations are available only as hover tooltips, so touch users cannot see them.",
+   "fix": "Use an accessible tap-to-reveal Tooltip/Popover component, or visible text on coarse pointers."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\LoginPage.tsx",
+   "loc": "L270 fixed bottom version footer; L238-247 MFA input lacks autoComplete=\"one-time-code\"; L216-231 tabs py-1.5; L258/L262 text-xs links",
+   "severity": "minor",
+   "problem": "With adjustResize, the fixed footer rides up over the form or submit button on short screens. Android OTP autofill is not hinted on the login MFA field (TwoFactorPromptModal does hint it). The resend and back links are about 16 px targets.",
+   "fix": "Put the footer in normal flow (`mt-auto`), add `autoComplete=\"one-time-code\"`, and pad the links and tabs to at least 40 px."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\App.tsx",
+   "loc": "L8-32 eager imports of all pages (no React.lazy); main.tsx L10 global xyflow CSS; vite.config.ts build.target 'esnext'",
+   "severity": "minor",
+   "problem": "All pages, including very large ones like DeviceDetailPage and ScenarioGraphEditor, ship in a single bundle, so first load and parse are slow on mid-range Android tablets. The `esnext` target can break on outdated system WebViews (enterprise, Android Go, or devices without Play Store updates).",
+   "fix": "Use React.lazy + Suspense per route (Settings, Scenarios, DeviceDetail, Supervision…), load the xyflow CSS with the editor, and set `build.target` to e.g. ['chrome100','safari15']."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\layout\\Sidebar.tsx",
+   "loc": "L405-426 listPaginated pageSize 10000 every 30 s; hooks/useNativeTopOffset.ts L19-20 subtree MutationObserver ×5 instances",
+   "severity": "minor",
+   "problem": "The sidebar re-downloads the whole approved fleet every 30 s, even when it will be a closed drawer or the app is in the background. Five useNativeTopOffset instances each run getComputedStyle on every DOM mutation. Both waste battery, data and CPU on mobile.",
+   "fix": "Rely on socket deltas and pause polling when the drawer is closed or `document.visibilityState === 'hidden'`. Replace useNativeTopOffset with a single store."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\index.css",
+   "loc": "L274-296 base layer (no tap-highlight / touch-action / overscroll rules); tailwind.config.ts L1-90 (no future.hoverOnlyWhenSupported, no coarse variant, L89 plugins: [])",
+   "severity": "minor",
+   "problem": "Every tap flashes the Android highlight and leaves a sticky :hover state, and the app has no touch variant to size controls by.",
+   "fix": "See the global findings on hover gating and tap targets. Add `-webkit-tap-highlight-color: transparent`, `touch-action: manipulation` on interactive elements, `overscroll-behavior-y: none` on the shell, and the `coarse` variant plugin."
+  }
+ ]
+}

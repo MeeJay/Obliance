@@ -5,6 +5,8 @@ import { deviceApi } from '@/api/device.api';
 import apiClient from '@/api/client';
 import type { AgentApiKey } from '@obliance/shared';
 import toast from 'react-hot-toast';
+import { IconButton } from '@/components/common/IconButton';
+import { copyText } from '@/utils/clipboard';
 
 interface Props {
  onClose: () => void;
@@ -30,20 +32,26 @@ function buildCommand(platform: Platform, origin: string, apiKey: string): strin
 }
 
 function CopyButton({ text }: { text: string }) {
+ const { t } = useTranslation();
  const [copied, setCopied] = useState(false);
  const handleCopy = async () => {
- await navigator.clipboard.writeText(text);
+ // copyText: Clipboard API → execCommand → Android bridge (docs/obli-mobile.md §3).
+ const ok = await copyText(text);
+ if (!ok) {
+ toast.error(t('common.error', 'Error'));
+ return;
+ }
+ toast.success(t('common.copied', 'Copied!'));
  setCopied(true);
  setTimeout(() => setCopied(false), 2000);
  };
  return (
- <button
+ <IconButton
+ label={t('common.copy', 'Copy')}
  onClick={handleCopy}
- className="flex-shrink-0 p-1.5 rounded hover:bg-bg-primary transition-colors text-text-muted hover:text-text-primary"
- title="Copy"
- >
- {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
- </button>
+ className="flex-shrink-0 rounded hover:bg-bg-primary"
+ icon={copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+ />
  );
 }
 
@@ -114,12 +122,12 @@ export function AddDeviceModal({ onClose }: Props) {
  useEffect(() => { load(); }, [load]);
 
  return (
- <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+ <div className="fixed inset-0 z-50 flex items-center justify-center p-4 max-sm:p-0 max-sm:items-stretch">
  {/* Backdrop */}
  <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 
- {/* Modal */}
- <div className="relative z-10 w-full max-w-2xl bg-bg-secondary rounded-xl shadow-2xl flex flex-col max-h-[85vh]">
+ {/* Modal — full screen below sm; dvh with a vh fallback for WebView < 108 */}
+ <div className="relative z-10 w-full max-w-2xl bg-bg-secondary rounded-xl shadow-2xl flex flex-col sm:max-h-[85dvh] sm:supports-[not(height:100dvh)]:max-h-[85vh] max-sm:h-dvh max-sm:supports-[not(height:100dvh)]:h-screen max-sm:rounded-none max-sm:pt-safe max-sm:pb-safe">
  {/* Header */}
  <div className="flex items-start justify-between p-5 flex-shrink-0">
  <div>
@@ -130,12 +138,12 @@ export function AddDeviceModal({ onClose }: Props) {
  </p>
  )}
  </div>
- <button
+ <IconButton
+ label={t('common.close', 'Close')}
  onClick={onClose}
- className="p-1.5 rounded hover:bg-bg-tertiary transition-colors text-text-muted hover:text-text-primary"
- >
- <X className="w-5 h-5" />
- </button>
+ className="hover:bg-bg-tertiary"
+ icon={<X className="w-5 h-5" />}
+ />
  </div>
 
  {/* Body */}

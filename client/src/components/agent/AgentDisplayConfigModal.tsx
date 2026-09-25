@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Settings2, Pencil, Check } from 'lucide-react';
 import type { DeviceDisplayConfig } from '@obliance/shared';
 import { prettifySensorLabel } from '../../utils/sensorLabels';
+import { useTranslation } from 'react-i18next';
 
 type Section = 'cpu' | 'ram' | 'gpu' | 'drives' | 'network' | 'temps';
 
@@ -296,8 +297,8 @@ function DrivesTab({
  }}
  className="flex-1 min-w-0 rounded bg-bg-tertiary px-2 py-0.5 text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
  />
- <button onClick={() => applyRename(mount)} className="p-0.5 rounded text-status-up hover:bg-bg-hover shrink-0"><Check size={11} /></button>
- <button onClick={() => setEditingMount(null)} className="p-0.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-hover shrink-0"><X size={12} /></button>
+ <button onClick={() => applyRename(mount)} className="p-0.5 rounded coarse:min-h-10 coarse:min-w-10 coarse:inline-flex coarse:items-center coarse:justify-center text-status-up hover:bg-bg-hover shrink-0"><Check size={11} /></button>
+ <button onClick={() => setEditingMount(null)} className="p-0.5 rounded coarse:min-h-10 coarse:min-w-10 coarse:inline-flex coarse:items-center coarse:justify-center text-text-muted hover:text-text-primary hover:bg-bg-hover shrink-0"><X size={12} /></button>
  </div>
  ) : (
  <div className="flex items-center gap-1.5 flex-1 min-w-0">
@@ -307,7 +308,7 @@ function DrivesTab({
  )}
  <button
  onClick={() => { setEditingMount(mount); setRenameValue(currentName); }}
- className="p-0.5 rounded text-text-muted hover:text-text-secondary hover:bg-bg-hover shrink-0"
+ className="p-0.5 rounded coarse:min-h-10 coarse:min-w-10 coarse:inline-flex coarse:items-center coarse:justify-center text-text-muted hover:text-text-secondary hover:bg-bg-hover shrink-0"
  title="Rename"
  >
  <Pencil size={11} />
@@ -396,8 +397,8 @@ function NetworkTab({
  }}
  className="flex-1 min-w-0 rounded bg-bg-tertiary px-2 py-0.5 text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
  />
- <button onClick={() => applyRename(name)} className="p-0.5 rounded text-status-up hover:bg-bg-hover shrink-0"><Check size={11} /></button>
- <button onClick={() => setEditingIface(null)} className="p-0.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-hover shrink-0"><X size={12} /></button>
+ <button onClick={() => applyRename(name)} className="p-0.5 rounded coarse:min-h-10 coarse:min-w-10 coarse:inline-flex coarse:items-center coarse:justify-center text-status-up hover:bg-bg-hover shrink-0"><Check size={11} /></button>
+ <button onClick={() => setEditingIface(null)} className="p-0.5 rounded coarse:min-h-10 coarse:min-w-10 coarse:inline-flex coarse:items-center coarse:justify-center text-text-muted hover:text-text-primary hover:bg-bg-hover shrink-0"><X size={12} /></button>
  </div>
  ) : (
  <div className="flex items-center gap-1.5 flex-1 min-w-0">
@@ -407,7 +408,7 @@ function NetworkTab({
  )}
  <button
  onClick={() => { setEditingIface(name); setRenameValue(currentName); }}
- className="p-0.5 rounded text-text-muted hover:text-text-secondary hover:bg-bg-hover shrink-0"
+ className="p-0.5 rounded coarse:min-h-10 coarse:min-w-10 coarse:inline-flex coarse:items-center coarse:justify-center text-text-muted hover:text-text-secondary hover:bg-bg-hover shrink-0"
  title="Rename"
  >
  <Pencil size={11} />
@@ -498,8 +499,8 @@ function TempsTab({
  }}
  className="flex-1 min-w-0 rounded bg-bg-tertiary px-2 py-0.5 text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
  />
- <button onClick={() => void applySensorRename(label)} disabled={saving} className="p-0.5 rounded text-status-up hover:bg-bg-hover shrink-0 disabled:opacity-50"><Check size={11} /></button>
- <button onClick={() => setEditingSensor(null)} className="p-0.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-hover shrink-0"><X size={12} /></button>
+ <button onClick={() => void applySensorRename(label)} disabled={saving} className="p-0.5 rounded coarse:min-h-10 coarse:min-w-10 coarse:inline-flex coarse:items-center coarse:justify-center text-status-up hover:bg-bg-hover shrink-0 disabled:opacity-50"><Check size={11} /></button>
+ <button onClick={() => setEditingSensor(null)} className="p-0.5 rounded coarse:min-h-10 coarse:min-w-10 coarse:inline-flex coarse:items-center coarse:justify-center text-text-muted hover:text-text-primary hover:bg-bg-hover shrink-0"><X size={12} /></button>
  </div>
  ) : (
  <div className="flex items-center gap-1.5 flex-1 min-w-0">
@@ -509,7 +510,7 @@ function TempsTab({
  )}
  <button
  onClick={() => { setEditingSensor(key); setRenameValue(displayName); }}
- className="p-0.5 rounded text-text-muted hover:text-text-secondary hover:bg-bg-hover shrink-0"
+ className="p-0.5 rounded coarse:min-h-10 coarse:min-w-10 coarse:inline-flex coarse:items-center coarse:justify-center text-text-muted hover:text-text-secondary hover:bg-bg-hover shrink-0"
  title="Rename sensor"
  >
  <Pencil size={11} />
@@ -531,6 +532,7 @@ export function DeviceDisplayConfigModal({
  availableThreadCount, availableMounts, availableInterfaces,
  availableTemps, availableGpuRows, sensorDisplayNames,
 }: Props) {
+ const { t } = useTranslation();
  const [activeSection, setActiveSection] = useState<Section>(initialSection);
  const [draft, setDraft] = useState<DeviceDisplayConfig>(config);
  const [saving, setSaving] = useState(false);
@@ -556,28 +558,28 @@ export function DeviceDisplayConfigModal({
  };
 
  return (
- <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
- <div className="w-full max-w-2xl rounded-xl bg-bg-primary shadow-2xl max-h-[90vh] flex flex-col">
+ <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 max-sm:p-0 max-sm:items-stretch">
+ <div className="w-full max-w-2xl rounded-xl bg-bg-primary shadow-2xl sm:max-h-[90dvh] sm:supports-[not(height:100dvh)]:max-h-[90vh] max-sm:h-dvh max-sm:supports-[not(height:100dvh)]:h-screen max-sm:rounded-none max-sm:pt-safe max-sm:pb-safe flex flex-col">
  {/* Header */}
  <div className="flex items-center justify-between px-6 py-4 shrink-0">
  <h2 className="text-base font-semibold text-text-primary flex items-center gap-2">
  <Settings2 size={16} /> Display Configuration
  </h2>
- <button onClick={onClose} className="text-text-muted hover:text-text-primary text-xl leading-none">
+ <button onClick={onClose} aria-label={t('common.close', 'Close')} className="text-text-muted hover:text-text-primary text-xl leading-none coarse:min-h-10 coarse:min-w-10 coarse:inline-flex coarse:items-center coarse:justify-center">
  <X size={18} />
  </button>
  </div>
 
  {/* Body */}
- <div className="flex flex-1 overflow-hidden min-h-0">
- {/* Left sidebar */}
- <div className="w-36 shrink-0 py-3 flex flex-col gap-0.5 px-2 overflow-y-auto">
+ <div className="flex flex-1 overflow-hidden min-h-0 max-sm:flex-col">
+ {/* Left sidebar (a horizontal strip on phones) */}
+ <div className="w-36 shrink-0 py-3 flex flex-col gap-0.5 px-2 overflow-y-auto max-sm:w-full max-sm:flex-row max-sm:overflow-x-auto max-sm:overflow-y-hidden max-sm:py-2 max-sm:scrollbar-none">
  {TABS.map(tab => (
  <button
  key={tab.id}
  onClick={() => setActiveSection(tab.id)}
  className={[
- 'w-full text-left px-3 py-2 rounded-lg text-sm transition-colors',
+ 'w-full text-left px-3 py-2 rounded-lg text-sm transition-colors max-sm:w-auto max-sm:shrink-0 max-sm:whitespace-nowrap',
  activeSection === tab.id
  ? 'bg-bg-hover text-text-primary'
  : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50',
@@ -589,7 +591,7 @@ export function DeviceDisplayConfigModal({
  </div>
 
  {/* Right content */}
- <div className="flex-1 overflow-y-auto p-5 space-y-5">
+ <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 space-y-5 max-sm:p-4">
  {activeSection === 'cpu' && (
  <CpuTab
  draft={draft}

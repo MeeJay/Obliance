@@ -75,17 +75,21 @@ object SystemBarContrast {
     /**
      * Whether the system bar icons should be light (white) over [argb].
      *
-     * The page states a preference ([requestedLightIcons]); it is honoured for
-     * mid-tone colours only. Over a clearly dark background icons are always
-     * light, over a clearly light one always dark, so a caller that got the
-     * boolean backwards can never make the status bar unreadable.
+     * [lightTheme] is the page's second setSystemBars argument: true = the web
+     * theme is LIGHT, so it wants DARK icons (Android "light status bar");
+     * false = dark theme, light icons. It decides for mid-tone colours only.
+     * Over a clearly dark background icons are always light, over a clearly
+     * light one always dark, so a caller that got the boolean backwards can
+     * never make the status bar unreadable. Not stated (null): mid tones get
+     * dark icons, the better contrast above this luminance.
      */
-    fun lightIcons(argb: Int, requestedLightIcons: Boolean): Boolean {
+    fun lightIcons(argb: Int, lightTheme: Boolean?): Boolean {
         val l = relativeLuminance(argb)
         return when {
             l < 0.18 -> true
             l > 0.55 -> false
-            else -> requestedLightIcons
+            lightTheme != null -> !lightTheme
+            else -> false
         }
     }
 

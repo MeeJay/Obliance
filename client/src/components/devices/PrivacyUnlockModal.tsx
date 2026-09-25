@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Lock, Loader2 } from 'lucide-react';
+import { Lock, Loader2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { deviceApi } from '@/api/device.api';
@@ -30,6 +30,10 @@ export function PrivacyUnlockModal({ deviceId, feature, featureLabel, mode = 'un
   const [submitting, setSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const label = featureLabel ?? t(FEATURE_LABELS[feature].key, FEATURE_LABELS[feature].fallback);
+  const title = mode === 'disable' ? t('privacy.unlock.disableTitle', 'Disable privacy mode') : t('privacy.unlock.title', 'Privacy mode unlock');
+  // While the request is in flight the dialog cannot be dismissed (× /
+  // Cancel disabled; Escape / Android back / backdrop are no-ops).
+  const guardedClose = () => { if (!submitting) onClose(); };
 
   useEffect(() => {
     // No programmatic focus on touch: it would pop the soft keyboard over
@@ -66,37 +70,21 @@ export function PrivacyUnlockModal({ deviceId, feature, featureLabel, mode = 'un
   return (
     <Modal
       open
-      onClose={onClose}
+      onClose={guardedClose}
       size="sm"
       phoneLayout="sheet"
-      // While the request is in flight the dialog cannot be dismissed
-      // (same as the old backdrop / × guards).
-      dismissible={!submitting}
+      // The historic header (px-5 py-4, icon circle, × kept visible but
+      // disabled while submitting) is rendered in the body instead of
+      // Modal's px-4 py-3 header, so the desktop dialog is unchanged.
+      showCloseButton={false}
       // On touch a tap outside is usually meant to hide the keyboard: keep
       // the dialog (× / Cancel / Android back still close it).
       closeOnBackdrop={!coarse}
       overlayClassName="bg-black/70"
-      className="sm:rounded-2xl"
-      bodyClassName="px-5 py-5 space-y-3"
+      className="sm:max-w-sm sm:rounded-2xl"
+      bodyClassName="p-0"
       footerClassName="px-5 bg-bg-tertiary/30"
-      ariaLabel={mode === 'disable' ? t('privacy.unlock.disableTitle', 'Disable privacy mode') : t('privacy.unlock.title', 'Privacy mode unlock')}
-      title={
-        <span className="flex items-center gap-3 font-normal">
-          <span className="w-9 h-9 shrink-0 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center">
-            <Lock className="w-4 h-4 text-accent" />
-          </span>
-          <span className="flex-1 min-w-0">
-            <span className="block text-sm font-semibold text-text-primary truncate">
-              {mode === 'disable' ? t('privacy.unlock.disableTitle', 'Disable privacy mode') : t('privacy.unlock.title', 'Privacy mode unlock')}
-            </span>
-            <span className="block text-xs text-text-muted truncate">
-              {mode === 'disable'
-                ? t('privacy.unlock.disableSubtitle', 'Enter the device password to turn privacy off')
-                : <>{t('privacy.unlock.subtitle', 'Enter the device password to access')} <span className="text-text-primary">{label}</span></>}
-            </span>
-          </span>
-        </span>
-      }
+      ariaLabel={title}
       footer={
         <>
           <button
@@ -117,7 +105,32 @@ export function PrivacyUnlockModal({ deviceId, feature, featureLabel, mode = 'un
         </>
       }
     >
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <div className="px-5 py-4 flex items-center gap-3">
+        <div className="w-9 h-9 shrink-0 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center">
+          <Lock className="w-4 h-4 text-accent" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-semibold text-text-primary">{title}</div>
+          <div className="text-xs text-text-muted truncate">
+            {mode === 'disable'
+              ? t('privacy.unlock.disableSubtitle', 'Enter the device password to turn privacy off')
+              : <>{t('privacy.unlock.subtitle', 'Enter the device password to access')} <span className="text-text-primary">{label}</span></>}
+          </div>
+        </div>
+        {/* Historic × (same classes as before the Modal migration) with a
+            40px touch target on coarse pointers. */}
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={submitting}
+          aria-label={t('common.close', 'Close')}
+          className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-colors disabled:opacity-50 coarse:min-h-10 coarse:min-w-10 coarse:flex coarse:items-center coarse:justify-center"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      <form onSubmit={handleSubmit} className="px-5 py-5 space-y-3">
         <input
           ref={inputRef}
           type="password"

@@ -48,7 +48,8 @@ function Toggle({
  type="button"
  role="switch"
  aria-checked={checked}
- onClick={() => onChange(!checked)}
+ // stopPropagation: on touch the whole row also toggles (see SectionSelector).
+ onClick={(e) => { e.stopPropagation(); onChange(!checked); }}
  className={[
  'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent',
  // Invisible ≥40px hit area on touch (desktop geometry unchanged).
@@ -89,6 +90,8 @@ function SectionSelector({
  extra?: ReactNode;
 }) {
  const { t } = useTranslation();
+ // Touch: the whole row is the tap target (the 36px switch alone is tiny).
+ const coarse = useIsCoarsePointer();
 
  const SECTION_LABELS: Record<Section, string> = {
  monitorGroups: t('importExport.monitorGroups'),
@@ -107,7 +110,10 @@ function SectionSelector({
  return (
  <div className="space-y-1">
  {/* All toggle */}
- <div className="flex items-center justify-between py-2 ">
+ <div
+ className={`flex items-center justify-between py-2 ${coarse ? 'cursor-pointer' : ''}`}
+ onClick={coarse ? () => onToggleAll(!allOn) : undefined}
+ >
  <span className="text-sm font-medium text-text-primary">{t('importExport.all')}</span>
  <Toggle
  checked={allOn}
@@ -118,7 +124,11 @@ function SectionSelector({
 
  {/* Individual sections */}
  {sections.map((s) => (
- <div key={s} className="py-1.5 coarse:py-2">
+ <div
+ key={s}
+ className={`py-1.5 coarse:py-2 ${coarse ? 'cursor-pointer' : ''}`}
+ onClick={coarse ? () => onToggle(s) : undefined}
+ >
  <div className="flex items-center justify-between gap-3">
  <div className="min-w-0">
  <span className="text-sm text-text-secondary">{SECTION_LABELS[s]}</span>
@@ -386,7 +396,10 @@ export function ImportExportPage({ embedded }: { embedded?: boolean } = {}) {
  descriptions={SECTION_DESCRIPTIONS}
  extra={
  exportSections.has('remediationActions') && (
- <div className="ml-2 sm:ml-4 mt-1 flex items-center justify-between gap-4 rounded-lg bg-bg-tertiary px-3 py-2.5">
+ <div
+ className={`ml-2 sm:ml-4 mt-1 flex items-center justify-between gap-4 rounded-lg bg-bg-tertiary px-3 py-2.5 ${coarse ? 'cursor-pointer' : ''}`}
+ onClick={coarse ? () => setIncludeSSHCredentials((v) => !v) : undefined}
+ >
  <div className="min-w-0">
  <span className="text-sm text-text-secondary">{t('importExport.includeSsh')}</span>
  <p className="text-[11px] text-text-muted mt-0.5">

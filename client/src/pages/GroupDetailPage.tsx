@@ -16,6 +16,8 @@ import { scenarioApi } from '@/api/scenario.api';
 import { softwareComplianceApi } from '@/api/softwareCompliance.api';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
+import { PageContainer } from '@/components/common/PageContainer';
+import { useConfirm } from '@/components/common/ConfirmDialog';
 
 export function GroupDetailPage() {
  const { id } = useParams<{ id: string }>();
@@ -23,6 +25,8 @@ export function GroupDetailPage() {
  const { t } = useTranslation();
  const { isAdmin, canWriteGroup } = useAuthStore();
  const { removeGroup, fetchGroups, fetchTree } = useGroupStore();
+ // Shared dialog (window.confirm is a no-op in the Android WebView — docs §5.6).
+ const confirm = useConfirm();
 
  const groupId = parseInt(id!, 10);
  const canWrite = canWriteGroup(groupId);
@@ -61,7 +65,7 @@ export function GroupDetailPage() {
  }
 
  const handleDelete = async () => {
- if (!confirm(t('groups.confirmDelete', { name: group.name }))) return;
+ if (!(await confirm({ message: t('groups.confirmDelete', { name: group.name }), danger: true }))) return;
  try {
  await groupsApi.delete(groupId);
  removeGroup(groupId);
@@ -75,22 +79,24 @@ export function GroupDetailPage() {
  };
 
  return (
- <div className="p-6">
+ <PageContainer>
  {/* Back button */}
- <Link to="/" className="inline-flex items-center gap-1 text-sm text-text-secondary hover:text-text-primary mb-4">
+ <Link to="/" className="inline-flex items-center gap-1 text-sm text-text-secondary hover:text-text-primary mb-4 coarse:min-h-10">
  <ArrowLeft size={14} />
  {t('monitors.backToDashboard')}
  </Link>
 
- {/* Header */}
- <div className="flex items-start justify-between mb-6">
- <div className="flex items-center gap-4">
- <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent/10">
+ {/* Header — below md the title block takes the full width (long
+ names wrap instead of being squeezed to nothing) and the actions
+ drop to their own line. */}
+ <div className="flex items-start justify-between mb-6 max-md:flex-wrap max-md:gap-3">
+ <div className="flex items-center gap-4 max-md:min-w-0 max-md:basis-full max-sm:gap-3">
+ <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent/10 max-md:shrink-0 max-sm:h-10 max-sm:w-10">
  <FolderOpen size={24} className="text-accent" />
  </div>
- <div>
+ <div className="max-md:min-w-0">
  <div className="flex items-center gap-2 flex-wrap">
- <h1 className="text-2xl font-semibold text-text-primary">{anonymize(group.name)}</h1>
+ <h1 className="text-2xl font-semibold text-text-primary max-md:min-w-0 max-md:break-words max-sm:text-xl">{anonymize(group.name)}</h1>
  {/* Tenant pill on master/god view so the admin sees which
  customer they're operating on at a glance. */}
  <TenantBadge tenantId={group.tenantId} tenantName={group.tenantName} size="md" />
@@ -102,7 +108,7 @@ export function GroupDetailPage() {
  </div>
 
  {canWrite && (
- <div className="flex items-center gap-2">
+ <div className="flex items-center gap-2 max-md:flex-wrap">
  <Link to={`/group/${groupId}/edit`}>
  <Button variant="secondary" size="sm">
  <Pencil size={14} className="mr-1.5" />
@@ -122,9 +128,11 @@ export function GroupDetailPage() {
  {/* Automations / policies attached to this group (+ its ancestors) */}
  <GroupAttachmentsPanel groupId={groupId} />
 
- {/* Device grid — same UX as /devices, pre-filtered on this group (+ descendants) */}
- <DeviceTable mode="monitoring" groupId={groupId} />
- </div>
+ {/* Device grid — same UX as /devices, pre-filtered on this group (+ descendants).
+ `embedded`: this page already pads the content, so the table drops
+ its own padding below lg (desktop keeps the historic double p-6). */}
+ <DeviceTable mode="monitoring" groupId={groupId} embedded />
+ </PageContainer>
  );
 }
 
@@ -180,7 +188,8 @@ function GroupAttachmentsPanel({ groupId }: { groupId: number }) {
  <div className="mb-6 rounded-xl bg-bg-secondary overflow-hidden">
  <button
  onClick={() => setOpen((v) => !v)}
- className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-bg-tertiary/40 transition-colors"
+ className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-bg-tertiary/40 transition-colors coarse:min-h-11"
+ aria-expanded={open}
  >
  {open ? <ChevronDown className="w-4 h-4 text-text-muted" /> : <ChevronRight className="w-4 h-4 text-text-muted" />}
  <span className="text-sm font-semibold text-text-primary">
@@ -248,15 +257,16 @@ function AttachmentColumn({ icon, label, items }: { icon: React.ReactNode; label
  key={it.id}
  to={it.href}
  className={clsx(
- 'flex items-center gap-1 text-xs px-2 py-0.5 rounded border transition-colors',
+ // Touch: ~20px chips grow to a 36px tap target (docs §5.4).
+ 'flex items-center gap-1 text-xs px-2 py-0.5 rounded border transition-colors coarse:min-h-9 coarse:px-2.5 max-md:max-w-full',
  it.disabled
  ? 'border-transparent/30 text-text-muted/50 bg-bg-tertiary/30 line-through'
  : 'border-transparent text-text-secondary bg-bg-tertiary/50 hover:border-accent/40 hover:text-text-primary',
  )}
  >
- <span>{it.name}</span>
+ <span className="max-md:truncate">{it.name}</span>
  {it.hint && (
- <span className="text-[9px] text-text-muted/70 font-mono">{it.hint}</span>
+ <span className="text-[9px] text-text-muted/70 font-mono max-md:shrink-0">{it.hint}</span>
  )}
  </Link>
  ))}

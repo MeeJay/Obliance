@@ -310,7 +310,7 @@ export function ScopeSelector({ defaultScopeType, defaultScopeId, onChange }: Pr
  type="button"
  onClick={toggleAllDevices}
  className={cn(
- 'flex items-center gap-2 px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors shrink-0',
+ 'flex items-center gap-2 px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors shrink-0 coarse:min-h-10',
  allDevicesSel
  ? 'bg-blue-600/20 text-blue-300'
  : 'bg-bg-tertiary text-text-muted hover:bg-bg-hover hover:text-text-primary',
@@ -322,7 +322,7 @@ export function ScopeSelector({ defaultScopeType, defaultScopeId, onChange }: Pr
  </button>
 
  {/* Scrollable list */}
- <div ref={deviceScrollRef} className="overflow-y-auto max-h-52 p-1 space-y-px">
+ <div ref={deviceScrollRef} className="overflow-y-auto sm:max-h-52 p-1 space-y-px">
  {groups.length === 0 && ungroupedDevices.length === 0 && (
  <p className="text-xs text-text-muted px-2 py-3 text-center">{t('maintenance.noAgentsInList')}</p>
  )}
@@ -338,7 +338,7 @@ export function ScopeSelector({ defaultScopeType, defaultScopeId, onChange }: Pr
  data-item-key={`group-${g.id}`}
  onClick={() => toggleGroup(g.id)}
  className={cn(
- 'w-full flex items-center gap-1.5 px-2 py-1 rounded text-sm text-left transition-colors',
+ 'w-full flex items-center gap-1.5 px-2 py-1 rounded text-sm text-left transition-colors coarse:min-h-10',
  state !== 'none'
  ? 'bg-blue-600/20 text-blue-300'
  : 'text-text-secondary hover:bg-white/5',
@@ -367,7 +367,7 @@ export function ScopeSelector({ defaultScopeType, defaultScopeId, onChange }: Pr
  : toggleIndividualDevice(d.id)
  }
  className={cn(
- 'w-full flex items-center gap-1.5 pl-5 pr-2 py-0.5 rounded text-xs text-left transition-colors',
+ 'w-full flex items-center gap-1.5 pl-5 pr-2 py-0.5 rounded text-xs text-left transition-colors coarse:min-h-10 coarse:text-sm',
  excluded
  ? 'text-red-400/60 line-through bg-red-500/5 hover:bg-red-500/10'
  : effective
@@ -399,7 +399,7 @@ export function ScopeSelector({ defaultScopeType, defaultScopeId, onChange }: Pr
  data-item-key={`device-${d.id}`}
  onClick={() => toggleIndividualDevice(d.id)}
  className={cn(
- 'w-full flex items-center gap-1.5 px-2 py-0.5 rounded text-xs text-left transition-colors',
+ 'w-full flex items-center gap-1.5 px-2 py-0.5 rounded text-xs text-left transition-colors coarse:min-h-10 coarse:text-sm',
  isDeviceEffective(d)
  ? 'bg-blue-600/10 text-blue-300/80'
  : 'text-text-muted hover:bg-white/5',

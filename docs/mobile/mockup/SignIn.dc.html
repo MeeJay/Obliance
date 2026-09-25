@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Connexion — téléphone</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Rajdhani:wght@600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+body{margin:0;font-family:Inter,system-ui,sans-serif;background:#0b0d1a;color:#f0f4fc;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+a{color:inherit;text-decoration:none}a:hover{color:inherit}
+::placeholder{color:#828caf;opacity:1}
+@keyframes obliPulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes obliSpin{to{transform:rotate(360deg)}}
+@keyframes obliSkeleton{0%,100%{opacity:.55}50%{opacity:1}}
+</style>
+</helmet>
+<div style="position:relative;width:390px;height:844px;box-sizing:border-box;display:flex;flex-direction:column;background:radial-gradient(130% 55% at 0% 0%,rgba(224,58,58,.12) 0%,rgba(224,58,58,0) 60%),#0B0D1A;overflow:hidden">
+
+  <main style="flex:1;min-height:0;overflow-x:hidden;overflow-y:auto;scrollbar-width:none;display:flex;flex-direction:column;padding:56px 16px 20px;box-sizing:border-box">
+
+    <div style="flex:none;display:flex;flex-direction:column;gap:10px">
+      <svg width="138" height="32" viewBox="0 0 529.75 122.88" role="img" aria-label="Obliance" style="display:block;flex:none"><defs><linearGradient id="obw-a-signin" x1="100.79" y1="22.04" x2="51.77" y2="110.5" gradientUnits="userSpaceOnUse"><stop offset=".11" stop-color="#c2001b"></stop><stop offset=".56" stop-color="#d28c7f"></stop><stop offset=".65" stop-color="#c0695f"></stop><stop offset=".87" stop-color="#941210"></stop><stop offset=".91" stop-color="#8b0000"></stop></linearGradient><linearGradient id="obw-b-signin" x1="20.66" y1="114.33" x2="63.21" y2="-2.64" gradientUnits="userSpaceOnUse"><stop offset=".08" stop-color="#c2001b"></stop><stop offset=".17" stop-color="#c41328"></stop><stop offset=".34" stop-color="#c9444b"></stop><stop offset=".56" stop-color="#d28c7f"></stop><stop offset=".59" stop-color="#cc8175"></stop><stop offset=".87" stop-color="#9d2421"></stop><stop offset="1" stop-color="#8b0000"></stop></linearGradient></defs><path fill="url(#obw-a-signin)" d="M122.88,61.44c0,33.93-27.51,61.44-61.44,61.44h-.08c-20.87-10.92-35.66-31.91-37.87-56.52,2.47,19.24,19.25,33.99,39.34,33.23,19.73-.75,35.83-16.78,36.66-36.5.65-15.47-7.91-29.02-20.65-35.6-.33-.17-.66-.34-1-.49-.66-.33-1.33-.62-2.02-.91-4.46-1.82-9.35-2.83-14.47-2.83-1.13,0-2.25.05-3.36.15-2.6.22-5.13.72-7.56,1.44-.17.05-.35.1-.51.16-.17.05-.35.1-.51.16t.03-.03s.02-.02.03-.03c.02-.02.03-.03.05-.05.04-.04.09-.09.16-.16.06-.06.13-.13.21-.2.16-.15.35-.33.58-.53,0,0,.03-.02.03-.03.23-.2.49-.43.79-.69.78-.66,1.78-1.46,2.98-2.32.97-.68,2.06-1.41,3.28-2.15.6-.36,1.25-.72,1.92-1.09.25-.13.51-.27.77-.4.39-.2.78-.4,1.19-.6.41-.19.82-.39,1.24-.58.4-.17.8-.35,1.22-.51.22-.09.43-.17.66-.26.27-.1.53-.21.8-.3.18-.07.37-.14.56-.2.4-.14.8-.28,1.22-.41.03-.02.06-.03.09-.03.53-.16,1.07-.32,1.61-.47.4-.11.79-.21,1.2-.3,1.01-.24,2.05-.45,3.12-.61.39-.06.78-.11,1.18-.16.08,0,.16-.02.23-.03.44-.05.89-.09,1.34-.13h0c4.18-.13,10.67.22,17.98,2.89,8.65,3.17,14.03,8.44,17.36,12.27,1.29,1.48,2.69,2.96,3.74,4.61,1.92,3.02,4.1,6.91,5.49,11.72,0,0,2.4,8.34,2.4,17.04Z"></path><path fill="url(#obw-b-signin)" d="M23.2,60.34c-.02.36-.03.73-.03,1.1,0,1.65.1,3.27.31,4.86,0,.02,0,.03,0,.05v.04c2.23,24.59,17.01,45.57,37.87,56.48-15.23-.02-29.16-5.58-39.89-14.78C8.19,96.72-.17,79.76,0,60.84.3,29.35,24.71,3.31,55.45.3h0c1.98-.21,3.99-.3,6.01-.3,9.64,0,18.77,2.23,26.89,6.19-3.38-.85-21.87-5.11-39.49,6.12-12.5,7.97-16.61,22.22-18.35,26.59-4.42,6.03-7.1,13.4-7.32,21.39v.04Z"></path><g fill="#c2001b"><path d="M199.09,74.73c0,20.35-9.68,31.24-32.78,31.24-10.34,0-20.02-1.98-29.15-6.16V21.27h11.77v32.45c6.16-7.26,13.86-10.45,23.98-10.45,17.16,0,26.18,11.22,26.18,31.46ZM187.1,74.84c0-13.53-4.95-21.12-17.82-21.12-9.57,0-15.84,5.06-20.35,12.43v26.73c5.94,1.76,12.43,2.64,18.04,2.86,13.86,0,20.13-7.26,20.13-20.9Z"></path><path d="M212.73,21.27h11.66v83.6h-11.66V21.27Z"></path><path d="M239.46,27.76c0-4.18,2.53-6.71,7.7-6.71s7.7,2.53,7.7,6.71-2.64,6.82-7.7,6.82-7.7-2.53-7.7-6.82ZM241.33,44.37h11.66v60.5h-11.66s0-60.5,0-60.5Z"></path></g><g fill="#ffffff"><path d="M322.4,68.35v36.52h-9.79l-1.54-10.01c-5.72,7.15-13.86,11.11-26.18,11.11-13.2,0-19.91-5.17-19.91-16.83s7.37-15.84,21.34-17.38l24.42-2.86v-1.65c0-10.23-4.95-12.87-15.84-12.87h-23.98l1.54-10.01h23.1c18.92,0,26.84,6.27,26.84,23.98ZM310.74,84.74v-7.81l-21.23,2.64c-8.8,1.21-12.54,2.97-12.54,8.91s3.3,8.47,10.89,8.47c10.34,0,17.93-4.18,22.88-12.21Z"></path><path d="M397.09,67.36v37.51h-11.66v-36.3c0-10.34-3.52-14.74-14.3-14.74-9.68,0-16.28,4.18-20.79,11.77v39.27h-11.66v-60.5h9.79l1.43,9.24c6.05-7.48,13.42-10.34,23.65-10.34,15.4,0,23.54,6.82,23.54,24.09Z"></path><path d="M410.18,74.62c0-20.35,11.22-30.25,32.78-30.25h17.16l1.65,10.01h-18.92c-13.97,0-20.68,6.38-20.68,20.24s6.71,20.24,20.68,20.24h19.14l-1.54,10.01h-17.49c-21.56,0-32.78-9.9-32.78-30.25Z"></path><path d="M529.75,79.02h-47.85c1.43,10.89,8.36,15.84,20.24,15.84h23.1l-1.54,10.01h-21.56c-21.01,0-32.45-9.9-32.45-30.25s10.78-31.35,30.58-31.35,29.48,8.58,29.48,29.59c0,0,0,6.16,0,6.16ZM517.98,69.78c0-11.88-5.94-16.61-17.71-16.61s-17.27,4.73-18.37,16.61h36.08Z"></path></g></svg>
+      <span style="font:400 14px/20px Inter,system-ui,sans-serif;color:#B4BCD7">Supervision et gestion à distance</span>
+    </div>
+
+    <div style="flex:none;display:flex;flex-direction:column;gap:4px;margin-top:40px">
+      <h1 style="margin:0;font:600 24px/28px Rajdhani,Inter,sans-serif;letter-spacing:.025em;color:#F0F4FC">Connexion</h1>
+      <p style="margin:0;font:400 14px/20px Inter,system-ui,sans-serif;color:#B4BCD7">Choisissez comment vous connecter à votre serveur.</p>
+    </div>
+
+    <div style="flex:none;display:flex;flex-direction:column;gap:12px;margin-top:16px">
+      <button type="button" aria-label="Serveur rmm.votre-msp.fr — changer de serveur" style="align-self:flex-start;display:inline-flex;align-items:center;height:44px;padding:0;border:0;background:transparent;cursor:pointer"><span style="display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 12px 0 10px;border-radius:8px;background:#1D2238;color:#F0F4FC;font:500 14px/20px Inter,system-ui,sans-serif;white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B4BCD7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>rmm.votre-msp.fr<span aria-hidden="true" style="color:#828CAF">·</span><span style="color:#60A5FA">Changer</span></span></button>
+
+      <div role="status" style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-radius:12px;background:#131728;box-shadow:0 6px 24px -8px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.03)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4ADE80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none;margin-top:2px"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>
+        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+          <span style="font:600 16px/24px Inter,system-ui,sans-serif;color:#F0F4FC">Obliance 5.1.110</span>
+          <span style="font:400 14px/20px Inter,system-ui,sans-serif;color:#B4BCD7">Connexion Obligate disponible <span style="white-space:nowrap">(id.votre-msp.fr)</span></span>
+        </span>
+      </div>
+    </div>
+
+    <div style="flex:none;display:flex;flex-direction:column;gap:8px;margin-top:20px">
+      <a href="Main.dc.html" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:52px;padding:0 20px;box-sizing:border-box;border:0;border-radius:8px;white-space:nowrap;cursor:pointer;font:500 14px/20px Inter,system-ui,sans-serif;background:#C83232;color:#FFFFFF;box-shadow:inset 0 1px 0 rgba(255,255,255,.10)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" x2="3" y1="12" y2="12"></line></svg>Se connecter avec Obligate</a>
+      <span style="text-align:center;font:400 12px/16px Inter,system-ui,sans-serif;color:#828CAF">Vous passerez par <span style="font:400 12px/16px 'JetBrains Mono',ui-monospace,monospace">id.votre-msp.fr</span>, puis reviendrez ici.</span>
+    </div>
+
+    <div aria-hidden="true" style="flex:none;margin:18px 0 14px;text-align:center;font:400 11px/14px 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:#828CAF">ou</div>
+
+    <section style="flex:none;display:flex;flex-direction:column;border-radius:12px;background:#131728;box-shadow:0 6px 24px -8px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.03)">
+      <button type="button" onClick="{{ toggleLocal }}" aria-expanded="{{localExpanded}}" aria-controls="local-login" style="display:flex;align-items:center;gap:14px;width:100%;min-height:64px;padding:8px 14px 8px 16px;box-sizing:border-box;border:0;border-radius:12px;background:transparent;text-align:left;cursor:pointer">
+        <span style="flex:none;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:6px;background:#1D2238;color:#B4BCD7"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></span>
+        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font:500 16px/22px Inter,system-ui,sans-serif;color:#F0F4FC">Connexion locale</span><span style="font:400 14px/20px Inter,system-ui,sans-serif;color:#828CAF">Identifiant et mot de passe Obliance</span></span>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#828CAF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none;transform:{{localChevron}}"><path d="m6 9 6 6 6-6"></path></svg>
+      </button>
+      <sc-if value="{{localOpen}}" hint-placeholder-val="{{ false }}">
+        <div id="local-login" style="display:flex;flex-direction:column;gap:12px;padding:4px 16px 12px">
+          <label style="display:block">
+            <span style="display:flex;flex-direction:column;justify-content:center;height:56px;padding:0 12px;box-sizing:border-box;border-radius:6px;background:#181C30">
+              <span style="font:400 12px/16px Inter,system-ui,sans-serif;color:#828CAF">Identifiant</span>
+              <input type="text" autocomplete="username" style="width:100%;padding:0;border:0;outline:none;background:transparent;color:#F0F4FC;font:400 16px/24px Inter,system-ui,sans-serif">
+            </span>
+          </label>
+          <div style="display:flex;align-items:center;height:56px;padding:0 4px 0 12px;box-sizing:border-box;border-radius:6px;background:#181C30">
+            <label style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center">
+              <span style="font:400 12px/16px Inter,system-ui,sans-serif;color:#828CAF">Mot de passe</span>
+              <input type="password" autocomplete="current-password" style="width:100%;padding:0;border:0;outline:none;background:transparent;color:#F0F4FC;font:400 16px/24px Inter,system-ui,sans-serif">
+            </label>
+            <button type="button" aria-label="Afficher le mot de passe" style="flex:none;display:flex;align-items:center;justify-content:center;width:48px;height:48px;padding:0;border:0;border-radius:24px;background:transparent;color:#B4BCD7;cursor:pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+          </div>
+          <a href="Main.dc.html" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:48px;padding:0 20px;box-sizing:border-box;border:0;border-radius:8px;white-space:nowrap;cursor:pointer;font:500 14px/20px Inter,system-ui,sans-serif;background:#1D2238;color:#F0F4FC">Se connecter</a>
+          <button type="button" style="align-self:center;display:inline-flex;align-items:center;height:44px;padding:0 12px;border:0;border-radius:8px;background:transparent;color:#60A5FA;font:500 14px/20px Inter,system-ui,sans-serif;cursor:pointer">Mot de passe oublié&#8239;?</button>
+        </div>
+      </sc-if>
+    </section>
+
+    <div style="flex:none;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:auto;padding-top:20px;font:400 12px/16px Inter,system-ui,sans-serif;color:#828CAF"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>Connexion sécurisée par HTTPS</div>
+
+  </main>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state || {};
+    const open = !!s.localOpen;
+    return {
+      localOpen: open,
+      localExpanded: open ? 'true' : 'false',
+      localChevron: open ? 'rotate(180deg)' : 'none',
+      toggleLocal: () => this.setState({ localOpen: !open })
+    };
+  }
+}
+</script>
+</body>
+</html>

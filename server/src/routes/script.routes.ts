@@ -149,8 +149,19 @@ router.post('/:id/execute', async (req, res, next) => {
   try {
     const { deviceIds: rawDeviceIds, targetType, targetIds, parameterValues } = req.body;
 
+    // The script must be visible to the caller's tenant: owned by it, a
+    // system script, or fanned out to it by the master tenant
+    // (target_tenant_ids) — scriptService.getScriptById applies exactly that
+    // scope. Without this, any tenant could run (and read back through the
+    // execution snapshot) another tenant's script by id.
+    const scriptId = parseInt(req.params.id, 10);
+    const script = Number.isFinite(scriptId) ? await scriptService.getScriptById(scriptId, req.tenantId!) : null;
+    if (!script) return res.status(404).json({ error: 'Script not found' });
+
     // Resolve device IDs from targetType/targetIds or raw deviceIds
-    let deviceIds: number[] = rawDeviceIds ?? [];
+    let deviceIds: number[] = Array.isArray(rawDeviceIds)
+      ? [...new Set(rawDeviceIds.map((d: unknown) => Number(d)).filter((d: number) => Number.isInteger(d) && d > 0))]
+      : [];
 
     if (targetType === 'all') {
       const devices = await db('devices').where({ tenant_id: req.tenantId!, approval_status: 'approved' })
@@ -167,15 +178,22 @@ router.post('/:id/execute', async (req, res, next) => {
         .whereIn('group_id', allGroupIds)
         .pluck('id');
       deviceIds = devices;
+    } else if (deviceIds.length) {
+      // Explicit ids: keep only devices of the caller's tenant (executeNow
+      // would silently skip the others anyway; filtering here keeps the
+      // permission check and the approval request honest).
+      deviceIds = await db('devices').where({ tenant_id: req.tenantId! }).whereIn('id', deviceIds).pluck('id');
     }
 
     if (!deviceIds.length) return res.status(400).json({ error: 'No target devices found' });
 
-    // Permission check: user must have write access to all target devices
+    // Permission check — non-admins need the 'execute' capability on EVERY
+    // target device (same capability POST /api/commands requires for
+    // run_script). A plain rw grant is not enough.
     if (req.session.role !== 'admin') {
-      for (const did of deviceIds) {
-        const canWrite = await permissionService.canWriteDevice(req.session.userId!, did, false);
-        if (!canWrite) throw new AppError(403, 'Insufficient permissions');
+      const lacking = await permissionService.devicesLackingCapability(req.session.userId!, deviceIds, 'execute');
+      if (lacking.length) {
+        throw new AppError(403, `Capability 'execute' not permitted for your team on device #${lacking[0]}`);
       }
     }
 
@@ -186,13 +204,13 @@ router.post('/:id/execute', async (req, res, next) => {
       actionKey: 'script.execute_manual',
       deviceIds,
       approvalRequestType: 'batch_command',
-      approvalDescription: `Manually run script #${req.params.id} on ${deviceIds.length} device(s)`,
-      approvalPayload: { action: 'run_script', deviceIds, params: { scriptId: parseInt(req.params.id), parameterValues: parameterValues || {} } },
+      approvalDescription: `Manually run script #${scriptId} on ${deviceIds.length} device(s)`,
+      approvalPayload: { action: 'run_script', deviceIds, params: { scriptId, parameterValues: parameterValues || {} } },
     });
     if (!approved) return;
 
     const rawExecs = await scheduleService.executeNow(
-      parseInt(req.params.id), deviceIds, req.tenantId!,
+      scriptId, deviceIds, req.tenantId!,
       parameterValues || {}, req.session.userId!
     );
     const executions = rawExecs.map((r: any) => ({
@@ -207,7 +225,7 @@ router.post('/:id/execute', async (req, res, next) => {
     try {
       const { auditService } = await import('../services/audit.service');
       await auditService.logReq(req, 'script.executed_manually', {
-        resourceType: 'script', resourcePath: req.params.id,
+        resourceType: 'script', resourcePath: String(scriptId),
         details: { deviceCount: deviceIds.length, executionCount: executions.length },
       });
     } catch {}

@@ -1,0 +1,532 @@
+{
+ "area": "devices — fleet views (DashboardPage, DeviceListPage, GroupDetailPage, GroupEditPage, GroupManagePage, AdminDevicesPage, AdminAgentPage, AgentDetailPage, components/devices/*, components/groups/*)",
+ "filesReviewed": [
+  "D:\\Obliance\\client\\src\\pages\\DashboardPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\DeviceListPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\GroupDetailPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\GroupEditPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\GroupManagePage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\AdminDevicesPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\AdminAgentPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\AgentDetailPage.tsx",
+  "D:\\Obliance\\client\\src\\components\\devices\\DeviceTable.tsx",
+  "D:\\Obliance\\client\\src\\components\\devices\\DeviceRow.tsx",
+  "D:\\Obliance\\client\\src\\components\\devices\\DevicesPageLayout.tsx",
+  "D:\\Obliance\\client\\src\\components\\devices\\GroupSidePanel.tsx",
+  "D:\\Obliance\\client\\src\\components\\devices\\GroupTreePicker.tsx",
+  "D:\\Obliance\\client\\src\\components\\devices\\DeviceStatusBadge.tsx",
+  "D:\\Obliance\\client\\src\\components\\devices\\StyledCheckbox.tsx",
+  "D:\\Obliance\\client\\src\\components\\devices\\OsIcon.tsx",
+  "D:\\Obliance\\client\\src\\components\\devices\\DeviceMetricsBar.tsx",
+  "D:\\Obliance\\client\\src\\components\\devices\\DeviceCvesSection.tsx",
+  "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx",
+  "D:\\Obliance\\client\\src\\components\\devices\\RewindTab.tsx",
+  "D:\\Obliance\\client\\src\\components\\devices\\CustomSectionTab.tsx",
+  "D:\\Obliance\\client\\src\\components\\devices\\TransferTenantModal.tsx",
+  "D:\\Obliance\\client\\src\\components\\devices\\PrivacyUnlockModal.tsx",
+  "D:\\Obliance\\client\\src\\components\\devices\\PrivacyPasswordManageModal.tsx",
+  "D:\\Obliance\\client\\src\\components\\devices\\AddDeviceModal.tsx",
+  "D:\\Obliance\\client\\src\\components\\groups\\GroupNode.tsx",
+  "D:\\Obliance\\client\\src\\components\\groups\\GroupTree.tsx",
+  "D:\\Obliance\\client\\src\\utils\\deviceLine2Fields.ts (field count only)",
+  "D:\\Obliance\\client\\src\\components\\common\\GroupPicker.tsx (skimmed, alternative move path)",
+  "D:\\Obliance\\client\\src\\components\\hyperv\\HyperVVmTable.tsx (table wrapper only, embedded in Dashboard)",
+  "D:\\Obliance\\client\\src\\components\\veeam\\BackupJobTable.tsx (table wrapper only, embedded in Dashboard)"
+ ],
+ "globalFindings": [
+  {
+   "problem": "No responsive split-pane pattern. /devices always renders GroupSidePanel (fixed 260px inline width, expanded by default) side by side with the device table at every viewport width. The panel only has a manual collapse button, and its state lives in localStorage, which a fresh Android WebView does not have.",
+   "fix": "Add a shared `useMediaQuery`/`useBreakpoint` hook in src/hooks/, plus a `ResponsiveSidePanel` wrapper (or make GroupSidePanel mode-aware). Below lg, render GroupSidePanel as an off-canvas drawer (fixed, full height, backdrop, closes after a group is picked) opened by a 'Groups' button in the DeviceTable toolbar. At lg and above, keep the inline resizable panel. Apply the same pattern in AppLayout's Sidebar (outside this area): on a tablet, the two stacked sidebars leave about 270px for the device list.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\devices\\DevicesPageLayout.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\GroupSidePanel.tsx"
+   ]
+  },
+  {
+   "problem": "Actions or checkboxes are revealed only on hover, which does not exist on touch. Examples: `opacity-0 group-hover:opacity-100` and `border-transparent hover:border-*`. The controls are invisible on touch, and tapping blindly where they sit fires them anyway.",
+   "fix": "Fix it once in tailwind.config: add a custom variant `addVariant('hover-capable', '@media (hover: hover) and (pointer: fine)')`, or a CSS utility `.reveal-on-hover { opacity: 0 } @media (hover:hover){ .group:hover .reveal-on-hover{opacity:1} } @media (hover:none){ .reveal-on-hover{opacity:1} }`. Then replace every `opacity-0 group-hover:opacity-100` with it. Give StyledCheckbox a visible unchecked border (for example `border-text-muted/40`) when the pointer is coarse.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\devices\\GroupSidePanel.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\StyledCheckbox.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\DeviceRow.tsx",
+    "D:\\Obliance\\client\\src\\pages\\GroupManagePage.tsx"
+   ]
+  },
+  {
+   "problem": "`title=` is the only carrier for information that matters. Examples: custom-metric names, the failing schedule name and stderr, the meaning of the reboot, privacy, airgap and duplicate icons, the legacy-agent limitations, the compliance and pending-update icons on dashboard group cards, full mount paths, CVE confidence, and the reason a disabled action is disabled (unsupportedTooltip). None of this can be reached by touch.",
+   "fix": "Create src/components/common/Tip.tsx. On a fine pointer it renders a hover tooltip. On a coarse pointer it shows a small tap-to-toggle popover (it closes when the user taps elsewhere). Use it for every icon-only status indicator. For disabled buttons, add a `DisabledReason` wrapper that shows a toast or popover with the reason when the disabled control is tapped.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\devices\\DeviceRow.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\DeviceStatusBadge.tsx",
+    "D:\\Obliance\\client\\src\\pages\\DashboardPage.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\DeviceCvesSection.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\DeviceMetricsBar.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\DeviceTable.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx"
+   ]
+  },
+  {
+   "problem": "There is no shared Modal primitive. There are 8 hand-rolled `fixed inset-0 flex items-center justify-center` modals. Most have no max-height and no scrollable body, so when the soft keyboard is open or the phone is in landscape, the footer (Confirm / Transfer / Set password) is pushed off-screen and cannot be reached. Backdrop-close behaviour also varies: RunScriptModal cannot be closed from its backdrop, while the Privacy modals close on any backdrop tap.",
+   "fix": "Create src/components/common/Modal.tsx. Below sm it is full-screen (or a bottom sheet) sized with `max-h-[100dvh]`. Above sm it is centered with `max-h-[90dvh]`. The body scrolls (`overflow-y-auto`) and the header and footer are sticky. It pads for safe-area insets (`env(safe-area-inset-*)`), handles Escape and backdrop consistently, and runs `scrollIntoView` on the focused input. Migrate ChangeGroupModal, BulkTransferTenantModal, RunScriptModal (DeviceTable), TransferTenantModal, PrivacyUnlockModal and PrivacyPasswordManageModal to it.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\devices\\DeviceTable.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\TransferTenantModal.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\PrivacyUnlockModal.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\PrivacyPasswordManageModal.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\AddDeviceModal.tsx"
+   ]
+  },
+  {
+   "problem": "There is no shared Popover/Dropdown. DeviceTable hand-rolls 6 popovers (export, columns, OS names, OS builds, tags, batch actions) and GroupTreePicker hand-rolls another. They use fixed widths (w-56, w-64, w-72) and a hard `left-0` or `right-0` anchor, with no viewport collision handling. Some have no max-height (columns, batch menu). The batch menu cannot be dismissed by tapping outside it.",
+   "fix": "Add @floating-ui/react (or Radix Popover) and create src/components/common/Popover.tsx. It flips and shifts to stay in the viewport, uses `max-h-[min(320px,60dvh)] overflow-y-auto`, closes on an outside pointerdown, and renders as a bottom sheet on `(pointer: coarse) and (max-width: 640px)`. Replace all 7 popovers with it.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\devices\\DeviceTable.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\GroupTreePicker.tsx"
+   ]
+  },
+  {
+   "problem": "File saving uses `URL.createObjectURL(blob)` plus `<a download>.click()`. Android WebView ignores the download attribute, and DownloadManager cannot fetch `blob:` URLs, so exports and file downloads silently do nothing in the app. In the same way, `iframe.contentWindow.print()` is a no-op in WebView.",
+   "fix": "Create src/utils/download.ts with `saveBlob(blob, filename, mime)`. When a native bridge is present (e.g. `window.ObliNative?.saveFile(base64, filename, mime)`, injected by the Android shell through addJavascriptInterface), it passes base64 to the bridge. Otherwise it falls back to the anchor download. Add `printHtml(html)` in the same module, which calls the bridge (the native side uses WebView.createPrintDocumentAdapter plus PrintManager). Route every download and print through it. This should be the template for all Obli mobile apps.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\devices\\DeviceTable.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\CustomSectionTab.tsx"
+   ]
+  },
+  {
+   "problem": "Native `confirm()` and `prompt()` are used for destructive and data-entry flows: batch delete, batch agent update, group delete, API key delete, tenant transfer, Hyper-V VM delete and checkpoint name, Veeam stop, unsaved-changes guard, and new folder name. In Android WebView, these dialogs appear only if the shell installs a WebChromeClient that handles onJsConfirm and onJsPrompt. Without one, confirm() returns false and prompt() returns null, so every one of these actions silently does nothing.",
+   "fix": "Short term: the Android shell must set a WebChromeClient (the default implementation shows the dialogs). Long term: add `useConfirm()` and `usePrompt()` hooks (src/hooks/useDialog.tsx) backed by the new Modal, and replace every call site: DeviceTable.tsx:511,523; GroupDetailPage.tsx:64; AdminDevicesPage.tsx:76; TransferTenantModal.tsx:56; DashboardPage.tsx:685,688,753; FileExplorerTab.tsx:489,499.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\devices\\DeviceTable.tsx",
+    "D:\\Obliance\\client\\src\\pages\\GroupDetailPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\AdminDevicesPage.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\TransferTenantModal.tsx",
+    "D:\\Obliance\\client\\src\\pages\\DashboardPage.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx"
+   ]
+  },
+  {
+   "problem": "External links and new windows: `target=\"_blank\"` links (NVD/GHSA in DeviceCvesSection) and `window.open` (DeviceRow middle-click). With default settings, WebView either loads them inside the app, replacing the SPA and its state, or drops them.",
+   "fix": "Create src/utils/openExternal.ts. It calls a bridge (`ObliNative.openExternal(url)`, which opens a Custom Tab or the external browser) when present, and falls back to window.open otherwise. The shell should also intercept off-origin navigations in shouldOverrideUrlLoading.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\devices\\DeviceCvesSection.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\DeviceRow.tsx"
+   ]
+  },
+  {
+   "problem": "File upload uses a programmatically created `<input type=file>`, plus drag-and-drop. In WebView the file chooser opens only if the shell implements WebChromeClient.onShowFileChooser, and drag-and-drop from the OS does not exist on Android. Each file is also read fully into a base64 data URL in memory, up to 150 MB, which risks an OOM on low-RAM tablets.",
+   "fix": "The shell must implement onShowFileChooser, and this must be documented as a mandatory part of the shared Obli Android shell. In the client, keep the Upload button as the primary path and lower the per-file cap on mobile, or switch to chunked streaming.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx"
+   ]
+  },
+  {
+   "problem": "The dnd-kit setup is not touch-capable. It uses only PointerSensor with `distance: 5`, and drag handles have no `touch-action: none`, so on touch the browser claims the gesture for scrolling and the drag is cancelled (pointercancel).",
+   "fix": "Create a shared hook, e.g. src/hooks/useDndSensors.ts, that returns `useSensors(useSensor(MouseSensor,{activationConstraint:{distance:5}}), useSensor(TouchSensor,{activationConstraint:{delay:250,tolerance:6}}), useSensor(KeyboardSensor))`, and always put `touch-none` on handles. Reuse it for every dnd-kit consumer in the app (scenario canvas, etc.).",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\devices\\GroupSidePanel.tsx",
+    "D:\\Obliance\\client\\src\\pages\\GroupManagePage.tsx"
+   ]
+  },
+  {
+   "problem": "Tap targets are systematically 14–28px. Examples: icon buttons with p-0.5 or p-1 and 12–14px icons, chips with `px-2.5 py-1 text-xs`, 16px checkboxes, 16px expand chevrons, and 10px sort labels.",
+   "fix": "Add a coarse-pointer rule in index.css (`@media (pointer: coarse) { .tap { min-height: 40px; min-width: 40px } }`) or a Tailwind variant `coarse:` (`@media (pointer: coarse)`). Add `size=\"icon\"` to the shared Button (common/Button.tsx) with coarse-pointer min 40x40, and use it for icon-only buttons in this area.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\devices\\DeviceTable.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\DeviceRow.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\GroupSidePanel.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\StyledCheckbox.tsx",
+    "D:\\Obliance\\client\\src\\pages\\GroupEditPage.tsx"
+   ]
+  },
+  {
+   "problem": "Every page hard-codes `p-6` padding (DashboardPage:916, GroupDetailPage:78, GroupEditPage:180, AdminDevicesPage:116, DeviceTable:626/633). DeviceTable is also nested inside GroupDetailPage's own p-6, which gives 48px per side on a 360px phone. The layout also relies on `calc(100vh - Npx)` heights (FileExplorerTab:788, CustomSectionTab:161,485), which misbehave with mobile browser chrome and the soft keyboard.",
+   "fix": "Create src/components/layout/PageContainer.tsx with `p-3 sm:p-4 lg:p-6`, and give DeviceTable an `embedded` prop that drops its own padding. Replace the `calc(100vh-…)` heights with flex layouts or `dvh` units.",
+   "files": [
+    "D:\\Obliance\\client\\src\\pages\\DashboardPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\GroupDetailPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\GroupEditPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\AdminDevicesPage.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\DeviceTable.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\CustomSectionTab.tsx"
+   ]
+  },
+  {
+   "problem": "Inputs use font-size below 16px (text-sm or text-xs), which triggers an auto-zoom on focus on iOS and the WebKit family. Android Chrome and WebView do not zoom, so this matters less for Android, but it matters for a future iOS shell.",
+   "fix": "Add to index.css: `@media (pointer: coarse) { input, select, textarea { font-size: 16px; } }`. Affected: DeviceTable.tsx:666,1838; GroupSidePanel.tsx:374,379,732; FileExplorerTab.tsx:859,1125; AdminDevicesPage.tsx:172,178; Privacy modals.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\devices\\DeviceTable.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\GroupSidePanel.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx",
+    "D:\\Obliance\\client\\src\\pages\\AdminDevicesPage.tsx"
+   ]
+  },
+  {
+   "problem": "Dead code in this area. Nothing routes to or imports these files: GroupManagePage (no route in App.tsx), AdminAgentPage, AgentDetailPage, AddDeviceModal, components/groups/GroupTree.tsx and GroupNode.tsx. Their touch problems (hover-only Add/Edit/Delete at GroupManagePage.tsx:530-561) are therefore moot.",
+   "fix": "Delete these files rather than making them responsive, so nobody spends effort on them during the mobile sweep.",
+   "files": [
+    "D:\\Obliance\\client\\src\\pages\\GroupManagePage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\AdminAgentPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\AgentDetailPage.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\AddDeviceModal.tsx",
+    "D:\\Obliance\\client\\src\\components\\groups\\GroupTree.tsx",
+    "D:\\Obliance\\client\\src\\components\\groups\\GroupNode.tsx"
+   ]
+  }
+ ],
+ "issues": [
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\DevicesPageLayout.tsx",
+   "loc": "52-57 (with GroupSidePanel.tsx:45 DEFAULT_WIDTH=260, :49-51 default expanded, :652 inline width style)",
+   "severity": "blocker",
+   "problem": "/devices always renders `flex` = GroupSidePanel (fixed 260px) + DeviceTable side by side, with no breakpoint. On a 360px phone, the table pane is about 100px wide, and after DeviceTable's own p-6 about 52px of content remains, so the device list is unusable. On a 768px portrait tablet with the app sidebar also open, about 270px remains. The panel is expanded by default (localStorage empty in a fresh WebView).",
+   "fix": "Below lg, hide GroupSidePanel and render it as an off-canvas drawer toggled from a 'Groups' button in the DeviceTable toolbar. The drawer closes after a group is selected. Keep the inline panel at lg and above. Default it to collapsed when the viewport is below lg."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\DeviceRow.tsx",
+   "loc": "161, 170-293 (metrics block 247-278 flex-shrink-0; badge 280; lastSeen 282; eye 286-292); container DeviceTable.tsx:1120 overflow-hidden",
+   "severity": "blocker",
+   "problem": "Line 1 of each row is a single non-wrapping flex row. The fixed-width content alone is about 590px: three MiniBars at 104px each plus gaps (336px, flex-shrink-0), the status badge (~70px, +100px when the 'Update available' pill shows), lastSeen w-8, the eye button, checkbox, OS icon and gaps. The only shrinkable item is the device name, so it collapses to 0px first. The rest overflows and is clipped by the list's `overflow-hidden`. Result: on a phone (~280px of row content) and on a portrait tablet with the group panel open, device names are invisible and status, last-seen and the eye button are cut off.",
+   "fix": "Make the row responsive. Below md: line 1 = OS icon + name (truncate, flex-1) + status dot/badge; line 2 = compact metrics (reuse `DeviceMetricsBar compact` or three small % numbers) + lastSeen; drop the eye button (the row itself is the tap target). Hide MiniBars and custom metrics below md, or move them to line 2. Replace `h-[72px]` with `min-h-[72px]`."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx",
+   "loc": "810-824 (onClick=select, onDoubleClick=open/edit/download, onContextMenu=menu); 882-890 folder name looks clickable but isn't",
+   "severity": "blocker",
+   "problem": "Opening a folder, which is the core navigation of the file explorer, is only possible by double-click, or by right-click then Open. A single tap only toggles selection. On a tablet, double-tap is unreliable in WebView (it conflicts with zoom and dblclick synthesis), and long-press-to-contextmenu is undiscoverable. The breadcrumb only goes upwards. Browsing a device's filesystem is therefore effectively unreachable on touch.",
+   "fix": "On a coarse pointer (or always), a single tap on a directory row, or on the name cell, navigates into it. Selection moves to an explicit checkbox cell. A single tap on an editable file opens the editor. Keep long-press opening the context menu as a bonus, with a visible '⋮' button per row as the discoverable path."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx",
+   "loc": "930 (row actions `opacity-0 group-hover:opacity-100`); 932-977 buttons p-1 + 14px icons",
+   "severity": "blocker",
+   "problem": "Edit, Download, Rename and Delete per row are invisible until hover. On touch they only appear through sticky-hover after tapping the row, which also toggles selection, and the targets are about 22px. With double-click also unavailable (see the previous issue), these hidden buttons are the only visible route to the file actions on a tablet.",
+   "fix": "Show the actions permanently on coarse pointers, via the shared reveal-on-hover variant. On narrow widths, collapse them into one '⋮' button (40x40) that opens the existing context menu anchored to the button."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx",
+   "loc": "373-381 (blob URL + a.download)",
+   "severity": "blocker",
+   "problem": "File download builds a Blob, then `URL.createObjectURL`, then `<a download>.click()`. In Android WebView the download attribute is ignored and the DownloadListener receives a `blob:` URL that DownloadManager cannot fetch. The 'download success' toast shows, but nothing is saved.",
+   "fix": "Route the download through the shared `saveBlob()` util. It must call a native bridge with the base64 content, which the file already has in `result.data`, so it can be passed straight through."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\DeviceTable.tsx",
+   "loc": "274-300 (handleExport → createObjectURL + a.download)",
+   "severity": "blocker",
+   "problem": "The fleet export (CSV/XLSX/PDF) uses the same blob-anchor download, so it silently fails in Android WebView.",
+   "fix": "Use the shared `saveBlob()` with the bridge fallback. Alternatively, let the shell download from a signed, direct server URL via DownloadManager (it needs the session cookie passed through)."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx",
+   "loc": "1084 (`w-1/2 min-w-[400px]` editor panel next to file list in `flex gap-3` at 680)",
+   "severity": "blocker",
+   "problem": "The inline text editor is a side panel with a minimum width of 400px next to the file list. On a phone (~300px content), the panel overflows the viewport horizontally, and its Save and Close buttons at the right end of the header (1095-1111) end up off-screen. On a portrait tablet, the file list is squeezed to near-zero width.",
+   "fix": "Below lg, render the editor as a full-screen overlay (via the shared Modal) instead of a side panel. Drop min-w-[400px] and use `lg:w-1/2`."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\CustomSectionTab.tsx",
+   "loc": "333-343 (iframe.contentWindow.print()); 449-455",
+   "severity": "blocker",
+   "problem": "'Export PDF' for HTML custom sections calls `contentWindow.print()`. `window.print()` is a no-op in Android WebView and throws nothing, so there is no error toast either. The feature is unreachable in the app.",
+   "fix": "Call the native bridge (`ObliNative.printHtml(html)`, which uses createPrintDocumentAdapter plus PrintManager) when available, via a shared `printHtml()` util. Otherwise fall back to print()."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx",
+   "loc": "633-648 (programmatic input[type=file]); 757-767 drop zone; 590-614 FileReader base64 up to 150MB",
+   "severity": "major",
+   "problem": "Upload works only if the Android shell implements onShowFileChooser, and drag-and-drop is desktop-only. Reading up to 150MB into a base64 data URL in memory can crash low-RAM tablets. The drop overlay text 'Max 150 MB per file' is hard-coded (774).",
+   "fix": "Make onShowFileChooser mandatory in the shell. Keep the Upload button as the primary path and show it prominently when the pointer is coarse. Lower the cap, or chunk the upload, on mobile."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\DeviceRow.tsx",
+   "loc": "171-191 (checkbox 16px, unselected = `border-transparent hover:border-accent/50`); StyledCheckbox.tsx:20-23; DeviceTable.tsx:1126-1128 header select-all",
+   "severity": "major",
+   "problem": "For admins outside selection mode, the per-row checkbox and the header 'select all' StyledCheckbox are fully transparent until hovered, and only 16x16px. On touch: (a) select-all is undiscoverable; (b) tapping near the left edge of a row silently selects it instead of opening the device. 'Select' mode (698-714) is a workaround but is not obvious.",
+   "fix": "On coarse pointers, always draw the unchecked border (border-text-muted/40) and pad the hit area to at least 40x40 (a wrapping button with p-3 and -m-3). Alternatively, hide the checkbox column entirely unless selection mode is on, and add long-press on a row to enter selection mode."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\DeviceRow.tsx",
+   "loc": "251-274 (custom metrics chips show only value+unit; name only in title); 270-273 '+N' overflow list title-only; 214-235 reboot/privacy/airgap/duplicate/legacy icons title-only; 60 MiniBar title",
+   "severity": "major",
+   "problem": "The row shows custom-metric chips like '42 %' with no metric name; the name, and all overflow metrics, exist only in `title`. The reboot-pending, privacy, airgap and duplicate-UUID icons and the Legacy badge's explanation are also title-only. On touch there is no way to learn what these indicators mean from the list.",
+   "fix": "Use the shared `<Tip>` (tap-to-reveal on coarse pointers). For custom metrics, show 'name: value' in a truncated chip at md and above, and move them to line 2 on mobile."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\DeviceStatusBadge.tsx",
+   "loc": "49-60 (scheduleAlert pill; schedule name/exit code/stderr only in title)",
+   "severity": "major",
+   "problem": "The 'Schedule error' pill shows which schedule failed, its exit code and its stderr only in a title tooltip. The badge is also used in the DeviceDetailPage header (DeviceDetailPage.tsx:5658), so on touch the failure details are unreachable from the badge.",
+   "fix": "Make the pill a button that opens a Tip or popover (or links to the schedule run in history) with the name, exit code and first stderr lines."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\DeviceRow.tsx",
+   "loc": "299 (Line2Fields `flex items-center` no wrap, fixed `pl-[68px]`/`pl-[40px]` offset 125) + 161 `h-[72px]`",
+   "severity": "major",
+   "problem": "Line 2 (IP, OS up to 180px, agent version, group, last user, and optional MAC, geo and tags) never wraps and is clipped by the list container. On a phone only the first one or two fields show, and the fixed 68px left offset wastes 20% of the row. The fixed row height prevents wrapping as a fix.",
+   "fix": "Below md, set `flex-wrap`, reduce the left offset to 0 or 24px, use `min-h` instead of `h-[72px]`, and limit mobile to 2-3 prioritized fields (OS, group, last user)."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\DeviceTable.tsx",
+   "loc": "633-1108 (sticky toolbar: approval chips 639-654, search row 660-762, tenant chips 768-800, status/OS/sub-filter/tag chips 803-1016, batch bar 1020-1107)",
+   "severity": "major",
+   "problem": "On a phone, the sticky filter band wraps to about 280px (5 approval chips, the search row, about 10 status/OS chips, sub-filters and tags) and grows about 44px more when the batch bar appears. That is about 40% of a portrait screen. In landscape (about 300px usable height) it covers the whole scroll pane, so the device rows cannot be seen or reached.",
+   "fix": "Below md, keep only the search row and a 'Filters (n)' button sticky. Move the approval, status, OS, tag and tenant chips into a bottom-sheet or drawer. Alternatively, make the chip rows horizontally scrollable (`flex-nowrap overflow-x-auto`) instead of wrapping."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\DeviceTable.tsx",
+   "loc": "852 (OS names popover `left-0 w-72`), 909 (builds `left-0 w-64`), 978 (tags `left-0 w-64`)",
+   "severity": "major",
+   "problem": "These popovers are anchored to chips that may sit anywhere in a wrapped chip row, with fixed widths of 256–288px and `left-0`. On a 360px phone, a chip at x≥150 pushes the popover past the right edge. The right pane is `overflow-y-auto`, which makes overflow-x auto too, so this creates horizontal scroll or clips the checkboxes and counts.",
+   "fix": "Use the shared collision-aware Popover. On a phone, render it as a bottom sheet."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\DeviceTable.tsx",
+   "loc": "735 (columns popover, 13 LINE2_FIELDS rows, no max-h); 1038 (batch actions menu: up to 12 items, no max-h, no outside-tap backdrop)",
+   "severity": "major",
+   "problem": "The column chooser (about 450px tall) and the batch-action menu (about 400px) have no max-height and no scroll. They live inside the sticky toolbar, so the page scroll cannot bring their bottom items into view. On a landscape phone or a small tablet with the keyboard open, the last items are unreachable: 'Delete' and 'Uninstall' in the batch menu, 'Tags' and 'Warranty' in the columns list. The batch menu also cannot be dismissed by tapping outside it.",
+   "fix": "Add `max-h-[min(70dvh,420px)] overflow-y-auto` and a backdrop to the batch menu (like the other popovers), or migrate both to the shared Popover or bottom sheet."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\DeviceTable.tsx",
+   "loc": "1125-1146 header row + SortLabel 1744-1775 (text-[10px], no padding); 1131-1137 CPU/RAM/Disk sort only when mode==='monitoring'",
+   "severity": "major",
+   "problem": "Sorting is only possible through 10px uppercase header labels, whose tap targets are about 14px tall and sit next to each other. On /devices, DeviceListPage passes mode=\"admin\" (DeviceListPage.tsx:28), so the CPU, RAM and Disk sorts are never rendered and are unreachable on any device. The sort fields 'os', 'version' and 'group' exist in SortField but have no UI.",
+   "fix": "Add a 'Sort' dropdown button in the toolbar listing every SortField with an asc/desc toggle, with 40px rows. Keep the header labels as a desktop shortcut. Render the CPU/RAM/Disk headers regardless of mode, since metrics are always shown per the DeviceRow comment at 239-245."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\DeviceTable.tsx",
+   "loc": "806, 816, 833, 890, 962 (chips `px-2.5 py-1 text-xs` ≈24px tall); 669-676 clear-filters X (p-2, 14px icon); 1102-1105 clear-selection X (no padding, 14px); 759 refresh; 1027 'select all in group' text link",
+   "severity": "major",
+   "problem": "Filter chips and the icon buttons in the toolbar and batch bar are 14–30px tap targets packed with 6px gaps. Mis-taps are frequent on a tablet, and the clear-selection X is about 14px.",
+   "fix": "On coarse pointers, raise chips to `py-2` (min-h 36–40px) and icon buttons to 40x40, using the shared tap-size variant."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\GroupSidePanel.tsx",
+   "loc": "211-223 (drag grip `opacity-0 group-hover/row:opacity-100`, 12x16px, no touch-none); 526 (PointerSensor distance:5 only); 303-318 DropBetween 2px zones",
+   "severity": "major",
+   "problem": "Reparenting and reordering groups by drag-and-drop is impossible on touch. The grip is invisible without hover and tiny, it has no `touch-action: none` (so the scrollable tree container at 738 claims the gesture and dnd-kit gets pointercancel), and the between-row drop zones are 2px tall. GroupEditPage offers a parent picker and up/down buttons as an alternative, hence major rather than blocker.",
+   "fix": "Use the shared touch sensors (TouchSensor with delay 250ms), add `touch-none` plus a visible 40px grip on coarse pointers, and enlarge the drop zones while dragging. Also add a 'Move to…' action in the row menu that opens GroupTreePicker."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\GroupSidePanel.tsx",
+   "loc": "256-263 (Pencil 'Group settings' `opacity-0 group-hover/row:opacity-100`, 12px icon p-0.5); 226-240 (expand chevron 16x16 span role=button, tabIndex -1)",
+   "severity": "major",
+   "problem": "The group settings pencil only appears on hover. On touch it is an invisible 20px target that fires blindly. Expanding or collapsing a group requires hitting a 16px chevron. Tapping the name selects the group but does not expand it, so reaching nested groups on a tablet is fiddly.",
+   "fix": "Show the pencil always on coarse pointers, or replace it with a '⋮' row menu (Settings / New subgroup / Move). Make the chevron a real `<button>` with 40x40 hit area, or expand the group when its name is tapped and it has children."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\GroupSidePanel.tsx",
+   "loc": "600-626, 847-851 (resize handle: onMouseDown + window mousemove/mouseup, w-1 = 4px)",
+   "severity": "minor",
+   "problem": "Resizing the panel is mouse-only (no pointer or touch events) and the grab zone is 4px, so it cannot be resized on a tablet.",
+   "fix": "Switch to pointer events with setPointerCapture and a 12–16px invisible hit zone, or drop resize below lg once the panel is a drawer."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\GroupSidePanel.tsx",
+   "loc": "366-404 CreateGroupInline (text-xs inputs, Cancel/Create icon buttons p-1 14px, 'Cancel (Esc)' title)",
+   "severity": "minor",
+   "problem": "The inline new-group form uses 12px inputs and 22px icon-only confirm and cancel buttons (a green check and an X) whose meaning is only in their title.",
+   "fix": "Use labelled 40px buttons ('Cancel' / 'Create'). Input font 16px on coarse pointers."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\DashboardPage.tsx",
+   "loc": "919-944 (page header `flex items-baseline gap-4`, no wrap; buttons h-9 fixed)",
+   "severity": "major",
+   "problem": "The title, the 'N managed devices' text and two buttons ('Add agent', 'View all devices') share one non-wrapping row. At 360px the min-content (~400px) overflows horizontally, and the button labels wrap inside fixed h-9 boxes and spill vertically. On a portrait tablet with the sidebar open, the labels overlap.",
+   "fix": "Use `flex-wrap gap-y-2`, and make the actions `w-full sm:w-auto` or icon-only below sm."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\DashboardPage.tsx",
+   "loc": "446-528 GroupCard (single `flex` row; right cluster `shrink-0` with up to 5 indicators); 1332 depth indentation up to 72px",
+   "severity": "major",
+   "problem": "Each group row puts the name, online/total, a progress bar and up to 5 indicators (offline, warning, critical, compliance %, pending updates, about 270px, never shrinking) on one line. On a phone (~240px of content, minus up to 72px of depth indentation) it overflows and the group name collapses to nothing. The compliance and updates indicators are unlabeled icons explained only by `title` (505-526).",
+   "fix": "Below sm, wrap the indicator cluster onto a second line (`flex-wrap`), hide the progress bar, cap indentation at 8–12px per level, and label the icons (or use Tip)."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\DashboardPage.tsx",
+   "loc": "223-235 ActivityChart (viewBox 800x240, preserveAspectRatio=none, no explicit height, fontSize=10 in viewBox units)",
+   "severity": "major",
+   "problem": "The SVG's height comes from its aspect ratio and its text scales with the width. On a 300px-wide phone the chart is about 90px tall and the axis labels render at about 3.7px (unreadable). On a 480px portrait tablet they are about 6px.",
+   "fix": "Give the SVG a fixed CSS height (for example h-[200px]) and compute the viewBox width from the measured container width (ResizeObserver), or switch to recharts ResponsiveContainer like RewindTab does. Keep the label font in CSS px."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\DashboardPage.tsx",
+   "loc": "1122-1148 (range segmented control px-2.5 py-1 text-[11px]; disabled reason only in title)",
+   "severity": "minor",
+   "problem": "The 24h/7j/14j/30j buttons are about 22px tall. When a range is disabled, the reason ('insufficient history 3/8') is only in `title`, so a touch user just sees a greyed button that does nothing.",
+   "fix": "Use 36–40px targets on coarse pointers, and show a toast or Tip with the reason when a disabled range is tapped."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\DashboardPage.tsx",
+   "loc": "950-968 tab bar (flex-1 buttons with icon+label, no overflow handling); 973-998 embedded HyperVVmTable/BackupJobTable (HyperVVmTable.tsx:392-393, BackupJobTable.tsx:232-233 `overflow-visible` + `<table w-full>`)",
+   "severity": "major",
+   "problem": "The Overview / Hyper-V (n) / Backups (n) tab bar overflows at 360px (min-content about 360px plus padding). The embedded VM and backup job tables have no horizontal-scroll wrapper and 4–6 columns, so on a phone they overflow the page (the table files belong to another area but are surfaced here).",
+   "fix": "Make the tab bar `overflow-x-auto flex-nowrap`, with icon-only labels below sm. Wrap both tables in `overflow-x-auto`, or add a card layout below md, in their own components."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\DashboardPage.tsx",
+   "loc": "685, 688 (confirm/prompt for VM delete & checkpoint name), 753 (confirm Veeam stop)",
+   "severity": "major",
+   "problem": "Hyper-V VM delete and checkpoint creation, and Veeam job stop, depend on native `confirm()` and `prompt()`. Without a WebChromeClient in the shell, confirm returns false and prompt returns null, so delete and stop silently do nothing and the checkpoint is created unnamed.",
+   "fix": "Replace these with the shared `useConfirm()` / `usePrompt()` modal hooks."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\GroupDetailPage.tsx",
+   "loc": "86-120 (header `flex items-start justify-between`, no wrap; h1 text-2xl without truncate/break-words); 78 p-6 + DeviceTable p-6 (126)",
+   "severity": "major",
+   "problem": "The group header puts a 48px icon, the title with its tenant badge, and the Edit and Delete buttons on one line. On a phone the title is squeezed to about 60px, and long names with no spaces overflow. DeviceTable is nested inside the page's p-6 while applying its own p-6 (DeviceTable.tsx:626,633), so a 360px phone loses 96px to padding before the row-overflow blocker even applies.",
+   "fix": "Use `flex-wrap gap-3` with `break-words min-w-0` on the h1, and put the buttons on their own row below sm. Pass an `embedded` prop to DeviceTable to drop its padding."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\GroupDetailPage.tsx",
+   "loc": "246-261 attachment chips (`text-xs px-2 py-0.5`)",
+   "severity": "minor",
+   "problem": "The links to attached schedules, scenarios and policies are about 20px-tall chips.",
+   "fix": "Use min-h 36–40px on coarse pointers."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\GroupEditPage.tsx",
+   "loc": "305-322 (move up/down buttons `p-0.5`, 14px icons, labels in title only)",
+   "severity": "major",
+   "problem": "Because drag-and-drop in the side panel does not work on touch, these arrows are the only way to reorder groups on a tablet. They are about 18x18px icon-only buttons whose meaning is only in `title`.",
+   "fix": "Use 40x40 buttons with visible 'Up' and 'Down' labels, or aria-labels plus larger icons."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx",
+   "loc": "788 (`max-h-[calc(100vh-320px)]`); 789-797 table (w-8 + w-28 + w-44 + w-28 fixed columns); 859 rename input `w-64`",
+   "severity": "major",
+   "problem": "On a landscape phone or a small tablet with the keyboard open, `100vh-320px` leaves 40–80px for the file list. The fixed Size, Modified and Actions columns (432px) leave the name column almost nothing on a phone (the table then scrolls sideways), and the rename input's fixed 256px width overflows its cell.",
+   "fix": "Use flex layout heights instead of calc(100vh), and hide the Size and Modified columns below sm (show them as a sub-line under the name). Use `w-full max-w-64` for the rename input."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx",
+   "loc": "499 (`prompt()` for new folder name), 489 (`confirm()` unsaved changes)",
+   "severity": "major",
+   "problem": "Creating a folder depends on native prompt(). In a WebView without onJsPrompt it returns null, so the 'New folder' button does nothing.",
+   "fix": "Use an inline input row, or the shared usePrompt modal."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx",
+   "loc": "698-725 breadcrumbs (`px-1.5 py-0.5 text-xs`); 688-753 toolbar icon buttons p-1.5 (28px); 862-879 rename confirm/cancel p-0.5",
+   "severity": "minor",
+   "problem": "Breadcrumb segments are about 20px tall, the toolbar and rename buttons are 18–28px icon-only, and their labels are title-only.",
+   "fix": "Use 40px tap targets on coarse pointers."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\RewindTab.tsx",
+   "loc": "318-321 (TimeScrubber `hidden lg:flex`); 139 Brush travellerWidth=8; 112-113 chart onClick as only time picker",
+   "severity": "major",
+   "problem": "Below lg (every portrait tablet and phone), the vertical time scrubber is hidden. The only way to pick a time of day is tapping the recharts area, which is imprecise with no feedback before release. The Brush travellers are 8px wide, so zooming the window by touch is nearly impossible. Only the day can be changed precisely, through the date input.",
+   "fix": "Below lg, render a horizontal version of TimeScrubber (it already uses pointer events with touch-none) under the charts, or add an `<input type=\"time\">` next to the date input. Widen the Brush travellers to about 20px on coarse pointers."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\CustomSectionTab.tsx",
+   "loc": "47-58, 158-162 (xterm read-only, fontSize 13, height calc(100vh-340px) minHeight 400)",
+   "severity": "minor",
+   "problem": "On a phone the terminal fits about 38 columns, so wide PowerShell tables wrap badly. There is no font-size or pinch control, and xterm text selection and copy is mouse-only. The 400px minimum height exceeds a landscape phone viewport. Because it is read-only, no soft keyboard is needed.",
+   "fix": "Offer a font-size stepper (A-/A+) and a 'Copy all' button that uses term.buffer. Use a flex height instead of calc(100vh)."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\CustomSectionTab.tsx",
+   "loc": "434-455 ('Refresh now' / 'Export PDF' `text-[10px] px-2 py-0.5`), 460-473 status pill minWidth 96",
+   "severity": "minor",
+   "problem": "The header actions are about 18px tall, and they compete with the section name on one non-wrapping line on a phone.",
+   "fix": "Add flex-wrap and 36–40px targets on coarse pointers."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\PrivacyPasswordManageModal.tsx",
+   "loc": "65-71 (fixed inset-0 items-center, card without max-h/overflow)",
+   "severity": "major",
+   "problem": "In 'set' mode the card is about 420px tall (warning, two inputs, acknowledgement checkbox, footer). On a phone with the soft keyboard open (or in landscape), the centred card exceeds the visible viewport, and the footer's 'Set password' button is off-screen with no way to scroll. The same pattern applies to PrivacyUnlockModal.tsx:57-63, TransferTenantModal.tsx:71-75, and DeviceTable ChangeGroupModal 1299-1302 and BulkTransferTenantModal 1367-1368.",
+   "fix": "Migrate to the shared Modal (scrollable body, sticky footer, dvh sizing, bottom sheet on phones)."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\TransferTenantModal.tsx",
+   "loc": "56 (confirm() before transfer)",
+   "severity": "major",
+   "problem": "The final confirmation is a native confirm(). Without onJsConfirm in the shell it returns false, so the Transfer button never does anything in the app.",
+   "fix": "Show the confirmation text as a second step inside the modal, or use useConfirm()."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\DeviceTable.tsx",
+   "loc": "511 (batch delete confirm), 523 (batch update_agent confirm)",
+   "severity": "major",
+   "problem": "Batch delete and batch agent update gate on native confirm(). In a WebView without onJsConfirm, both actions silently abort.",
+   "fix": "Use the shared useConfirm() modal."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\DeviceTable.tsx",
+   "loc": "1818-1819 RunScriptModal (z-50, backdrop has no onClick); 1838 search input text-sm",
+   "severity": "minor",
+   "problem": "The run-script picker cannot be dismissed by tapping outside it (unlike the sibling modals), and its z-50 is lower than the z-[200] of the other modals, so it may render under app overlays.",
+   "fix": "Migrate it to the shared Modal."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\DeviceTable.tsx",
+   "loc": "1501-1513 tree group headers (`py-1.5 text-xs`, ≈28px); 1670-1683 tenant headers",
+   "severity": "minor",
+   "problem": "Collapse and expand toggles in the device tree are about 28px tall, and nested levels indent 16px each, up to 96px, which is costly on a phone.",
+   "fix": "Use min-h 40px on coarse pointers, and cap indentation at 8px per level below md."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\DeviceTable.tsx",
+   "loc": "718-731 (Columns button uses SortAsc icon; label hidden below sm), 679-686 (Export icon-only, title-only label), 698-714 (Select label hidden below sm)",
+   "severity": "minor",
+   "problem": "On a phone the toolbar becomes a row of unlabelled icons. The column chooser shows a 'sort' icon, which is misleading, and the Export and Select meanings are only in `title`.",
+   "fix": "Use distinct icons (Columns3, Download, CheckSquare) with a visible short label, or group them into one '⋮' overflow menu below sm."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\DeviceRow.tsx",
+   "loc": "344-354 (group name button inside line 2, text-xs, stopPropagation)",
+   "severity": "minor",
+   "problem": "A roughly 16px 'filter by group' link sits inside a row whose tap navigates to the device. On touch this is easy to mis-hit, with either outcome.",
+   "fix": "On a coarse pointer, render it as plain text (the group is already selectable in the drawer), or give it a 40px chip."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\DeviceRow.tsx",
+   "loc": "149-156 (middle-click → window.open)",
+   "severity": "minor",
+   "problem": "'Open in new tab' exists only as a middle-click. It is desktop-only and harmless, but in WebView window.open without onCreateWindow is dropped. No action needed beyond the openExternal/openInternal util if a long-press 'open in new tab' is ever added.",
+   "fix": "Leave as desktop-only, and guard it behind `matchMedia('(pointer:fine)')`."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\GroupTreePicker.tsx",
+   "loc": "89 (click on a parent = select AND close, so its children can't be reached in one open); 119-122 (clear X 12px inside trigger); 126 (popover `left-0 w-64`)",
+   "severity": "minor",
+   "problem": "Picking a subgroup takes two opens: the first tap selects the parent and closes the popover. The clear 'X' is a 12px icon, and the popover's fixed 256px width, anchored left, can overflow the viewport on a phone.",
+   "fix": "Separate the chevron (expand, 40px target) from the label (select). Enlarge the clear button. Use the shared Popover."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\DeviceCvesSection.tsx",
+   "loc": "123-130 (`target=\"_blank\"` to NVD/GitHub); 158-165 dismiss X p-1 14px, meaning title-only; 112-121 confidence dot & KEV icon title-only",
+   "severity": "major",
+   "problem": "In the WebView, the external CVE links either replace the SPA in place (losing state) or are dropped, depending on shell settings. The admin 'dismiss as false positive' action is a 22px unlabelled X, and its consequence (it won't be recreated) is only in `title`.",
+   "fix": "Use the openExternal() bridge util. Label the button 'Dismiss', with a 40px target. Use Tip for confidence and KEV."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\DeviceMetricsBar.tsx",
+   "loc": "94-100 (shortened mount label; full path only in title, cursor-help)",
+   "severity": "minor",
+   "problem": "Long mount paths are shortened (for example '/home/…/foo/bar'), and the full path is only reachable by hover.",
+   "fix": "Use Tip (tap to reveal) on coarse pointers."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\AdminDevicesPage.tsx",
+   "loc": "124-141 (3 `flex-1 px-4` tabs incl. 'Custom sections' + icon); 214-219 copy-key button p-0.5 (≈18px); 155, 215 navigator.clipboard.writeText not awaited, success toast unconditional; 76 confirm() for key delete",
+   "severity": "minor",
+   "problem": "On a phone the tab labels wrap to 2–3 lines. The copy-key button is an 18px target. The clipboard write is fire-and-forget: if WebView denies it, the user still sees 'Copied' (risky for a one-time-displayed API key). Key deletion depends on native confirm().",
+   "fix": "Make tabs scrollable with short labels below sm. Use 40px copy buttons. Await the clipboard write with a fallback (select the `<code>` text, or use a bridge `ObliNative.copy`) and toast only on success. Use useConfirm() for the delete."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\GroupManagePage.tsx",
+   "loc": "whole file (not routed in App.tsx; 530-561 hover-only drag grip and Add/Edit/Delete)",
+   "severity": "minor",
+   "problem": "This is dead code. It has hover-only actions and drag-and-drop, but no route mounts it, so it does not affect users. The same applies to AdminAgentPage.tsx, AgentDetailPage.tsx, components/devices/AddDeviceModal.tsx, components/groups/GroupTree.tsx and GroupNode.tsx, which nothing imports.",
+   "fix": "Delete these files instead of adapting them."
+  }
+ ]
+}

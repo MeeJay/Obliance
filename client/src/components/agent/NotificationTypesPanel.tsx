@@ -211,7 +211,7 @@ export function NotificationTypesPanel({
  onClick={overriding ? () => handleReset(key) : () => handleOverride(key)}
  disabled={isSaving}
  className={cn(
- 'shrink-0 rounded-md px-2 py-1 text-xs font-medium transition-colors disabled:opacity-50',
+ 'shrink-0 rounded-md px-2 py-1 text-xs font-medium transition-colors disabled:opacity-50 coarse:min-h-10',
  overriding
  ? 'text-amber-500 hover:bg-amber-500/10'
  : 'text-text-muted hover:bg-bg-hover hover:text-text-primary',

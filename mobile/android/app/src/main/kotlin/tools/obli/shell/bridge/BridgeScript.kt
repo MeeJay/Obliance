@@ -98,7 +98,7 @@ object BridgeScript {
     share: function (text, title) { return call('share', { text: text, title: title }); },
     notify: function (title, body, navigateTo) { return call('notify', { title: title, body: body, navigateTo: navigateTo }); },
     openSettings: function () { return call('openSettings', {}); },
-    setSystemBars: function (colorHex, lightIcons) { return call('setSystemBars', { colorHex: colorHex, lightIcons: lightIcons }); },
+    setSystemBars: function (colorHex, lightTheme) { return call('setSystemBars', { colorHex: colorHex, lightTheme: lightTheme }); },
     requestNotificationPermission: function () { return call('requestNotificationPermission', {}); },
     checkForUpdate: function (options) { return call('checkForUpdate', { prompt: !(options && options.prompt === false) }); },
     getInfo: function () { return call('getInfo', {}); }

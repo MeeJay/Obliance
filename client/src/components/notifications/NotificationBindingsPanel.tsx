@@ -120,8 +120,9 @@ export function NotificationBindingsPanel({ scope, scopeId, title }: Notificatio
  const hasNonExcludeDirectBindings = Array.from(directBindings.values()).some((m) => m !== 'exclude');
 
  return (
- <div className="rounded-lg bg-bg-secondary p-5">
- <div className="flex items-center justify-between mb-4">
+ <div className="rounded-lg bg-bg-secondary p-4 sm:p-5">
+ {/* flex-wrap: the Merge / Replace control drops under the title on phones. */}
+ <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
  <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wide flex items-center gap-1.5">
  <Bell size={12} />
  {title || 'Notification Channels'}
@@ -133,8 +134,9 @@ export function NotificationBindingsPanel({ scope, scopeId, title }: Notificatio
  <div className="inline-flex rounded-md overflow-hidden">
  <button
  onClick={() => changeOverrideMode('merge')}
+ aria-pressed={overrideMode === 'merge'}
  className={cn(
- 'px-2 py-0.5 text-xs font-medium transition-colors',
+ 'px-2 py-0.5 coarse:px-3 coarse:py-2 text-xs font-medium transition-colors',
  overrideMode === 'merge'
  ? 'bg-accent text-white'
  : 'bg-bg-tertiary text-text-secondary hover:text-text-primary',
@@ -144,8 +146,9 @@ export function NotificationBindingsPanel({ scope, scopeId, title }: Notificatio
  </button>
  <button
  onClick={() => changeOverrideMode('replace')}
+ aria-pressed={overrideMode === 'replace'}
  className={cn(
- 'px-2 py-0.5 text-xs font-medium transition-colors',
+ 'px-2 py-0.5 coarse:px-3 coarse:py-2 text-xs font-medium transition-colors',
  overrideMode === 'replace'
  ? 'bg-orange-600 text-white'
  : 'bg-bg-tertiary text-text-secondary hover:text-text-primary',
@@ -211,7 +214,7 @@ export function NotificationBindingsPanel({ scope, scopeId, title }: Notificatio
  <div
  key={channel.id}
  className={cn(
- 'flex items-center justify-between rounded-md border px-3 py-2',
+ 'flex items-center justify-between gap-2 rounded-md border px-3 py-2',
  rowStyle,
  )}
  >
@@ -220,7 +223,7 @@ export function NotificationBindingsPanel({ scope, scopeId, title }: Notificatio
 
  <div className="min-w-0">
  <span className={cn(
- 'text-sm truncate block',
+ 'text-sm block lg:truncate max-lg:break-words',
  isDirectExclude ? 'text-text-muted line-through' : 'text-text-primary',
  )}>
  {channel.name}
@@ -244,7 +247,7 @@ export function NotificationBindingsPanel({ scope, scopeId, title }: Notificatio
  <button
  onClick={buttonAction}
  className={cn(
- 'shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors',
+ 'shrink-0 rounded-full px-3 py-1 coarse:py-2 text-xs font-medium transition-colors',
  buttonStyle,
  )}
  >

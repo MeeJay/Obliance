@@ -12,6 +12,8 @@ import { Input } from '@/components/common/Input';
 import { ThemePicker } from '@/components/ThemePicker';
 import { Logo } from '@/components/common/Logo';
 import { applyTheme, type AppTheme } from '@/utils/theme';
+import { TotpMobileActions } from '@/components/profile/TotpMobileActions';
+import { useIsCoarsePointer } from '@/hooks/useMediaQuery';
 
 type Step = 'language' | 'profile' | 'alerts' | 'appearance' | 'password' | 'security';
 const ALL_STEPS: Step[] = ['language', 'profile', 'alerts', 'appearance', 'password', 'security'];
@@ -47,12 +49,12 @@ function Stepper({ currentStep, steps }: { currentStep: Step; steps: Step[] }) {
  const currentIdx = steps.indexOf(currentStep);
 
  return (
- <div className="flex items-center justify-center gap-0 mb-8">
+ <div className="flex items-center justify-center gap-0 mb-6 sm:mb-8">
  {steps.map((step, idx) => (
  <div key={step} className="flex items-center">
  <div className="flex flex-col items-center gap-1">
  <div
- className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold border-2 transition-colors ${
+ className={`flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full text-xs sm:text-sm font-semibold border-2 transition-colors ${
  idx < currentIdx
  ? 'bg-primary border-primary text-white'
  : idx === currentIdx
@@ -67,7 +69,7 @@ function Stepper({ currentStep, steps }: { currentStep: Step; steps: Step[] }) {
  </span>
  </div>
  {idx < steps.length - 1 && (
- <div className={`w-10 sm:w-16 h-0.5 mx-1 mb-5 transition-colors ${idx < currentIdx ? 'bg-primary' : 'bg-border'}`} />
+ <div className={`w-3 min-[400px]:w-6 sm:w-16 h-0.5 mx-0.5 sm:mx-1 sm:mb-5 transition-colors ${idx < currentIdx ? 'bg-primary' : 'bg-border'}`} />
  )}
  </div>
  ))}
@@ -82,7 +84,7 @@ function LanguageStep({ selected, onSelect }: { selected: string; onSelect: (cod
  <div>
  <h2 className="text-xl font-semibold text-text-primary mb-1">{t('enrollment.language.title')}</h2>
  <p className="text-sm text-text-muted mb-5">{t('enrollment.language.subtitle')}</p>
- <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-72 overflow-y-auto pr-1">
+ <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:max-h-72 sm:overflow-y-auto sm:pr-1 coarse:overscroll-contain">
  {SUPPORTED_LANGUAGES.map((lang) => (
  <button
  key={lang.code}
@@ -326,6 +328,10 @@ function SecurityStep({
  onSkip: () => void;
 }) {
  const { t } = useTranslation();
+ // Touch: no autofocus on the code field (the keyboard would cover the QR
+ // code / secret and the "open in authenticator" actions).
+ const coarse = useIsCoarsePointer();
+ const { user } = useAuthStore();
 
  if (totpAlreadyEnabled) {
  return (
@@ -374,15 +380,18 @@ function SecurityStep({
  <img src={totpSetup.qrDataUrl} alt="TOTP QR code" className="w-44 h-44 rounded" />
  </div>
  <p className="text-xs text-text-muted text-center">{t('profile.security.totpScanDesc')}</p>
- <p className="text-xs text-text-muted text-center font-mono">{t('profile.security.totpSecret', { secret: totpSetup.secret })}</p>
+ <p className="text-xs text-text-muted text-center font-mono break-all">{t('profile.security.totpSecret', { secret: totpSetup.secret })}</p>
+ {/* Touch only: a phone cannot scan its own screen. */}
+ <TotpMobileActions secret={totpSetup.secret} account={user?.username} className="justify-center" />
  <Input
  label={t('enrollment.security.verificationCode')}
  type="text"
  inputMode="numeric"
+ autoComplete="one-time-code"
  value={totpCode}
  onChange={(e) => onTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
  placeholder={t('enrollment.security.verificationCodePlaceholder')}
- autoFocus
+ autoFocus={!coarse}
  />
  </div>
  )}
@@ -548,7 +557,7 @@ export function EnrollmentPage() {
  const nextLabel = isLastStep ? t('enrollment.complete') : t('common.next');
 
  return (
- <div className="min-h-screen bg-bg-primary flex flex-col items-center justify-center p-4">
+ <div className="min-h-dvh supports-[not(height:100dvh)]:min-h-screen bg-bg-primary flex flex-col items-center justify-center p-4 pt-[max(1rem,var(--safe-top))] pb-[max(1rem,var(--safe-bottom))]">
  <div className="w-full max-w-xl">
  {/* Header */}
  <div className="text-center mb-8">
@@ -560,7 +569,7 @@ export function EnrollmentPage() {
  <Stepper currentStep={step} steps={STEPS} />
 
  {/* Card */}
- <form onSubmit={handleNext} className="rounded-xl bg-bg-secondary p-6 shadow-sm">
+ <form onSubmit={handleNext} className="rounded-xl bg-bg-secondary p-4 sm:p-6 shadow-sm">
  {step === 'language' && (
  <LanguageStep
  selected={data.preferredLanguage}
@@ -621,7 +630,7 @@ export function EnrollmentPage() {
  <button
  type="button"
  onClick={handleBack}
- className={`text-sm text-text-muted hover:text-text-primary transition-colors ${currentIdx === 0 ? 'invisible' : ''}`}
+ className={`text-sm text-text-muted hover:text-text-primary transition-colors coarse:min-h-10 coarse:-ml-2 coarse:px-2 coarse:rounded-md ${currentIdx === 0 ? 'invisible' : ''}`}
  >
  ← {t('common.back')}
  </button>

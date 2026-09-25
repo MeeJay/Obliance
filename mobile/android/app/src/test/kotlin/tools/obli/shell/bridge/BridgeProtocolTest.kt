@@ -27,7 +27,12 @@ class BridgeProtocolTest {
     @Test fun parsesPositionalParams() {
         val r = ok("""{"id":1,"method":"setSystemBars","params":["#0f1220",false]}""")
         assertEquals("#0f1220", r.params.string("colorHex", 16))
-        assertFalse(r.params.bool("lightIcons", default = true))
+        assertFalse(r.params.bool("lightTheme", default = true))
+        assertEquals(false, r.params.optBool("lightTheme"))
+        val light = ok("""{"id":1,"method":"setSystemBars","params":["#ffffff",true]}""")
+        assertEquals(true, light.params.optBool("lightTheme"))
+        val bare = ok("""{"id":1,"method":"setSystemBars","params":["#ffffff"]}""")
+        assertNull(bare.params.optBool("lightTheme"))
     }
 
     @Test fun missingParamsAreEmpty() {
@@ -55,8 +60,9 @@ class BridgeProtocolTest {
         val r = ok("""{"id":1,"method":"notify","params":{"title":5,"body":"x","navigateTo":{"a":1}}}""")
         assertThrows { r.params.string("title", 10) }
         assertThrows { r.params.optString("navigateTo", 10) }
-        val s = ok("""{"id":1,"method":"setSystemBars","params":{"colorHex":"#000","lightIcons":"true"}}""")
-        assertThrows { s.params.bool("lightIcons", default = false) }
+        val s = ok("""{"id":1,"method":"setSystemBars","params":{"colorHex":"#000","lightTheme":"true"}}""")
+        assertThrows { s.params.bool("lightTheme", default = false) }
+        assertThrows { s.params.optBool("lightTheme") }
         val t = ok("""{"id":1,"method":"copyText","params":{"text":""}}""")
         assertThrows { t.params.string("text", 10) }
         assertEquals("", t.params.string("text", 10, allowEmpty = true))

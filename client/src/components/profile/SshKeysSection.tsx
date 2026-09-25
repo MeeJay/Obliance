@@ -7,6 +7,10 @@ import { sshBastionApi, apiErrorMessage, type SshBastionInfo } from '@/api/sshBa
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
+import { IconButton } from '@/components/common/IconButton';
+import { useConfirm } from '@/components/common/ConfirmDialog';
+import { copyText as copyToClipboard } from '@/utils/clipboard';
+import i18n from '@/i18n';
 import { SshConfigGenerator } from './SshConfigGenerator';
 
 // ── SSH bastion keys (ObliJump) ─────────────────────────────────────────────
@@ -21,15 +25,21 @@ export function sshConnectCommand(info: Pick<SshBastionInfo, 'port'>, username?:
   return `ssh ${port}${username ? `${username}@` : ''}${host}`;
 }
 
-export async function copyText(text: string, okMsg: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-    toast.success(okMsg);
-  } catch { /* clipboard unavailable (http) — the text stays selectable */ }
+/**
+ * Copy + toast. Kept for existing importers; delegates to the shared
+ * utils/clipboard helper (Clipboard API -> execCommand -> Android bridge),
+ * which also works on plain-http origins and in the WebView.
+ */
+export async function copyText(text: string, okMsg: string, failMsg?: string): Promise<boolean> {
+  const ok = await copyToClipboard(text);
+  if (ok) toast.success(okMsg);
+  else toast.error(failMsg ?? i18n.t('common.error', 'Error'));
+  return ok;
 }
 
 export function SshKeysSection() {
   const { t } = useTranslation();
+  const confirm = useConfirm();
   const { user } = useAuthStore();
   const [info, setInfo] = useState<SshBastionInfo | null>(null);
   const [keys, setKeys] = useState<SshPublicKey[]>([]);
@@ -80,7 +90,10 @@ export function SshKeysSection() {
   };
 
   const remove = async (k: SshPublicKey) => {
-    if (!confirm(t('sshBastion.keys.confirmDelete', { name: k.name }) || `Delete the SSH key "${k.name}"? It will no longer open the bastion.`)) return;
+    if (!(await confirm({
+      message: t('sshBastion.keys.confirmDelete', { name: k.name }) || `Delete the SSH key "${k.name}"? It will no longer open the bastion.`,
+      danger: true,
+    }))) return;
     try {
       await sshBastionApi.deleteKey(k.id);
       setKeys((prev) => prev.filter((x) => x.id !== k.id));
@@ -96,9 +109,9 @@ export function SshKeysSection() {
   const jumpCommand = `ssh -J ${user?.username ? `${user.username}@` : ''}${window.location.hostname}${info.port === 22 ? '' : `:${info.port}`} obli@<machine>`;
 
   return (
-    <div id="ssh-keys" ref={rootRef} className="mt-8 bg-bg-secondary rounded-xl p-6 scroll-mt-6">
-      <div className="flex items-center justify-between gap-3 mb-3">
-        <div>
+    <div id="ssh-keys" ref={rootRef} className="mt-8 bg-bg-secondary rounded-xl p-4 sm:p-6 scroll-mt-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <div className="min-w-0">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-text-primary">
             <KeyRound size={18} className="text-accent" />
             {t('sshBastion.keys.title') || 'SSH keys (bastion)'}
@@ -139,6 +152,9 @@ export function SshKeysSection() {
               onChange={(e) => setPublicKey(e.target.value)}
               rows={3}
               spellCheck={false}
+              autoCapitalize="off"
+              autoCorrect="off"
+              autoComplete="off"
               placeholder="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... user@host"
               className="w-full rounded-md bg-bg-tertiary px-3 py-2 font-mono text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
             />
@@ -167,17 +183,19 @@ export function SshKeysSection() {
             <div key={k.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 rounded bg-bg-tertiary/30 text-xs">
               <span className="font-medium text-text-primary min-w-[8rem]">{k.name}</span>
               <span className="text-text-muted">{k.keyType || '—'}</span>
-              <span className="font-mono text-text-secondary truncate flex-1 min-w-0" title={k.fingerprint}>{k.fingerprint}</span>
+              {/* Below lg the full fingerprint wraps (no hover tooltip on touch). */}
+              <span className="font-mono text-text-secondary flex-1 min-w-0 lg:truncate max-lg:basis-full max-lg:break-all" title={k.fingerprint}>{k.fingerprint}</span>
               <span className="text-text-muted">
                 {t('sshBastion.keys.lastUsed') || 'Last used'}: {fmtDate(k.lastUsedAt)}
               </span>
-              <button
+              <IconButton
+                label={t('common.delete') || 'Delete'}
+                icon={<Trash2 size={13} />}
+                size="sm"
+                variant="plain"
                 onClick={() => remove(k)}
-                className="text-red-400 hover:text-red-300 hover:bg-red-400/10 p-1 rounded"
-                title={t('common.delete') || 'Delete'}
-              >
-                <Trash2 size={13} />
-              </button>
+                className="text-red-400 hover:text-red-300 hover:bg-red-400/10 max-lg:ml-auto"
+              />
             </div>
           ))}
         </div>
@@ -189,14 +207,14 @@ export function SshKeysSection() {
           <Terminal size={12} /> {t('sshBastion.connect.title') || 'Connect'}
         </p>
         <div className="flex items-center gap-2">
-          <code className="flex-1 min-w-0 truncate rounded bg-bg-primary px-3 py-1.5 font-mono text-xs text-text-primary select-all">{command}</code>
-          <button
-            onClick={() => copyText(command, t('common.copied') || 'Copied')}
-            className="p-1.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-hover"
-            title={t('common.copy') || 'Copy'}
-          >
-            <Copy size={13} />
-          </button>
+          {/* Below sm the command wraps instead of truncating (readable even if copying fails). */}
+          <code className="flex-1 min-w-0 sm:truncate max-sm:break-all rounded bg-bg-primary px-3 py-1.5 font-mono text-xs text-text-primary select-all">{command}</code>
+          <IconButton
+            label={t('common.copy') || 'Copy'}
+            icon={<Copy size={13} />}
+            onClick={() => copyText(command, t('common.copied') || 'Copied', t('common.error'))}
+            className="shrink-0"
+          />
         </div>
         <p className="text-[11px] text-text-muted">
           {t('sshBastion.connect.help') || 'Once connected, type "help": "list" shows the machines you can reach, "ssh <machine>" opens a shell on it.'}
@@ -205,23 +223,22 @@ export function SshKeysSection() {
           {t('sshBastion.connect.proxyJumpTitle') || 'Native ProxyJump (Linux machines — scp, sftp, VS Code Remote…)'}
         </p>
         <div className="flex items-center gap-2">
-          <code className="flex-1 min-w-0 truncate rounded bg-bg-primary px-3 py-1.5 font-mono text-xs text-text-primary select-all">{jumpCommand}</code>
-          <button
-            onClick={() => copyText(jumpCommand, t('common.copied') || 'Copied')}
-            className="p-1.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-hover"
-            title={t('common.copy') || 'Copy'}
-          >
-            <Copy size={13} />
-          </button>
+          <code className="flex-1 min-w-0 sm:truncate max-sm:break-all rounded bg-bg-primary px-3 py-1.5 font-mono text-xs text-text-primary select-all">{jumpCommand}</code>
+          <IconButton
+            label={t('common.copy') || 'Copy'}
+            icon={<Copy size={13} />}
+            onClick={() => copyText(jumpCommand, t('common.copied') || 'Copied', t('common.error'))}
+            className="shrink-0"
+          />
         </div>
         <p className="text-[11px] text-text-muted">
           {t('sshBastion.connect.proxyJumpHelp') || 'The target account is always "obli" (then "sudo -i" for root). A one-time entry for your key is installed on the machine only while you connect. Requires an up-to-date agent.'}
         </p>
         <SshConfigGenerator port={info.port} username={user?.username} />
         {info.hostKey && (
-          <p className="text-[11px] text-text-muted">
+          <p className="text-[11px] text-text-muted break-all">
             {t('sshBastion.connect.hostKey') || 'Server fingerprint (check it on first connection)'}:{' '}
-            <span className="font-mono text-text-secondary select-all">{info.hostKey.fingerprint}</span>
+            <span className="font-mono text-text-secondary select-all break-all">{info.hostKey.fingerprint}</span>
           </p>
         )}
         {info.enforce && (

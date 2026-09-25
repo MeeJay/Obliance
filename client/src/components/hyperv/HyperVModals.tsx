@@ -25,7 +25,7 @@ function ModalShell({ title, icon, onClose, children }: { title: string; icon: R
       icon={icon}
       size="sm"
       closeOnBackdrop={!coarse}
-      className="sm:max-h-[80dvh]"
+      className="sm:max-h-[80dvh] sm:supports-[not(height:100dvh)]:max-h-[80vh]"
     >
       {children}
     </Modal>
@@ -65,8 +65,8 @@ export function EditVmModal({ vm, onClose, run }: { vm: VirtualMachine; onClose:
           <p className="text-[10px] text-text-muted mt-1">{t('hyperv.editNote') || 'Applied via Set-VM. The VM may need to be off for some changes to take effect.'}</p>
         </div>
         <div className="flex justify-end gap-2 pt-1">
-          <button onClick={onClose} className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary">{t('common.cancel') || 'Cancel'}</button>
-          <button onClick={save} disabled={saving} className="px-3 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent/90 disabled:opacity-50">
+          <button onClick={onClose} className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary coarse:min-h-10">{t('common.cancel') || 'Cancel'}</button>
+          <button onClick={save} disabled={saving} className="px-3 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent/90 disabled:opacity-50 coarse:min-h-10">
             {saving ? '…' : (t('common.save') || 'Save')}
           </button>
         </div>
@@ -137,8 +137,8 @@ export function CreateVmModal({ onClose, run }: { onClose: () => void; run: RunA
           <p className="text-[10px] text-text-muted mt-1">{t('hyperv.createNote') || 'A blank VHDX is created in the host’s default store. Attach an ISO / OS afterwards.'}</p>
         </div>
         <div className="flex justify-end gap-2 pt-1">
-          <button onClick={onClose} className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary">{t('common.cancel') || 'Cancel'}</button>
-          <button onClick={create} disabled={saving || !name.trim()} className="px-3 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent/90 disabled:opacity-50">
+          <button onClick={onClose} className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary coarse:min-h-10">{t('common.cancel') || 'Cancel'}</button>
+          <button onClick={create} disabled={saving || !name.trim()} className="px-3 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent/90 disabled:opacity-50 coarse:min-h-10">
             {saving ? '…' : (t('hyperv.create') || 'Create')}
           </button>
         </div>

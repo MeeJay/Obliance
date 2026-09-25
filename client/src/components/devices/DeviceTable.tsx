@@ -26,7 +26,7 @@ import { shortenOsName } from '@/utils/osLabel';
 import { isCommandSupported, unsupportedTooltip } from '@/utils/capabilities';
 import { cn } from '@/utils/cn';
 import { saveBlob } from '@/utils/download';
-import { useLayoutMode } from '@/hooks/useMediaQuery';
+import { useIsCoarsePointer, useLayoutMode, useMediaQuery } from '@/hooks/useMediaQuery';
 import { useNativeBack } from '@/hooks/useNativeBack';
 import { useAnchoredPosition } from '@/native/overlay';
 import { Modal } from '@/components/common/Modal';
@@ -83,6 +83,15 @@ export function DeviceTable({
  const layout = useLayoutMode();
  const isPhone = layout === 'phone';
  const isDesktop = layout === 'desktop';
+ // The 10px click-to-sort header labels are desktop-mouse only; a touch
+ // screen at desktop width (landscape tablet) gets the sort select too.
+ const isCoarse = useIsCoarsePointer();
+ const headerSortLabels = isDesktop && !isCoarse;
+ // Compact toolbar (search + "Filters" sheet + "⋯" menu) on phones AND on a
+ // landscape phone / short touch screen, where the full chip band would
+ // cover the whole ~300px-high list pane. Mouse screens never match.
+ const isShortTouch = useMediaQuery('(pointer: coarse) and (max-height: 520px)');
+ const compactToolbar = isPhone || isShortTouch;
  const confirm = useConfirm();
  // Phone: the filter chips live in a bottom sheet opened from a
  // "Filters (n)" button instead of a tall sticky band.
@@ -533,15 +542,21 @@ export function DeviceTable({
 
  const handleBatchAction = async (action: string) => {
  setBatchMenuOpen(false);
+ // Confirmations come first: the shared dialog is async (window.confirm is
+ // a no-op in the Android WebView — docs §5.6) and the batch button must
+ // not show its spinner while the question is still open.
+ if (action === 'delete') {
+ if (!(await confirm({ message: t('devices.batch.confirmDelete'), danger: true }))) return;
+ } else if (action === 'update_agent') {
+ const count = selectAllGroup && groupId ? total : selectedIds.size;
+ if (!(await confirm((t('devices.action.updateAgentConfirm', { count }) as string) || `Update the agent on ${count} device(s)?`))) return;
+ }
  setIsBatchRunning(true);
  try {
  if (action === 'approve') {
  const ids = selectAllGroup && groupId ? undefined : Array.from(selectedIds);
  if (ids) { await Promise.all(ids.map(id => deviceApi.approve(id))); toast.success(t('devices.batch.approved', { count: ids.length })); }
  } else if (action === 'delete') {
- // Shared confirm dialog (window.confirm is a no-op in the Android
- // WebView — docs §5.6).
- if (!(await confirm({ message: t('devices.batch.confirmDelete'), danger: true }))) { setIsBatchRunning(false); return; }
  const ids = Array.from(selectedIds);
  await Promise.all(ids.map(id => deviceApi.delete(id)));
  toast.success(t('devices.batch.deleted', { count: ids.length }));
@@ -550,11 +565,8 @@ export function DeviceTable({
  // the latest MSI. The batch menu item is greyed unless every selected
  // device supports it, and the server additionally skips legacy agents
  // (they can't self-update), so the action is safe to fan out across a
- // whole group selection; the toast reports the real dispatched count.
- if (action === 'update_agent') {
- const count = selectAllGroup && groupId ? total : selectedIds.size;
- if (!(await confirm((t('devices.action.updateAgentConfirm', { count }) as string) || `Update the agent on ${count} device(s)?`))) { setIsBatchRunning(false); return; }
- }
+ // whole group selection; the toast reports the real dispatched count
+ // (update_agent is confirmed above).
  const result = await deviceApi.batch({
  groupId: selectAllGroup && groupId ? groupId : undefined,
  deviceIds: selectAllGroup && groupId ? undefined : Array.from(selectedIds),
@@ -844,7 +856,7 @@ export function DeviceTable({
  </button>
  </div>
 
- <span className="ml-auto text-xs text-text-muted">{t('devices.list.count', '{{n}} devices', { n: total })}</span>
+ <span className="ml-auto text-xs text-text-muted">{t('devices.list.count', '{{count}} devices', { count: total, defaultValue_one: '{{count}} device' })}</span>
  </div>
  );
 
@@ -1084,7 +1096,7 @@ export function DeviceTable({
  aria-pressed={selectionMode}
  >
  {selectionMode ? <Check className="w-3.5 h-3.5" /> : <MousePointerClick className="w-3.5 h-3.5" />}
- <span className={isPhone ? undefined : 'hidden sm:inline'}>{selectionMode ? t('devices.selection.active', 'Selecting') : t('devices.selection.select', 'Select')}</span>
+ <span className={compactToolbar ? undefined : 'hidden sm:inline'}>{selectionMode ? t('devices.selection.active', 'Selecting') : t('devices.selection.select', 'Select')}</span>
  </button>
  );
 
@@ -1119,11 +1131,11 @@ export function DeviceTable({
  : '-mx-3 -mt-3 px-3 pt-3 sm:-mx-4 sm:-mt-4 sm:px-4 sm:pt-4 lg:-mx-6 lg:-mt-6 lg:px-6 lg:pt-6',
  )}
  >
- {!isPhone && approvalChips}
+ {!compactToolbar && approvalChips}
 
  {/* Filter bar */}
- <div className={clsx('space-y-2', !isPhone && 'mb-3')}>
- {isPhone ? (
+ <div className={clsx('space-y-2', !compactToolbar && 'mb-3')}>
+ {compactToolbar ? (
  <>
  <div className="relative">
  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
@@ -1225,10 +1237,10 @@ export function DeviceTable({
  </div>
  )}
 
- {!isPhone && tenantChips}
+ {!compactToolbar && tenantChips}
 
  {/* Status + OS chips */}
- {!isPhone && statusOsChips}
+ {!compactToolbar && statusOsChips}
  </div>
 
  {/* Batch action bar */}
@@ -1262,39 +1274,39 @@ export function DeviceTable({
 
  {/* Toolbar popovers — portal-rendered, clamped to the viewport,
  bottom sheets on phone (docs/obli-mobile.md §5). */}
- <ToolbarPopover open={exportMenuOpen && !isPhone} onClose={() => setExportMenuOpen(false)} anchorRef={exportBtnRef} align="end"
+ <ToolbarPopover open={exportMenuOpen && !compactToolbar} onClose={() => setExportMenuOpen(false)} anchorRef={exportBtnRef} align="end"
  sheetLabel={t('devices.export.title', 'Export filtered devices')}
  className="w-32 bg-bg-secondary rounded-lg shadow-xl overflow-hidden overflow-y-auto">
  {exportContent}
  </ToolbarPopover>
- <ToolbarPopover open={columnsMenuOpen} onClose={() => setColumnsMenuOpen(false)} anchorRef={columnsBtnRef} align="end"
+ <ToolbarPopover open={columnsMenuOpen} onClose={() => setColumnsMenuOpen(false)} anchorRef={columnsBtnRef} align="end" sheet={compactToolbar}
  sheetLabel={t('devices.columns.title', 'Colonnes affichées')}
  className="w-56 flex flex-col bg-bg-secondary rounded-lg shadow-xl overflow-hidden">
  {columnsContent}
  </ToolbarPopover>
- <ToolbarPopover open={osNameMenuOpen} onClose={() => setOsNameMenuOpen(false)} anchorRef={osNameBtnRef} align="start" maxHeight={320}
+ <ToolbarPopover open={osNameMenuOpen} onClose={() => setOsNameMenuOpen(false)} anchorRef={osNameBtnRef} align="start" maxHeight={320} sheet={compactToolbar}
  sheetLabel={t('devices.filters.osNamesTitle', 'Versions')}
  className="w-72 flex flex-col bg-bg-secondary rounded-lg shadow-xl overflow-hidden">
  {osNameContent}
  </ToolbarPopover>
- <ToolbarPopover open={osVersionMenuOpen} onClose={() => setOsVersionMenuOpen(false)} anchorRef={osVersionBtnRef} align="start" maxHeight={320}
+ <ToolbarPopover open={osVersionMenuOpen} onClose={() => setOsVersionMenuOpen(false)} anchorRef={osVersionBtnRef} align="start" maxHeight={320} sheet={compactToolbar}
  sheetLabel={t('devices.filters.buildsTitle', 'Builds')}
  className="w-64 flex flex-col bg-bg-secondary rounded-lg shadow-xl overflow-hidden">
  {osVersionContent}
  </ToolbarPopover>
- <ToolbarPopover open={tagsMenuOpen} onClose={() => setTagsMenuOpen(false)} anchorRef={tagsBtnRef} align="start" maxHeight={320}
+ <ToolbarPopover open={tagsMenuOpen} onClose={() => setTagsMenuOpen(false)} anchorRef={tagsBtnRef} align="start" maxHeight={320} sheet={compactToolbar}
  sheetLabel={t('devices.filters.tagsTitle', 'Tags appliqués')}
  className="w-64 flex flex-col bg-bg-secondary rounded-lg shadow-xl overflow-hidden">
  {tagsContent}
  </ToolbarPopover>
- <ToolbarPopover open={batchMenuOpen && hasSelection} onClose={() => setBatchMenuOpen(false)} anchorRef={batchBtnRef} align="end"
+ <ToolbarPopover open={batchMenuOpen && hasSelection} onClose={() => setBatchMenuOpen(false)} anchorRef={batchBtnRef} align="end" sheet={compactToolbar}
  sheetLabel={t('devices.batch.actions')}
  className="bg-bg-secondary rounded-lg shadow-lg overflow-hidden overflow-y-auto min-w-[180px]">
  {batchContent}
  </ToolbarPopover>
 
- {/* Phone: filter chips in a bottom sheet. */}
- {isPhone && (
+ {/* Phone / short touch screen: filter chips in a bottom sheet. */}
+ {compactToolbar && (
  <Drawer
  open={filtersOpen}
  onClose={() => setFiltersOpen(false)}
@@ -1322,7 +1334,7 @@ export function DeviceTable({
  onClick={() => setFiltersOpen(false)}
  className="w-full min-h-11 rounded-lg bg-accent text-sm font-medium text-white"
  >
- {t('devices.filters.showResults', 'Show {{n}} devices', { n: total })}
+ {t('devices.filters.showResults', 'Show {{count}} devices', { count: total, defaultValue_one: 'Show {{count}} device' })}
  </button>
  }
  >
@@ -1343,7 +1355,7 @@ export function DeviceTable({
  </div>
  ) : (
  <div className="bg-bg-secondary rounded-xl overflow-hidden">
- {isDesktop ? (
+ {headerSortLabels ? (
  /* Column header row with click-to-sort. The layout isn't a true
  HTML table — DeviceRow is a "rich row" with 2 lines per device —
  but this header approximates the column positions so the user
@@ -1446,7 +1458,7 @@ export function DeviceTable({
  <div className="flex items-center justify-between mt-3 text-xs text-text-muted max-md:flex-wrap max-md:gap-2">
  <span>
  {treeViewActive
- ? t('devices.list.count', '{{n}} devices', { n: total })
+ ? t('devices.list.count', '{{count}} devices', { count: total, defaultValue_one: '{{count}} device' })
  : `${devices.length} / ${total}`}
  </span>
  {treeViewActive && total > TREE_MAX && (
@@ -1566,7 +1578,7 @@ function defaultSortOrder(field: SortField): 'asc' | 'desc' {
 // before. Escape / Android back close it too. Phone: a bottom sheet.
 
 function ToolbarPopover({
- open, onClose, anchorRef, align = 'start', maxHeight, className, sheetLabel, children,
+ open, onClose, anchorRef, align = 'start', maxHeight, className, sheetLabel, sheet, children,
 }: {
  open: boolean;
  onClose: () => void;
@@ -1577,10 +1589,12 @@ function ToolbarPopover({
  /** Classes of the floating panel (not used for the phone sheet). */
  className?: string;
  sheetLabel?: string;
+ /** Force the bottom-sheet rendering (default: phone layout only). */
+ sheet?: boolean;
  children: ReactNode;
 }) {
  const layout = useLayoutMode();
- const asSheet = layout === 'phone';
+ const asSheet = sheet || layout === 'phone';
  const popRef = useRef<HTMLDivElement>(null);
  const floating = open && !asSheet;
  const pos = useAnchoredPosition(anchorRef, popRef, floating, { placement: 'bottom', align, offset: 4 });
@@ -2018,7 +2032,7 @@ function DeviceListBody({
  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-accent flex-1">
  {b.id === MASTER_TENANT_ID ? `${b.name} ${t('devices.filters.masterSuffix', '(master)')}` : b.name}
  </span>
- <span className="text-[10px] text-text-muted">{t('devices.list.count', '{{n}} devices', { n: total })}</span>
+ <span className="text-[10px] text-text-muted">{t('devices.list.count', '{{count}} devices', { count: total, defaultValue_one: '{{count}} device' })}</span>
  </button>
  {!collapsed && (
  <>
@@ -2155,15 +2169,19 @@ function RunScriptModal({
 
  // Shared Modal (docs/obli-mobile.md §5.5): full-screen on phone, backdrop
  // tap / Escape / Android back close it, z-[200] like the sibling modals.
- // The body is a column: hint + search stay put, only the list scrolls.
+ // The body is a column: header + search stay put, only the list scrolls.
+ // The header is rendered in the body (not Modal's px-4 py-3 header) so the
+ // desktop dialog keeps its historic px-5 py-4 title + hint block, without
+ // a × (Cancel closes); phones get a × since the sheet is full-screen.
+ const title = t('devices.batch.runScriptTitle', { count, defaultValue: `Run script on ${count} device${count > 1 ? 's' : ''}` });
  return (
  <Modal
  open
  onClose={onCancel}
  size="md"
- icon={<Terminal className="w-4 h-4 text-accent" />}
- title={t('devices.batch.runScriptTitle', { count, defaultValue: `Run script on ${count} device${count > 1 ? 's' : ''}` })}
- className="sm:max-h-[80vh] sm:max-h-[80dvh]"
+ showCloseButton={false}
+ ariaLabel={title}
+ className="sm:max-h-[80dvh] sm:supports-[not(height:100dvh)]:max-h-[80vh]"
  bodyClassName="flex flex-col p-0 overflow-hidden"
  footer={
  <>
@@ -2184,17 +2202,30 @@ function RunScriptModal({
  }
  footerClassName="px-5"
  >
- <div className="shrink-0 px-5">
- <p className="text-xs text-text-muted">
+ <div className="relative shrink-0 px-5 py-4 max-sm:pr-12">
+ <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
+ <Terminal className="w-4 h-4 text-accent" />
+ {title}
+ </h3>
+ <p className="text-xs text-text-muted mt-1">
  {t('devices.batch.runScriptHint') || 'Pick a script from the library. Each device runs the script independently — failures on one don\'t block the others.'}
  </p>
+ <IconButton
+ label={t('common.close', 'Close')}
+ icon={<X className="w-4 h-4" />}
+ size="sm"
+ variant="plain"
+ onClick={onCancel}
+ className="absolute right-3 top-3 sm:hidden"
+ />
  </div>
 
  <div className="shrink-0 px-5 pt-3">
  <div className="relative">
  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted" />
  <input
- type="search"
+ type="text"
+ enterKeyHint="search"
  value={search}
  onChange={(e) => setSearch(e.target.value)}
  placeholder={t('devices.batch.runScriptSearch') || 'Search by name, tag, description…'}

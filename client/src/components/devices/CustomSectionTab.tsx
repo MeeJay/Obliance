@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, TerminalSquare, FileCode2, FileDown, Copy } from 'lucide-react';
+import { Loader2, TerminalSquare, FileCode2, FileDown, Copy, AArrowDown, AArrowUp } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { Terminal } from 'xterm';
@@ -11,6 +11,12 @@ import { isAndroidApp } from '@/native/bridge';
 import { saveText } from '@/utils/download';
 import { copyText } from '@/utils/clipboard';
 import { IconButton } from '@/components/common/IconButton';
+import { Tip } from '@/components/common/Tip';
+import { useCanHover } from '@/hooks/useMediaQuery';
+
+const TERM_FONT_DEFAULT = 13;
+const TERM_FONT_MIN = 8;
+const TERM_FONT_MAX = 20;
 
 /** Viewport-height unit: dvh where supported (mobile browser chrome / the
  *  Android WebView resize with the toolbars), vh otherwise. */
@@ -22,6 +28,13 @@ const PANEL_HEIGHT = `calc(100${VH} - 340px)`;
 function canPrint(): boolean {
   return !isAndroidApp() && typeof window !== 'undefined' && typeof window.print === 'function';
 }
+
+/** CSP of the downloaded HTML file. In the app the dump renders in a
+ *  sandboxed iframe (no scripts); the exported file loses that sandbox, so
+ *  this meta keeps any active content it carries (inline handlers,
+ *  javascript: URLs, iframes, objects, forms) inert when opened in a browser. */
+const EXPORT_CSP_META =
+  `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: https:; font-src data:; base-uri 'none'; form-action 'none'">`;
 
 interface Props {
  deviceId: number;
@@ -57,13 +70,17 @@ function CustomSectionTerminalPanel({ deviceId, section }: Props) {
  const streamIdRef = useRef<string | null>(null);
  const [status, setStatus] = useState<'connecting' | 'live' | 'closed' | 'error'>('connecting');
  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+ const canHover = useCanHover();
+ // Touch: A- / A+ stepper (a phone fits ~38 columns at 13px, so wide
+ // PowerShell tables wrap badly; there is no pinch-zoom in xterm).
+ const [fontSize, setFontSize] = useState(TERM_FONT_DEFAULT);
 
  useEffect(() => {
  if (!containerRef.current) return;
 
  const term = new Terminal({
  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
- fontSize: 13,
+ fontSize: TERM_FONT_DEFAULT,
  theme: {
  background: '#0f1419',
  foreground: '#e6e1cf',
@@ -149,6 +166,21 @@ function CustomSectionTerminalPanel({ deviceId, section }: Props) {
  // eslint-disable-next-line react-hooks/exhaustive-deps
  }, [deviceId, section.id]);
 
+ // Apply the font-size stepper: refit and tell the agent the new geometry
+ // (the ResizeObserver only fires on container size changes).
+ useEffect(() => {
+ const term = termRef.current;
+ if (!term || term.options.fontSize === fontSize) return;
+ term.options.fontSize = fontSize;
+ try {
+ fitRef.current?.fit();
+ const socket = getSocket();
+ if (streamIdRef.current && socket) {
+ socket.emit('CUSTOM_SECTION_RESIZE', { streamId: streamIdRef.current, cols: term.cols, rows: term.rows });
+ }
+ } catch { /* ignore */ }
+ }, [fontSize]);
+
  // Touch devices: xterm selection is mouse-only, so offer a "copy all"
  // that reads the whole scrollback buffer.
  const handleCopyAll = async () => {
@@ -165,20 +197,42 @@ function CustomSectionTerminalPanel({ deviceId, section }: Props) {
 
  return (
  <div className="bg-bg-secondary rounded-xl overflow-hidden flex flex-col">
- <div className="px-4 py-3 flex items-center gap-2">
+ {/* Header wraps below sm: name + command on line 1, controls + status on line 2 */}
+ <div className="px-4 py-3 flex items-center gap-2 max-sm:flex-wrap">
  <TerminalSquare className="w-4 h-4 text-accent shrink-0" />
- <div className="flex-1 min-w-0">
+ <div className="flex-1 min-w-0 max-sm:basis-[calc(100%-1.5rem)]">
  <div className="text-sm font-semibold text-text-primary truncate">{section.name}</div>
- {/* Full command wraps on touch (the title tooltip is mouse-only). */}
- <div className="text-xs text-text-muted font-mono truncate coarse:whitespace-normal coarse:break-all" title={section.command}>{section.command}</div>
+ {/* Full command: title tooltip with a mouse, tap-to-show popover on touch. */}
+ {canHover ? (
+ <div className="text-xs text-text-muted font-mono truncate" title={section.command}>{section.command}</div>
+ ) : (
+ <Tip content={section.command} align="start" className="flex w-full min-w-0" contentClassName="font-mono max-w-[min(90vw,32rem)]">
+ <span className="block min-w-0 text-xs text-text-muted font-mono truncate">{section.command}</span>
+ </Tip>
+ )}
  </div>
+ <div className="hidden coarse:flex items-center shrink-0 max-sm:ml-auto">
+ <IconButton
+ label={t('customSections.fontSmaller', 'Smaller text')}
+ icon={<AArrowDown className="w-4 h-4" />}
+ size="sm"
+ disabled={fontSize <= TERM_FONT_MIN}
+ onClick={() => setFontSize((f) => Math.max(TERM_FONT_MIN, f - 1))}
+ />
+ <IconButton
+ label={t('customSections.fontLarger', 'Larger text')}
+ icon={<AArrowUp className="w-4 h-4" />}
+ size="sm"
+ disabled={fontSize >= TERM_FONT_MAX}
+ onClick={() => setFontSize((f) => Math.min(TERM_FONT_MAX, f + 1))}
+ />
  <IconButton
  label={t('customSections.copyOutput', 'Copy all output')}
  icon={<Copy className="w-3.5 h-3.5" />}
  size="sm"
- className="hidden coarse:inline-flex shrink-0"
  onClick={handleCopyAll}
  />
+ </div>
  <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${
  status === 'live' ? 'text-green-400 bg-green-400/10 border-green-400/30' :
  status === 'closed' ? 'text-gray-400 bg-gray-400/10 border-gray-400/30' :
@@ -196,7 +250,7 @@ function CustomSectionTerminalPanel({ deviceId, section }: Props) {
  )}
  <div
  ref={containerRef}
- className="p-2 min-h-[400px] max-sm:min-h-[260px]"
+ className="p-2 min-h-[400px] max-sm:min-h-[260px] coarse:[@media(max-height:600px)]:min-h-[220px]"
  style={{ background: '#0f1419', height: PANEL_HEIGHT }}
  />
  </div>
@@ -377,11 +431,17 @@ function CustomSectionHtmlPanel({ deviceId, section }: Props) {
  // Android WebView: no print dialog. Download a self-contained HTML
  // file instead (same markup + base styles, scripts stripped — the
  // sandboxed iframe never ran them either).
- const raw = bufferRef.current.replace(/<script[\s\S]*?<\/script>/gi, '');
+ // <meta http-equiv="refresh"> is not governed by CSP: drop it too.
+ const raw = bufferRef.current
+ .replace(/<script[\s\S]*?<\/script>/gi, '')
+ .replace(/<meta\b[^>]*http-equiv\s*=\s*["']?\s*refresh[^>]*>/gi, '');
  const looksLikeFullHtml = /<\s*html[\s>]/i.test(raw.slice(0, 4096));
+ // Full documents: the CSP meta goes first — the parser places it in
+ // the (implicit) <head> before any of the dump's own markup, and the
+ // dump's <html>/<head> tags then merge into those elements.
  const doc = looksLikeFullHtml
- ? raw
- : `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${section.name.replace(/[<>&]/g, '')}</title><style>${baseStyles}</style></head><body>${raw}</body></html>`;
+ ? `<!doctype html>${EXPORT_CSP_META}${raw.replace(/<!doctype[^>]*>/gi, '')}`
+ : `<!doctype html><html><head>${EXPORT_CSP_META}<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${section.name.replace(/[<>&]/g, '')}</title><style>${baseStyles}</style></head><body>${raw}</body></html>`;
  const safeName = section.name.replace(/[^a-z0-9._-]+/gi, '-').replace(/^-+|-+$/g, '') || 'section';
  const ok = await saveText(doc, `${safeName}-${new Date().toISOString().split('T')[0]}.html`, 'text/html;charset=utf-8');
  if (ok) toast.success(t('customSections.htmlSaved', 'HTML file saved'));
@@ -393,7 +453,7 @@ function CustomSectionHtmlPanel({ deviceId, section }: Props) {
  iframe.contentWindow?.print();
  } catch (err) {
  console.error('PDF export failed', err);
- toast.error('Could not open the print dialog');
+ toast.error(t('customSections.printError', 'Could not open the print dialog'));
  }
  };
 
@@ -497,9 +557,9 @@ function CustomSectionHtmlPanel({ deviceId, section }: Props) {
  setCycle((c) => c + 1);
  }}
  disabled={status === 'connecting' || status === 'live'}
- title="Refresh now"
- className="text-[10px] px-2 py-0.5 rounded-full border border-purple-400/30 bg-purple-400/10 text-purple-400 hover:bg-purple-400/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed coarse:min-h-9 coarse:px-3 coarse:text-xs">
- Refresh now
+ title={t('customSections.refreshNow', 'Refresh now')}
+ className="text-[10px] px-2 py-0.5 rounded-full border border-purple-400/30 bg-purple-400/10 text-purple-400 hover:bg-purple-400/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed coarse:min-h-9 coarse:px-3 coarse:text-xs max-sm:ml-auto">
+ {t('customSections.refreshNow', 'Refresh now')}
  </button>
  )}
  {/* Export PDF — disabled until the first chunk has landed,
@@ -509,10 +569,10 @@ function CustomSectionHtmlPanel({ deviceId, section }: Props) {
  onClick={handleExportPdf}
  disabled={bufferRef.current.length === 0}
  title={printable
- ? "Open the print dialog (pick 'Save as PDF' as the destination)"
+ ? t('customSections.exportPdfHint', "Open the print dialog (pick 'Save as PDF' as the destination)")
  : t('customSections.exportHtmlHint', 'Download the dashboard as an HTML file')}
- className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-bg-tertiary text-text-primary hover:border-accent/40 hover:text-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed coarse:min-h-9 coarse:px-3 coarse:text-xs">
- <FileDown className="w-3 h-3" /> {printable ? 'Export PDF' : t('customSections.exportHtml', 'Export HTML')}
+ className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-bg-tertiary text-text-primary hover:border-accent/40 hover:text-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed coarse:min-h-9 coarse:px-3 coarse:text-xs ${autoRefreshEnabled && autoRefreshSec >= 5 ? '' : 'max-sm:ml-auto'}`}>
+ <FileDown className="w-3 h-3" /> {printable ? t('customSections.exportPdf', 'Export PDF') : t('customSections.exportHtml', 'Export HTML')}
  </button>
  {/* Fixed-width status pill so the text swap
  'live' ↔ 'connecting' ↔ 'refresh in Ns' doesn't ripple
@@ -543,7 +603,7 @@ function CustomSectionHtmlPanel({ deviceId, section }: Props) {
  via the effect above, no srcDoc swap, no flicker. The
  loading placeholder is overlaid on top until the first
  chunk arrives. */}
- <div className="relative min-h-[400px] max-sm:min-h-[260px]" style={{ height: PANEL_HEIGHT }}>
+ <div className="relative min-h-[400px] max-sm:min-h-[260px] coarse:[@media(max-height:600px)]:min-h-[220px]" style={{ height: PANEL_HEIGHT }}>
  <iframe
  ref={iframeRef}
  // sandbox="allow-same-origin" disables script execution, form

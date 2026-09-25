@@ -4,6 +4,25 @@ import crypto from 'crypto';
 import { db } from '../db';
 import { logger } from '../utils/logger';
 import { commandService } from './command.service';
+import { isMasterTenant } from '@obliance/shared';
+
+/**
+ * Script lookup scoped to what `tenantId` may run: its own scripts, system
+ * scripts (tenant_id NULL) and scripts the master fanned out to it
+ * (target_tenant_ids). The master tenant sees every script (god view).
+ * Same scope as scriptService.getScriptById.
+ */
+function scriptVisibleToTenant(scriptId: number, tenantId: number) {
+  const q = db('scripts').where({ id: scriptId });
+  if (!isMasterTenant(tenantId)) {
+    q.where(function () {
+      this.where({ tenant_id: tenantId })
+        .orWhereNull('tenant_id')
+        .orWhereRaw('? = ANY(target_tenant_ids)', [tenantId]);
+    });
+  }
+  return q;
+}
 
 class ScheduleService {
   private task: cron.ScheduledTask | null = null;
@@ -267,6 +286,29 @@ class ScheduleService {
     return q;
   }
 
+  /**
+   * Device ids a schedule with this target would run on — the same selection
+   * as resolveTargetDevices (including "device/group with no ids = every
+   * approved device of the tenant"), minus the live-status filter: a device
+   * offline now is still a target of the next run. Used to authorize who may
+   * create / edit a schedule.
+   */
+  async resolveTargetDeviceIdsForAuthz(tenantId: number, targetType: string | null | undefined, rawTargetIds: unknown): Promise<number[]> {
+    const targetIds: number[] = (Array.isArray(rawTargetIds) ? rawTargetIds : [])
+      .map((x: unknown) => Number(x))
+      .filter((n: number) => Number.isInteger(n) && n > 0);
+    let q = db('devices').where({ tenant_id: tenantId, approval_status: 'approved' });
+    if (targetType === 'device' && targetIds.length > 0) {
+      q = q.whereIn('id', targetIds);
+    } else if (targetType === 'group' && targetIds.length > 0) {
+      const descendants = await db('device_group_closure')
+        .whereIn('ancestor_id', targetIds)
+        .pluck('descendant_id');
+      q = q.whereIn('group_id', [...new Set([...targetIds, ...descendants])]);
+    }
+    return q.pluck('id');
+  }
+
   private async checkConditions(conditions: any[], device: any): Promise<boolean> {
     if (!conditions?.length) return true;
     for (const cond of conditions) {
@@ -281,14 +323,17 @@ class ScheduleService {
   private async dispatchExecution(
     schedule: any, device: any, now: Date, isCatchup: boolean, catchupForAt?: Date, batchId?: string
   ) {
-    const script = await db('scripts').where({ id: schedule.script_id }).first();
+    // Scoped to the schedule's tenant: a schedule can never run (and copy
+    // into its execution snapshot) a script of another tenant, e.g. one it
+    // referenced by id, or one whose fan-out was since withdrawn.
+    const script = await scriptVisibleToTenant(schedule.script_id, schedule.tenant_id).first();
     if (!script) {
       logger.error({
         scheduleId: schedule.id,
         scheduleName: schedule.name,
         scriptId: schedule.script_id,
         deviceId: device.id,
-      }, 'schedule: script_id references missing script — no execution dispatched');
+      }, 'schedule: script_id references a missing script, or one not visible to the schedule tenant — no execution dispatched');
       return;
     }
 
@@ -375,7 +420,7 @@ class ScheduleService {
 
   // Manual execution (from UI)
   async executeNow(scriptId: number, deviceIds: number[], tenantId: number, parameterValues: Record<string, any>, userId: number) {
-    const script = await db('scripts').where({ id: scriptId }).first();
+    const script = await scriptVisibleToTenant(scriptId, tenantId).first();
     if (!script) throw new Error('Script not found');
 
     const batchId = crypto.randomUUID();

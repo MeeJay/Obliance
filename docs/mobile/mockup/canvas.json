@@ -1,0 +1,268 @@
+{
+  "v": 3,
+  "createdOnFiles": {
+    "v": 1,
+    "at": "2026-09-24T21:00:00Z"
+  },
+  "title": "Obliance Mobile — maquette",
+  "launch": {
+    "view": "canvas"
+  },
+  "pages": [],
+  "boards": {
+    "SignIn.dc.html": {
+      "x": 0,
+      "y": 260,
+      "w": 390,
+      "h": 844,
+      "title": "A01 · Connexion",
+      "is_interactive": true
+    },
+    "Main.dc.html": {
+      "x": 470,
+      "y": 260,
+      "w": 390,
+      "h": 844,
+      "title": "A02 · À traiter",
+      "is_interactive": true
+    },
+    "Fleet.dc.html": {
+      "x": 940,
+      "y": 260,
+      "w": 390,
+      "h": 844,
+      "title": "A05 · Flotte",
+      "is_interactive": true
+    },
+    "DeviceList.dc.html": {
+      "x": 0,
+      "y": 1484,
+      "w": 390,
+      "h": 844,
+      "title": "A06 · Appareils",
+      "is_interactive": true
+    },
+    "DeviceFilters.dc.html": {
+      "x": 470,
+      "y": 1484,
+      "w": 390,
+      "h": 844,
+      "title": "A07 · Filtres et tri",
+      "is_interactive": true
+    },
+    "DeviceOverview.dc.html": {
+      "x": 940,
+      "y": 1484,
+      "w": 390,
+      "h": 844,
+      "title": "A08 · PC-COMPTA-03 · Aperçu",
+      "is_interactive": true
+    },
+    "ActionSheet.dc.html": {
+      "x": 1410,
+      "y": 1484,
+      "w": 390,
+      "h": 844,
+      "title": "A09 · Agir sur PC-COMPTA-03",
+      "is_interactive": true
+    },
+    "DeviceInventory.dc.html": {
+      "x": 1880,
+      "y": 1484,
+      "w": 390,
+      "h": 844,
+      "title": "A10 · PC-COMPTA-03 · Inventaire",
+      "is_interactive": true
+    },
+    "AlertDetail.dc.html": {
+      "x": 0,
+      "y": 2708,
+      "w": 390,
+      "h": 844,
+      "title": "A03 · Incident : SRV-AD2 hors ligne",
+      "is_interactive": true
+    },
+    "Notifications.dc.html": {
+      "x": 470,
+      "y": 2708,
+      "w": 390,
+      "h": 844,
+      "title": "A04 · Exemples de notifications",
+      "is_interactive": true
+    },
+    "Activity.dc.html": {
+      "x": 940,
+      "y": 2708,
+      "w": 390,
+      "h": 844,
+      "title": "A11 · Activité et automations",
+      "is_interactive": true
+    },
+    "RunScriptSetup.dc.html": {
+      "x": 1410,
+      "y": 2708,
+      "w": 390,
+      "h": 844,
+      "title": "A12 · Exécuter « Nettoyer les fichiers temporaires »",
+      "is_interactive": true
+    },
+    "RunLive.dc.html": {
+      "x": 1880,
+      "y": 2708,
+      "w": 390,
+      "h": 844,
+      "title": "A13 · Lot en direct · 2 réussis, 1 échec",
+      "is_interactive": true
+    },
+    "ReachPhone.dc.html": {
+      "x": 0,
+      "y": 3932,
+      "w": 390,
+      "h": 844,
+      "title": "A15 · ObliReach · PC-COMPTA-03",
+      "is_interactive": true
+    },
+    "Terminal.dc.html": {
+      "x": 470,
+      "y": 3932,
+      "w": 390,
+      "h": 844,
+      "title": "A14 · PowerShell · PC-COMPTA-03",
+      "is_interactive": true
+    },
+    "ApprovalDetail.dc.html": {
+      "x": 940,
+      "y": 3932,
+      "w": 390,
+      "h": 844,
+      "title": "A16 · Approbation : désinstaller l’agent de PC-ATELIER-02",
+      "is_interactive": true
+    },
+    "More.dc.html": {
+      "x": 1410,
+      "y": 3932,
+      "w": 390,
+      "h": 844,
+      "title": "A17 · Plus",
+      "is_interactive": true
+    },
+    "TenantSwitch.dc.html": {
+      "x": 1880,
+      "y": 3932,
+      "w": 390,
+      "h": 844,
+      "title": "A19 · Périmètre et tenant",
+      "is_interactive": true
+    },
+    "AppSettings.dc.html": {
+      "x": 2350,
+      "y": 3932,
+      "w": 390,
+      "h": 844,
+      "title": "A18 · Réglages de l’application",
+      "is_interactive": true
+    },
+    "TabletFleetDashboard.dc.html": {
+      "x": 0,
+      "y": 5156,
+      "w": 1280,
+      "h": 800,
+      "title": "A22 · Flotte (tablette)",
+      "is_interactive": true
+    },
+    "TabletDeviceListDetail.dc.html": {
+      "x": 1360,
+      "y": 5156,
+      "w": 1280,
+      "h": 800,
+      "title": "A20 · Appareils : arbre, liste et détail (tablette)",
+      "is_interactive": true
+    },
+    "TabletRemoteSession.dc.html": {
+      "x": 2720,
+      "y": 5156,
+      "w": 1280,
+      "h": 800,
+      "title": "A21 · Session ObliReach · PC-COMPTA-03 (tablette)",
+      "is_interactive": true
+    },
+    "Kit.dc.html": {
+      "x": 0,
+      "y": 6336,
+      "w": 390,
+      "h": 11904,
+      "title": "Kit de composants",
+      "is_interactive": true
+    }
+  },
+  "order": [
+    "SignIn.dc.html",
+    "Main.dc.html",
+    "Fleet.dc.html",
+    "DeviceList.dc.html",
+    "DeviceFilters.dc.html",
+    "DeviceOverview.dc.html",
+    "ActionSheet.dc.html",
+    "DeviceInventory.dc.html",
+    "AlertDetail.dc.html",
+    "Notifications.dc.html",
+    "Activity.dc.html",
+    "RunScriptSetup.dc.html",
+    "RunLive.dc.html",
+    "ReachPhone.dc.html",
+    "Terminal.dc.html",
+    "ApprovalDetail.dc.html",
+    "More.dc.html",
+    "TenantSwitch.dc.html",
+    "AppSettings.dc.html",
+    "TabletFleetDashboard.dc.html",
+    "TabletDeviceListDetail.dc.html",
+    "TabletRemoteSession.dc.html",
+    "Kit.dc.html"
+  ],
+  "notes": {
+    "row1": {
+      "x": 0,
+      "y": 10,
+      "maxW": 1330,
+      "kind": "title1",
+      "text": "1 · Connexion, À traiter et Flotte"
+    },
+    "row2": {
+      "x": 0,
+      "y": 1234,
+      "maxW": 2270,
+      "kind": "title1",
+      "text": "2 · Appareils : liste, filtres, détail et actions"
+    },
+    "row3": {
+      "x": 0,
+      "y": 2458,
+      "maxW": 2270,
+      "kind": "title1",
+      "text": "3 · Alertes, activité et exécution de scripts"
+    },
+    "row4": {
+      "x": 0,
+      "y": 3682,
+      "maxW": 2740,
+      "kind": "title1",
+      "text": "4 · Accès distant, shell, approbations, Plus et réglages"
+    },
+    "row5": {
+      "x": 0,
+      "y": 4906,
+      "maxW": 4000,
+      "kind": "title1",
+      "text": "5 · Tablette 1280 × 800 : flotte, appareils, session ObliReach"
+    },
+    "row6": {
+      "x": 0,
+      "y": 6086,
+      "maxW": 390,
+      "kind": "title1",
+      "text": "Kit de composants (référence STYLEKIT)"
+    }
+  },
+  "designSystems": []
+}

@@ -32,6 +32,7 @@ import { useConfirm, usePrompt } from '@/components/common/ConfirmDialog';
 import { useIsCoarsePointer } from '@/hooks/useMediaQuery';
 import { useClickOutside } from '@/hooks/useClickOutside';
 import { copyText } from '@/utils/clipboard';
+import { isAndroidApp } from '@/native/bridge';
 import { DeviceFilterSelect } from './CompliancePage';
 
 type Tab = 'results' | 'lists' | 'history' | 'repository';
@@ -490,7 +491,7 @@ function KnownAppsModal({
  onClose={onClose}
  title={t('softwareCompliance.fromInventory')}
  size="md"
- className="bg-bg-primary sm:max-h-[80vh] sm:max-h-[80dvh]"
+ className="bg-bg-primary sm:max-h-[80dvh] sm:supports-[not(height:100dvh)]:max-h-[80vh]"
  bodyClassName="p-0"
  >
  <div className="sticky top-0 z-10 bg-bg-primary px-4 py-3">
@@ -631,7 +632,7 @@ function ListGroupTreeMultiSelect({ selectedIds, onChange }: { selectedIds: numb
  <button
  type="button"
  onClick={() => hasChildren && toggleExpand(node.id)}
- aria-label={node.name} aria-expanded={hasChildren ? isExpanded : undefined}
+ aria-label={isExpanded ? t('customSections.collapseGroup', 'Collapse {{name}}', { name: node.name }) : t('customSections.expandGroup', 'Expand {{name}}', { name: node.name })} aria-expanded={hasChildren ? isExpanded : undefined}
  className={clsx('shrink-0 p-0.5 text-text-muted hover:text-text-primary transition-colors coarse:inline-flex coarse:min-h-10 coarse:min-w-10 coarse:items-center coarse:justify-center', !hasChildren && 'invisible')}
  >
  <ChevronRight className={clsx('w-3 h-3 coarse:w-4 coarse:h-4 transition-transform', isExpanded && 'rotate-90')} />
@@ -885,7 +886,7 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
  if (r.enqueued === 0) {
  toast(t('softwareCompliance.scanNoTargets', 'No online target devices'));
  } else {
- toast.success(t('softwareCompliance.scanEnqueued', { count: r.enqueued, defaultValue: `Scan enqueued on ${r.enqueued} device${r.enqueued > 1 ? 's' : ''}` }));
+ toast.success(t('softwareCompliance.scanEnqueued', { count: r.enqueued, defaultValue_one: 'Scan enqueued on {{count}} device', defaultValue_other: 'Scan enqueued on {{count}} devices' }));
  }
  // Refresh results after a delay to give agents time to report.
  setTimeout(load, 8000);
@@ -1045,7 +1046,7 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
  return (
  <div key={result.id} className="bg-bg-secondary rounded-xl overflow-hidden">
  <div
- className="flex items-center gap-3 sm:gap-4 px-4 py-3 cursor-pointer hover:bg-bg-tertiary transition-colors"
+ className="flex items-center gap-3 sm:gap-4 px-4 py-3 cursor-pointer hover:bg-bg-tertiary transition-colors max-sm:flex-wrap max-sm:gap-y-2"
  onClick={() => setExpandedResultId(expanded ? null : result.id)}
  >
  <div className={clsx('p-2 rounded-lg', result.complianceScore >= 80 ? 'bg-green-400/10' : result.complianceScore >= 50 ? 'bg-yellow-400/10' : 'bg-red-400/10')}>
@@ -1094,7 +1095,8 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
  </span>
  </div>
  </div>
- <div className="flex items-center gap-2 shrink-0">
+ {/* Below sm the actions take their own line under the device name. */}
+ <div className="flex items-center gap-2 shrink-0 max-sm:basis-full max-sm:justify-end">
  <span className="text-xs text-text-muted hidden sm:block">
  {new Date(result.checkedAt).toLocaleDateString()}
  </span>
@@ -1110,10 +1112,14 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
  )}
  <IconButton
  label={t('softwareCompliance.rerun')}
- icon={<RefreshCw className="w-3.5 h-3.5" />}
+ icon={<>
+ <RefreshCw className="w-3.5 h-3.5" />
+ {/* Touch: visible label (the meaning was only in a hover tooltip). */}
+ <span className="hidden coarse:inline text-xs">{t('softwareCompliance.rerun')}</span>
+ </>}
  variant="accent"
  onClick={(e) => { e.stopPropagation(); handleTriggerCheck(result.deviceId, result.listId); }}
- className="hover:bg-bg-tertiary"
+ className="hover:bg-bg-tertiary gap-1 coarse:px-2.5"
  />
  {expanded ? <ChevronUp className="w-4 h-4 text-text-muted" /> : <ChevronDown className="w-4 h-4 text-text-muted" />}
  </div>
@@ -1127,7 +1133,7 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
  <div className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary/80">
  <button
  onClick={(e) => { e.stopPropagation(); handleRemediateAll(result); }}
- className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors coarse:min-h-10"
  >
  <Wrench className="w-3.5 h-3.5" />
  {t('softwareCompliance.remediateAllCount', { count: nonCompliant.length })}
@@ -1324,7 +1330,7 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
  <button
  onClick={() => setShowAddMenu(!showAddMenu)}
  aria-expanded={showAddMenu}
- className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent text-white rounded-lg hover:bg-accent/80 transition-colors"
+ className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent text-white rounded-lg hover:bg-accent/80 transition-colors coarse:min-h-10"
  >
  <Plus className="w-3.5 h-3.5" />
  {t('softwareCompliance.addApp')}
@@ -1833,7 +1839,7 @@ function RepoTab() {
  >
  {uploading ? t('softwareCompliance.uploading') : t('softwareCompliance.browse')}
  </button>
- <input ref={fileInputRef} type="file" accept={coarse ? PACKAGE_ACCEPT_TOUCH : PACKAGE_ACCEPT} className="hidden"
+ <input ref={fileInputRef} type="file" accept={coarse || isAndroidApp() ? PACKAGE_ACCEPT_TOUCH : PACKAGE_ACCEPT} className="hidden"
  onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ''; }} />
  </div>
  </div>
@@ -1941,11 +1947,11 @@ function SoftwareHistoryTab() {
 
  return (
  <div className="space-y-4">
- <div className="flex items-center justify-between">
+ <div className="flex items-center justify-between gap-2">
  <p className="text-xs text-text-muted">{t('softwareCompliance.historyHint', 'Last 20 scan & remediation batches. Click a batch to drill into device results.')}</p>
  <button
  onClick={() => load(true)}
- className="text-xs px-2 py-1 rounded text-text-muted hover:text-text-primary hover:border-accent/40 transition-colors"
+ className="text-xs px-2 py-1 rounded text-text-muted hover:text-text-primary hover:border-accent/40 transition-colors shrink-0 coarse:min-h-10"
  >
  {t('common.refresh', 'Refresh')}
  </button>

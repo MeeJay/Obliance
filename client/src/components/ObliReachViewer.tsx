@@ -20,7 +20,7 @@ import toast from 'react-hot-toast';
 import { Monitor, X, Maximize2, Keyboard, RefreshCw, AlertTriangle, Wifi, Lock, Unlock, MessageCircle, Circle, Camera, Volume2, VolumeX, Command, ShieldAlert, MoreHorizontal, ClipboardPaste, ClipboardCopy, MousePointer2, Hand, Minimize2, ChevronDown, ChevronUp, Copy } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useNativeTopOffset } from '@/hooks/useNativeTopOffset';
-import { useIsCoarsePointer } from '@/hooks/useMediaQuery';
+import { useIsCoarsePointer, matchesMedia, MEDIA } from '@/hooks/useMediaQuery';
 import { useNativeBack } from '@/hooks/useNativeBack';
 import { isAndroidApp } from '@/native/bridge';
 import { saveBlob } from '@/utils/download';
@@ -237,6 +237,8 @@ export function ObliReachViewer({
  const setLatched = useCallback((m: Modifiers) => { latchedRef.current = m; setLatchedState(m); }, []);
  const touchModCodesRef = useRef<string[]>([]);
  const [inactivityWarn, setInactivityWarn] = useState(false);
+ const inactivityWarnRef = useRef(false);
+ useEffect(() => { inactivityWarnRef.current = inactivityWarn; }, [inactivityWarn]);
  // Remote clipboard text waiting for a user gesture to be copied locally.
  const [remoteClip, setRemoteClip] = useState<string | null>(null);
  const awaitingClipRef = useRef(false);
@@ -659,7 +661,18 @@ export function ObliReachViewer({
  if (o.type === 'mouse' && o.action !== 'scroll' && typeof o.x === 'number' && typeof o.y === 'number') {
  lastMouseRef.current = { x: o.x, y: o.y };
  }
- if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
+ if (ws?.readyState === WebSocket.OPEN) {
+ ws.send(JSON.stringify(obj));
+ // Any input resets the relay's inactivity timer: drop the warning
+ // banner shown over the screen (touch screens / narrow windows) instead
+ // of leaving it over the remote's title bars for the rest of the session.
+ if (inactivityWarnRef.current && (o.type === 'mouse' || o.type === 'key')
+ && (isCoarseRef.current || !matchesMedia(MEDIA.sm))) {
+ inactivityWarnRef.current = false;
+ setInactivityWarn(false);
+ setErrorMsg('');
+ }
+ }
  }, []);
 
  // ── Touch helpers ─────────────────────────────────────────────────────────
@@ -709,7 +722,9 @@ export function ObliReachViewer({
  canvasRef,
  agentDims,
  send: sendJson,
- touchMode,
+ // Trackpad mode is a touch-screen option: a fine-pointer session (e.g. a
+ // docked 2-in-1 that saved "trackpad" earlier) never gets its static cursor.
+ touchMode: isCoarse ? touchMode : 'direct',
  onTouchButton: handleTouchButton,
  onTouchStart: handleTouchStart,
  });
@@ -723,7 +738,7 @@ export function ObliReachViewer({
  e.preventDefault();
  // Intercept Ctrl+V to sync clipboard to remote
  if ((e.ctrlKey || e.metaKey) && e.code === 'KeyV') {
- navigator.clipboard.readText().then(text => {
+ readClipboardText().then(text => {
  if (text) sendJson({ type: 'clipboard_set', text });
  }).catch(() => {});
  }
@@ -785,9 +800,17 @@ export function ObliReachViewer({
  }, [sendJson]);
 
  const handleFullscreen = useCallback(() => {
+ // Touch screens: a remote desktop is landscape — try to lock the
+ // orientation once fullscreen (only allowed there; ignored elsewhere).
+ const orientation = (typeof screen !== 'undefined' ? screen.orientation : undefined) as
+ (ScreenOrientation & { lock?: (o: string) => Promise<void> }) | undefined;
  if (!isFullscreen) {
- document.documentElement.requestFullscreen?.()?.catch?.(() => {});
+ const p = document.documentElement.requestFullscreen?.();
+ p?.then?.(() => {
+ if (isCoarseRef.current) orientation?.lock?.('landscape')?.catch?.(() => {});
+ })?.catch?.(() => {});
  } else {
+ try { if (isCoarseRef.current) orientation?.unlock?.(); } catch { /* not locked */ }
  document.exitFullscreen?.()?.catch?.(() => {});
  }
  setIsFullscreen(!isFullscreen);
@@ -968,6 +991,53 @@ export function ObliReachViewer({
  // navigating the page underneath. Stacked sheets close first.
  useNativeBack(() => { handleClose(); return true; }, true);
 
+ // Mobile browsers (outside the Android app): the system back gesture would
+ // change the route and unmount the viewer without ending the session. While
+ // the viewer is open, keep a same-URL history entry on top and treat popping
+ // it as Disconnect. Touch screens only — desktop history is untouched.
+ const trapBrowserBack = isCoarse && !inAndroidApp;
+ const handleCloseRef = useRef(handleClose);
+ handleCloseRef.current = handleClose;
+ useEffect(() => {
+ if (!trapBrowserBack) return;
+ const MARK = '__obliReachViewer';
+ let pushed = false;
+ let popped = false;
+ // Deferred so a StrictMode mount → unmount → mount never pushes twice
+ // (and never runs the history.back() below against the second entry).
+ const timer = window.setTimeout(() => {
+ const prev = window.history.state;
+ window.history.pushState({ ...(prev && typeof prev === 'object' ? prev : {}), [MARK]: true }, '');
+ pushed = true;
+ }, 0);
+ const onPop = () => {
+ if (!pushed || popped) return;
+ popped = true;
+ handleCloseRef.current();
+ };
+ window.addEventListener('popstate', onPop);
+ return () => {
+ window.clearTimeout(timer);
+ window.removeEventListener('popstate', onPop);
+ // Closed from the UI: drop our entry — only while it is still the
+ // current one (a route change has already replaced it).
+ const cur = window.history.state as Record<string, unknown> | null;
+ if (pushed && !popped && cur && cur[MARK]) window.history.back();
+ };
+ }, [trapBrowserBack]);
+
+ // Unmounted without handleClose (route change, parent state): still
+ // finalize an active recording — its onstop saves the file instead of
+ // silently discarding it — and release the audio context.
+ useEffect(() => () => {
+ const mr = mediaRecorderRef.current;
+ if (mr && mr.state === 'recording') {
+ try { mr.stop(); } catch { /* already stopped */ }
+ }
+ try { audioCtxRef.current?.close(); } catch { /* already closed */ }
+ audioCtxRef.current = null;
+ }, []);
+
  // Lets the app shell hide its floating widgets while a remote screen is open.
  useEffect(() => {
  const root = document.documentElement;
@@ -1014,7 +1084,7 @@ export function ObliReachViewer({
  tabIndex={-1}
  >
  {/* ── Toolbar ── */}
- <div className="flex items-center justify-between px-3 py-1.5 bg-bg-primary shrink-0 gap-3 max-lg:flex-wrap max-lg:gap-y-1">
+ <div className="flex items-center justify-between px-3 py-1.5 bg-bg-primary shrink-0 gap-3 max-lg:flex-wrap max-lg:gap-y-1 coarse:flex-wrap coarse:gap-y-1">
  <div className="flex items-center gap-2 min-w-0 max-md:flex-1 max-md:basis-0">
  <Monitor className="w-4 h-4 text-text-muted shrink-0" />
  <span className="text-sm font-medium text-text-primary truncate">{deviceName}</span>
@@ -1037,9 +1107,12 @@ export function ObliReachViewer({
  )}
  </div>
 
- {/* Right cluster: one row on desktop, wraps on tablets; on phones the
- secondary controls live in the "⋯" tools sheet. */}
- <div className="flex items-center gap-1 shrink-0 max-lg:flex-wrap max-lg:justify-end max-lg:ml-auto">
+ {/* Right cluster: one row on desktop. Below lg (and on any touch
+ screen) it may shrink to the toolbar width so its own flex-wrap
+ applies — with shrink-0 it kept its max-content width and pushed
+ Disconnect off-screen. On phones and touch tablets the secondary
+ controls live in the "⋯" tools sheet. */}
+ <div className="flex items-center gap-1 shrink-0 max-lg:flex-wrap max-lg:justify-end max-lg:ml-auto max-lg:shrink max-lg:min-w-0 coarse:flex-wrap coarse:justify-end coarse:ml-auto coarse:shrink coarse:min-w-0">
  {/* ── Monitor selector ── */}
  {status === 'streaming' && monitors.length > 1 && (() => {
  const minX = Math.min(...monitors.map(m => m.x));
@@ -1051,7 +1124,7 @@ export function ObliReachViewer({
  const boxW = 100;
  const boxH = Math.round(boxW * totalH / totalW);
  return (
- <div className="relative rounded bg-bg-tertiary max-md:hidden" style={{ width: boxW, height: Math.max(boxH, 20) }} title={t('reach.selectMonitor', 'Select monitor')}>
+ <div className="relative rounded bg-bg-tertiary max-md:hidden max-lg:coarse:hidden" style={{ width: boxW, height: Math.max(boxH, 20) }} title={t('reach.selectMonitor', 'Select monitor')}>
  {monitors.map(m => {
  const l = ((m.x - minX) / totalW) * 100;
  const top = ((m.y - minY) / totalH) * 100;
@@ -1085,7 +1158,7 @@ export function ObliReachViewer({
  onChange={e => handleCodecSwitch(e.target.value)}
  title={t('reach.codec', 'Video codec')}
  aria-label={t('reach.codec', 'Video codec')}
- className="px-2 py-1 text-xs bg-bg-secondary text-text-muted rounded hover:text-text-primary transition-colors cursor-pointer max-md:hidden coarse:min-h-10"
+ className="px-2 py-1 text-xs bg-bg-secondary text-text-muted rounded hover:text-text-primary transition-colors cursor-pointer max-md:hidden max-lg:coarse:hidden coarse:min-h-10"
  >
  {CODECS.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
  </select>
@@ -1097,7 +1170,7 @@ export function ObliReachViewer({
  onClick={handleInputBlock}
  title={inputBlocked ? t('reach.unblockInput', 'Unblock remote user input') : t('reach.blockInput', 'Block remote user input')}
  className={clsx(
- 'flex items-center gap-1.5 px-2 py-1 text-xs border rounded transition-colors max-md:hidden', TB,
+ 'flex items-center gap-1.5 px-2 py-1 text-xs border rounded transition-colors max-md:hidden max-lg:coarse:hidden', TB,
  inputBlocked
  ? 'bg-orange-500/20 text-orange-400 border-orange-500/30 hover:bg-orange-500/30'
  : 'bg-bg-secondary text-text-muted border-transparent hover:text-text-primary hover:bg-bg-tertiary'
@@ -1132,7 +1205,7 @@ export function ObliReachViewer({
  title={chatSoundEnabled ? t('reach.muteChat', 'Mute chat notifications') : t('reach.unmuteChat', 'Unmute chat notifications')}
  aria-label={chatSoundEnabled ? t('reach.muteChat', 'Mute chat notifications') : t('reach.unmuteChat', 'Unmute chat notifications')}
  className={clsx(
- 'p-1.5 rounded transition-colors max-md:hidden', TB,
+ 'p-1.5 rounded transition-colors max-md:hidden max-lg:coarse:hidden', TB,
  chatSoundEnabled
  ? 'text-text-muted hover:text-text-primary hover:bg-bg-secondary'
  : 'text-red-400 bg-red-500/10'
@@ -1149,7 +1222,7 @@ export function ObliReachViewer({
  title={audioEnabled ? t('reach.muteAudio', 'Mute remote audio') : t('reach.enableAudio', 'Enable remote audio')}
  aria-label={audioEnabled ? t('reach.muteAudio', 'Mute remote audio') : t('reach.enableAudio', 'Enable remote audio')}
  className={clsx(
- 'p-1.5 rounded transition-colors max-md:hidden', TB,
+ 'p-1.5 rounded transition-colors max-md:hidden max-lg:coarse:hidden', TB,
  audioEnabled
  ? 'text-accent hover:text-accent/70'
  : 'text-text-muted hover:text-text-primary hover:bg-bg-secondary'
@@ -1162,7 +1235,7 @@ export function ObliReachViewer({
  {/* ── Screenshot ── */}
  {status === 'streaming' && (
  <button onClick={handleScreenshot} title={t('reach.screenshot', 'Take screenshot')} aria-label={t('reach.screenshot', 'Take screenshot')}
- className={clsx('p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded transition-colors max-md:hidden', TB)}>
+ className={clsx('p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded transition-colors max-md:hidden max-lg:coarse:hidden', TB)}>
  <Camera className="w-4 h-4" />
  </button>
  )}
@@ -1174,6 +1247,8 @@ export function ObliReachViewer({
  title={isRecording ? t('reach.stopRecording', 'Stop recording') : t('reach.record', 'Record session')}
  className={clsx(
  'flex items-center gap-1.5 px-2 py-1 text-xs border rounded transition-colors max-md:hidden', TB,
+ // Touch tablets: in the tools sheet, but kept visible while recording.
+ !isRecording && 'max-lg:coarse:hidden',
  isRecording
  ? 'bg-red-500/20 text-red-400 border-red-500/30 animate-pulse'
  : 'bg-bg-secondary text-text-muted border-transparent hover:text-text-primary hover:bg-bg-tertiary'
@@ -1215,7 +1290,7 @@ export function ObliReachViewer({
  </button>
 
  {/* ── System keys — Windows/Alt/system combos the browser swallows ── */}
- <div className="relative max-md:hidden">
+ <div className="relative max-md:hidden max-lg:coarse:hidden">
  <button
  onClick={() => setSysKeysOpen((v) => !v)}
  disabled={status !== 'streaming'}
@@ -1233,7 +1308,7 @@ export function ObliReachViewer({
  {sysKeysOpen && status === 'streaming' && (
  <>
  <div className="fixed inset-0 z-40" onClick={() => setSysKeysOpen(false)} />
- <div className="absolute right-0 top-full mt-1 z-50 w-72 max-w-[calc(100vw-1rem)] bg-bg-secondary rounded-lg shadow-2xl p-2 space-y-2">
+ <div className="absolute right-0 top-full mt-1 z-50 w-72 max-w-[calc(100vw-1rem)] bg-bg-secondary rounded-lg shadow-2xl p-2 space-y-2 coarse:max-h-[70dvh] coarse:overflow-y-auto coarse:overscroll-contain">
  {(['win', 'window', 'misc'] as const).map((g) => {
  const keys = chords.filter((k) => k.group === g);
  if (keys.length === 0) return null;
@@ -1273,12 +1348,13 @@ export function ObliReachViewer({
  </button>
  )}
 
- {/* ── Tools sheet trigger (phones) ── */}
+ {/* ── Tools sheet trigger (phones; touch tablets too: labelled
+ tools + zoom buttons, the toolbar icons only have a title) ── */}
  <button
  onClick={() => setToolsOpen(true)}
  aria-label={t('reach.tools', 'Session tools')}
  aria-haspopup="dialog"
- className={clsx('md:hidden flex items-center px-2 py-1 text-xs bg-bg-secondary text-text-muted rounded transition-colors', TB)}
+ className={clsx(isCoarse ? 'lg:hidden' : 'md:hidden', 'flex items-center px-2 py-1 text-xs bg-bg-secondary text-text-muted rounded transition-colors', TB)}
  >
  <MoreHorizontal className="w-4 h-4" />
  </button>
@@ -1320,10 +1396,11 @@ export function ObliReachViewer({
  )}
  </div>
 
- {/* Phones: the toolbar hides status text below sm — surface errors and
- the inactivity warning over the screen instead. */}
+ {/* Phones (and touch tablets): the toolbar hides / truncates status
+ text — surface errors and the inactivity warning over the screen
+ instead, with a "Stay connected" action. */}
  {errorMsg && streaming && (
- <div role="status" className="sm:hidden absolute top-2 inset-x-2 z-10 flex items-center gap-2 rounded-lg bg-bg-secondary/95 px-3 py-2 text-xs text-red-400 shadow-lg">
+ <div role="status" className={clsx('absolute top-2 inset-x-2 z-10 flex items-center gap-2 rounded-lg bg-bg-secondary/95 px-3 py-2 text-xs text-red-400 shadow-lg', !isCoarse && 'sm:hidden')}>
  <AlertTriangle className="w-4 h-4 shrink-0" />
  <span className="min-w-0 flex-1">{errorMsg}</span>
  {inactivityWarn && (
@@ -1334,7 +1411,7 @@ export function ObliReachViewer({
  </div>
  )}
  {status === 'disconnected' && (
- <div className="sm:hidden absolute inset-0 flex flex-col items-center justify-center gap-3 text-center p-8">
+ <div className={clsx('absolute inset-0 flex flex-col items-center justify-center gap-3 text-center p-8', !isCoarse && 'sm:hidden')}>
  <p className="text-text-primary font-medium">{sc.label}</p>
  {errorMsg && <p className="text-sm text-text-muted max-w-md">{errorMsg}</p>}
  <button

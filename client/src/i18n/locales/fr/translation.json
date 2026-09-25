@@ -63,7 +63,12 @@
     "page": "Page",
     "confirmDelete": "Êtes-vous sûr ?",
     "deleted": "Supprimé",
-    "retry": "Réessayer"
+    "retry": "Réessayer",
+    "requiredField": "Ce champ est obligatoire",
+    "processing": "Traitement…",
+    "add": "Ajouter",
+    "device": "Appareil",
+    "clear": "Effacer"
   },
   "status": {
     "up": "EN LIGNE",
@@ -114,7 +119,29 @@
     "supervision": "Supervision",
     "discovery": "Découverte",
     "automations": "Automations",
-    "customSections": "Sections personnalisées"
+    "customSections": "Sections personnalisées",
+    "menu": "Menu",
+    "closeMenu": "Fermer le menu",
+    "collapseSidebar": "Réduire la barre latérale",
+    "expandSidebar": "Déplier la barre latérale",
+    "expandGroup": "Déplier {{name}}",
+    "collapseGroup": "Replier {{name}}",
+    "groupCounts": "{{online}} en ligne · {{warning}} en alerte · {{critical}} critiques · {{offline}} hors ligne · {{total}} au total",
+    "ungrouped": "Sans groupe",
+    "switchSideBySide": "Afficher côte à côte",
+    "switchStacked": "Afficher empilé",
+    "moveDeviceTitle": "Déplacer l'appareil",
+    "moveDeviceConfirm": "Déplacer {{device}} vers {{group}} ? Les scénarios déclenchés par l'arrivée dans un groupe peuvent s'exécuter sur cet appareil.",
+    "moveDeviceAction": "Déplacer",
+    "deviceMoved": "Appareil déplacé",
+    "deviceMoveFailed": "Impossible de déplacer l'appareil",
+    "agentConfig": "Configuration des agents",
+    "workspace": "Espace de travail",
+    "collapseNav": "Replier la navigation",
+    "expandNav": "Déplier la navigation",
+    "collapseAdmin": "Replier l'administration",
+    "expandAdmin": "Déplier l'administration",
+    "administration": "Administration"
   },
   "login": {
     "title": "Tableau de bord de surveillance",
@@ -145,7 +172,8 @@
     "ssoChecking": "Vérification de l'authentification...",
     "ssoRedirecting": "Redirection vers la page de connexion...",
     "clientVersion": "client v{{version}}",
-    "serverVersion": "serveur v{{version}}"
+    "serverVersion": "serveur v{{version}}",
+    "ssoFailed": "Échec de l'authentification SSO. Utilisez la connexion locale."
   },
   "forgotPassword": {
     "title": "Réinitialiser votre mot de passe",
@@ -560,7 +588,10 @@
     },
     "allDevices": "Tous les appareils",
     "title": "Groupes",
-    "searchPlaceholder": "Rechercher un groupe..."
+    "searchPlaceholder": "Rechercher un groupe...",
+    "notFoundOrDenied": "Groupe introuvable ou accès refusé",
+    "position": "Position",
+    "addSubgroup": "Ajouter un sous-groupe"
   },
   "notifications": {
     "title": "Notifications",
@@ -599,12 +630,17 @@
     "selectTenant": "— Select workspace —",
     "grantAccess": "Accorder l'accès",
     "removeTenantAccess": "Remove workspace access",
-    "failedTenantAssign": "Failed to update workspace access"
+    "failedTenantAssign": "Failed to update workspace access",
+    "removeRecipient": "Retirer {{email}}",
+    "removeFromGlobalHint": "Retirer des notifications globales",
+    "addToGlobalHint": "Ajouter aux notifications globales"
   },
   "settings": {
     "obligate": {
       "description": "Connectez cette application à votre passerelle SSO Obligate pour l'authentification centralisée et la navigation inter-applications. Enregistrez d'abord cette application dans Obligate, puis collez la clé API ici.",
-      "warning": "Lorsque cette option est activée, l'authentification locale est désactivée. Les utilisateurs doivent se connecter via la passerelle Obligate. Si la passerelle devient inaccessible, l'authentification locale est automatiquement rétablie en mode dégradé."
+      "warning": "Lorsque cette option est activée, l'authentification locale est désactivée. Les utilisateurs doivent se connecter via la passerelle Obligate. Si la passerelle devient inaccessible, l'authentification locale est automatiquement rétablie en mode dégradé.",
+      "open": "Ouvrir ↗",
+      "enableSso": "Activer le SSO"
     },
     "title": "Paramètres globaux",
     "globalDesc": "Ces valeurs par défaut s'appliquent à tous les groupes et moniteurs sauf si écrasées à un niveau inférieur.",
@@ -639,7 +675,8 @@
       "testOk": "Connexion à « {{name}} » réussie",
       "failedSave": "Échec de l'enregistrement du serveur SMTP",
       "failedDelete": "Échec de la suppression du serveur",
-      "testFailed": "Échec de la connexion"
+      "testFailed": "Échec de la connexion",
+      "confirmDelete": "Supprimer le serveur SMTP « {{name}} » ?"
     },
     "security": {
       "title": "Sécurité",
@@ -666,7 +703,11 @@
     },
     "defaultMonitorSettings": "Paramètres de moniteur par défaut",
     "defaultAgentSettings": "Paramètres d'agent par défaut",
-    "agentDefaultsDesc": "These defaults apply to all agent groups and devices unless overridden at a lower level."
+    "agentDefaultsDesc": "These defaults apply to all agent groups and devices unless overridden at a lower level.",
+    "toggleSecretVisibility": "Afficher / masquer",
+    "extensions": {
+      "remove": "Retirer .{{ext}}"
+    }
   },
   "profile": {
     "title": "Mon profil",
@@ -729,7 +770,10 @@
       "failedSendCode": "Échec de l'envoi du code",
       "enterCode": "Saisissez le code envoyé à {{email}}",
       "emailOtpEnabled": "OTP par e-mail activé",
-      "invalidCode": "Code invalide"
+      "invalidCode": "Code invalide",
+      "openAuthenticator": "Ouvrir dans l'application d'authentification",
+      "openAuthenticatorFailed": "Aucune application d'authentification n'a pu être ouverte. Copiez plutôt la clé secrète.",
+      "copySecret": "Copier la clé secrète"
     },
     "appearance": {
       "title": "APPARENCE",
@@ -744,7 +788,18 @@
       "removed": "Photo de profil supprimée",
       "failed": "Échec du téléchargement",
       "tooLarge": "Image trop volumineuse — max 375 Ko",
-      "remove": "Supprimer la photo"
+      "remove": "Supprimer la photo",
+      "change": "Changer la photo"
+    },
+    "quickReplies": {
+      "removed": "Réponse rapide supprimée",
+      "undo": "Annuler"
+    },
+    "trustedIps": {
+      "confirmRevoke": "Révoquer la confiance pour {{ip}} ? La prochaine action sensible depuis cette IP redemandera un code TOTP.",
+      "revoke": "Révoquer",
+      "confirmRevokeAll": "Révoquer la confiance pour TOUTES les IP ? Chaque action sensible redemandera un code TOTP jusqu'à une nouvelle approbation.",
+      "revokeAll": "Tout révoquer"
     }
   },
   "users": {
@@ -798,13 +853,58 @@
       "inherited": "hérité",
       "failedAddPermission": "Échec de l'ajout de la permission",
       "failedUpdatePermission": "Échec de la mise à jour de la permission",
-      "failedRemovePermission": "Échec de la suppression de la permission"
+      "failedRemovePermission": "Échec de la suppression de la permission",
+      "toggleLevelHint": "Cliquer pour basculer entre lecture seule et lecture/écriture",
+      "removePermission": "Retirer la permission",
+      "readOnly": "Lecture seule",
+      "readWrite": "Lecture/écriture",
+      "collapse": "Replier",
+      "expand": "Déplier"
     },
     "resetMfa": "Réinitialiser le MFA",
     "confirmResetMfa": "Désactiver tous les facteurs 2FA de \"{{username}}\" ? L'utilisateur pourra se connecter sans second facteur.",
     "mfaReset": "MFA désactivé pour {{username}}",
     "failedResetMfa": "Échec de la réinitialisation du MFA",
-    "tabNotifications": "Notifications"
+    "tabNotifications": "Notifications",
+    "actions": {
+      "password": "Changer le mot de passe",
+      "tenants": "Gérer l'accès aux tenants"
+    },
+    "tenantPanel": {
+      "title": "Tenants",
+      "adminNotice": "Les administrateurs de la plateforme accèdent automatiquement à tous les tenants. Aucune affectation par tenant n'est nécessaire.",
+      "none": "Aucun tenant disponible",
+      "role": "Rôle :",
+      "member": "Membre"
+    },
+    "capabilities": {
+      "execute": {
+        "label": "Exécution",
+        "description": "Scripts, analyses, services, installation/désinstallation"
+      },
+      "remote": {
+        "label": "Distant",
+        "description": "Sessions Reach, RDP et shell SSH"
+      },
+      "files": {
+        "label": "Fichiers",
+        "description": "Parcourir, envoyer, télécharger et modifier des fichiers"
+      },
+      "power": {
+        "label": "Alimentation",
+        "description": "Redémarrage, arrêt, mise en veille, redémarrage de l'agent"
+      }
+    },
+    "restrictions": {
+      "scopeHint": "Définir les appareils / groupes auxquels cette restriction s'applique",
+      "scopeTitle": "Portée — {{key}}",
+      "applyScope": "Appliquer la portée",
+      "scopeAll": "Tous les appareils (par défaut)",
+      "scopeInclude": "Uniquement ceux-ci",
+      "scopeExclude": "Tous sauf ceux-ci",
+      "searchDevices": "Rechercher des appareils…",
+      "devicesTruncated": "Affichage des {{count}} premiers appareils — affinez la recherche pour trouver les autres."
+    }
   },
   "agents": {
     "tabKeys": "Clés API",
@@ -961,7 +1061,8 @@
     "dayThu": "Jeu",
     "dayFri": "Ven",
     "daySat": "Sam",
-    "daySun": "Dim"
+    "daySun": "Dim",
+    "deleteConfirm": "Supprimer la fenêtre de maintenance « {{name}} » ?"
   },
   "importExport": {
     "title": "Import / Export",
@@ -1007,7 +1108,8 @@
     "noImportable": "Aucune section importable trouvée dans ce fichier.",
     "statCreated": "{{count}} créé(s)",
     "statUpdated": "{{count}} mis à jour",
-    "statSkipped": "{{count}} ignoré(s)"
+    "statSkipped": "{{count}} ignoré(s)",
+    "dropzoneTouch": "Touchez pour choisir un fichier d'export (.json)"
   },
   "download": {
     "title": "Obli.tools",
@@ -1039,6 +1141,50 @@
       "noBrowserOverhead": "Pas de surcharge navigateur",
       "remembersUrl": "Mémorise l'URL de votre serveur",
       "alwaysUpToDate": "Toujours à jour — sans recompilation"
+    },
+    "released": "publiée le",
+    "versionUnavailable": "Informations de version indisponibles — la publication est peut-être encore en cours de préparation sur le serveur.",
+    "loading": "Chargement de la version…",
+    "installerButton": "Télécharger l'installateur (.msi)",
+    "releaseNotes": "Notes de version",
+    "whatItIs": "Fonctionnalités",
+    "feature": {
+      "native": "Visionneuse Windows native pour les sessions ObliReach — sans surcharge du navigateur.",
+      "notifs": "Icône dans la zone de notification et notifications de bureau lors des changements d'état des sessions distantes.",
+      "autoupdate": "Mise à jour proposée dans l'application à chaque nouvelle version (aucune mise à jour silencieuse : l'installation reste à votre initiative)."
+    },
+    "android": {
+      "sectionTitle": "Application mobile",
+      "title": "Android",
+      "description": "Obliance sur votre téléphone ou votre tablette Android : téléchargements natifs, notifications et mises à jour intégrées.",
+      "loading": "Chargement de la version…",
+      "unavailable": "L'application Android n'est pas encore publiée sur ce serveur.",
+      "sizeMb": "{{size}} Mo",
+      "requires": "Android {{version}} ou ultérieur",
+      "button": "Télécharger l'application (.apk)",
+      "directLink": "Lien direct",
+      "installTitle": "Installation",
+      "step1": "Ouvrez cette page sur le téléphone ou la tablette Android et téléchargez l'APK (ou envoyez-y le lien ci-dessus).",
+      "step2": "Ouvrez le fichier téléchargé. Si Android le demande, autorisez le navigateur ou le gestionnaire de fichiers à installer des applications inconnues, puis appuyez sur Installer.",
+      "step3": "Lancez l'application et saisissez l'adresse de ce serveur :",
+      "step4": "Les mises à jour sont ensuite proposées directement dans l'application.",
+      "releaseNotes": "Nouveautés de la v{{version}}",
+      "details": "Détails techniques",
+      "packageName": "Paquet",
+      "versionCode": "Code de version",
+      "sha256": "SHA-256 de l'APK",
+      "signer": "SHA-256 du certificat de signature",
+      "appTitle": "Obliance pour Android",
+      "inAppVersion": "Vous utilisez l'application v{{version}}",
+      "serverVersion": "Dernière version sur ce serveur : v{{version}}",
+      "newerOnServer": "Une version plus récente (v{{version}}) est disponible sur ce serveur.",
+      "checkUpdates": "Rechercher des mises à jour",
+      "checking": "Vérification…",
+      "updateAvailable": "La version v{{version}} est disponible. Suivez les instructions de l'application pour l'installer.",
+      "upToDate": "L'application est à jour.",
+      "checkFailed": "Impossible de rechercher les mises à jour.",
+      "downloadUpdate": "Télécharger la mise à jour",
+      "downloadStarted": "Téléchargement lancé"
     }
   },
   "notFound": {
@@ -1052,7 +1198,12 @@
     "enableAlerts": "Activer les alertes en direct",
     "socketConnected": "Live — connected to server",
     "socketReconnecting": "Reconnecting to server…",
-    "socketDisconnected": "Disconnected from server — Click to reload"
+    "socketDisconnected": "Disconnected from server — Click to reload",
+    "openMenu": "Ouvrir le menu",
+    "apps": "Applications",
+    "accountMenu": "Menu du compte",
+    "appSettings": "Réglages de l'application",
+    "appUpdates": "Mises à jour de l'application"
   },
   "tenant": {
     "pageTitle": "Espaces de travail",
@@ -1132,7 +1283,8 @@
       "failedCreate": "Échec de la création de la clé",
       "confirmDelete": "Supprimer cette clé API ? Les agents l'utilisant ne pourront plus s'enregistrer.",
       "deleteSuccess": "Clé API supprimée",
-      "failedDelete": "Échec de la suppression de la clé"
+      "failedDelete": "Échec de la suppression de la clé",
+      "copyFailed": "Copie impossible — sélectionnez la clé et copiez-la manuellement"
     },
     "addModal": {
       "title": "Ajouter un appareil",
@@ -1165,7 +1317,13 @@
       "allOs": "Tous les OS",
       "allGroups": "Tous les groupes",
       "reset": "Réinitialiser",
-      "select": "Sélectionner"
+      "select": "Sélectionner",
+      "button": "Filtres",
+      "clearAll": "Effacer les filtres",
+      "masterSuffix": "(maître)",
+      "showResults_one": "Afficher {{count}} appareil",
+      "showResults_other": "Afficher {{count}} appareils",
+      "tenant": "Tenant"
     },
     "table": {
       "device": "Appareil",
@@ -1205,7 +1363,8 @@
       "runScriptOpenRunPage": "Ouvrir la page d'exécution →",
       "runScriptConfirm": "Exécuter",
       "runScriptDispatched": "Script envoyé à {{count}} appareils",
-      "updateAgent": "Mettre à jour l'agent"
+      "updateAgent": "Mettre à jour l'agent",
+      "clearSelection": "Effacer la sélection"
     },
     "action": {
       "updateAgent": "Mettre à jour l'agent",
@@ -1218,6 +1377,57 @@
       "delete": "Supprimer",
       "uninstall": "Désinstaller l'agent",
       "confirmUninstall": "Désinstaller l'agent de cet appareil ?"
+    },
+    "export": {
+      "csv": "Exporter en CSV",
+      "pdf": "Exporter en PDF",
+      "title": "Exporter les appareils filtrés",
+      "xlsx": "Exporter en Excel (xlsx)"
+    },
+    "list": {
+      "count_one": "{{count}} appareil",
+      "count_other": "{{count}} appareils"
+    },
+    "metrics": {
+      "none": "Aucune métrique"
+    },
+    "row": {
+      "airgap": "Airgap",
+      "legacyHint": "Agent legacy Go 1.20 — pas de shell distant, d'ObliReach, de conformité logicielle ni de mise à jour automatique",
+      "privacyMode": "Mode confidentialité",
+      "rebootPending": "Redémarrage en attente",
+      "select": "Sélectionner"
+    },
+    "sort": {
+      "ascending": "Croissant",
+      "default": "Par défaut (par groupe)",
+      "descending": "Décroissant",
+      "label": "Tri"
+    },
+    "transfer": {
+      "bulkDone": "{{n}} appareil(s) transféré(s)",
+      "bulkFailed": "{{n}} transfert(s) en échec — voir le journal d'audit",
+      "bulkTitle": "Transférer {{n}} appareil(s) vers un autre tenant",
+      "bulkWarning": "Le groupe, les métriques personnalisées et les résultats de conformité du tenant actuel seront effacés pour chaque appareil sélectionné. Chaque agent est reconfiguré avec la clé API du tenant cible lors de son prochain contact.",
+      "confirmMessage": "Le groupe de l'appareil sera effacé, ses métriques personnalisées et ses résultats de conformité dans le tenant actuel seront supprimés, et l'agent sera reconfiguré pour remonter vers le nouveau tenant lors de son prochain contact.",
+      "confirmTitle": "Transférer « {{device}} » vers {{tenant}} ?",
+      "failed": "Échec du transfert",
+      "initiated": "Transfert lancé — l'agent sera reconfiguré à son prochain push.",
+      "keyFallback": "Clé n°{{id}}",
+      "loadFailed": "Impossible de charger les tenants cibles",
+      "noApiKeys": "aucune clé API",
+      "noCandidates": "Aucun autre tenant dont vous êtes administrateur. Demandez à un administrateur de la plateforme d'effectuer le transfert, ou rejoignez d'abord le tenant cible en tant qu'administrateur.",
+      "noCandidatesShort": "Aucun autre tenant dont vous êtes administrateur.",
+      "noKeysHint": "Ce tenant n'a pas encore de clé API. Créez-en une sous",
+      "noKeysHintSuffix": "dans ce tenant d'abord.",
+      "selectShort": "— Sélectionner —",
+      "selectTenant": "— Sélectionner un tenant —",
+      "submit": "Transférer",
+      "targetKey": "Clé API cible",
+      "targetTenant": "Tenant cible",
+      "title": "Transférer vers un autre tenant",
+      "warningPrefix": "Cette action transfère",
+      "warningSuffix": "vers un autre tenant. Le groupe, les métriques personnalisées, les alertes de planification et les résultats de conformité du tenant actuel seront effacés. La clé API de l'agent sera remplacée via une commande en file d'attente lors de son prochain push."
     }
   },
   "compliance": {
@@ -1381,17 +1591,55 @@
       "deleteRule": "Supprimer",
       "noRules": "Aucune règle. Ajoutez-en une ou chargez un préréglage.",
       "minOsVersion": "Version OS min.",
-      "minOsVersionPlaceholder": "ex. Windows 10, macOS 12"
+      "minOsVersionPlaceholder": "ex. Windows 10, macOS 12",
+      "categoryPlaceholder": "ex. Pare-feu",
+      "expectedPlaceholder": "Valeur attendue",
+      "remediationScript": "Script de correction",
+      "remediationScriptHint": "script exécuté pour corriger cette règle en cas d'échec",
+      "remediationScriptPlaceholder": "Script PowerShell ou Bash de correction..."
     },
     "presetsSuggest": "Partir d'un template",
     "presetsNote": "Sélectionner un template pré-remplit les règles — vous pouvez les personnaliser librement avant de sauvegarder.",
-    "startWithPreset": "Démarrer avec un template"
+    "startWithPreset": "Démarrer avec un template",
+    "filterByDevice": "Filtrer par appareil",
+    "groupCount": "{{count}} groupe(s)",
+    "ignore": "Ignorer",
+    "ignoreFailed": "Impossible d'ignorer les règles",
+    "ignoreRule": "Ignorer cette règle",
+    "nameRequired": "Le nom de la politique est obligatoire",
+    "noRemediableRules": "Aucune règle corrigeable",
+    "refineSearch": "{{count}} de plus — affinez la recherche",
+    "remediateAll": "Tout corriger",
+    "remediateAllFailing": "Corriger toutes les règles en échec",
+    "remediateConfirm": "Exécuter maintenant le script de correction pour {{count}} règle(s) sur cet appareil ?",
+    "remediateConfirmTitle": "Lancer la correction ?",
+    "remediationFailed": "Échec de l'envoi de la correction",
+    "remediationSent": "Correction envoyée pour {{count}} règle(s)",
+    "rulesIgnored": "{{count}} règle(s) ignorée(s)",
+    "rulesUnignored": "{{count}} règle(s) réactivée(s)",
+    "syncPresets": "Synchroniser les modèles",
+    "syncPresetsDone": "{{count}} politique(s) synchronisée(s) avec les derniers modèles",
+    "syncPresetsFailed": "Échec de la synchronisation",
+    "syncPresetsHint": "Synchroniser les politiques existantes avec les dernières règles des modèles intégrés",
+    "syncPresetsUpToDate": "Toutes les politiques sont déjà à jour",
+    "unignore": "Réactiver",
+    "unignoreFailed": "Impossible de réactiver les règles",
+    "unignoreRule": "Ne plus ignorer cette règle"
   },
   "scripts": {
     "typeSystem": "Système",
     "typeUser": "Utilisateur",
     "systemBadge": "Système",
-    "userBadge": "Personnalisé"
+    "userBadge": "Personnalisé",
+    "newScript": "Nouveau script",
+    "deleteConfirmNamed": "Supprimer le script « {{name}} » ?",
+    "expectedExitCodeHint": "L'agent ne marque l'exécution comme réussie que si le script se termine avec ce code (par défaut : 0)",
+    "history": {
+      "stop": "Arrêter l'exécution",
+      "stopped": "Arrêté",
+      "stopFailed": "Échec de l'arrêt",
+      "fullscreen": "Plein écran"
+    }
   },
   "deviceHistory": {
     "title": "Historique",
@@ -1428,7 +1676,91 @@
       "autoRemediation": "Remédiation automatique",
       "autoRemediationDesc": "Permettre aux politiques de conformité d'exécuter automatiquement des scripts de correction sur cet appareil. Désactivez si cet appareil doit rester dans un état spécifique.",
       "autoRemediationDisabledWarning": "La remédiation automatique est désactivée. Les règles en échec seront signalées mais aucun script de correction ne sera exécuté.",
-      "saveSettings": "Enregistrer les paramètres"
+      "saveSettings": "Enregistrer les paramètres",
+      "removeTag": "Retirer le tag {{tag}}",
+      "deleteConfirm": "Supprimer « {{name}} » d'Obliance ?\n\nL'agent n'est PAS désinstallé — il se réenregistrera au prochain envoi.",
+      "uninstallConfirm": "Désinstaller l'agent sur « {{name}} » ?\n\nL'agent sera supprimé immédiatement.\nS'il ne confirme pas sous 10 min, l'appareil réapparaîtra.",
+      "uninstall": "Désinstaller"
+    },
+    "note": {
+      "placeholder": "Ajouter une note sur cet appareil...",
+      "save": "Enregistrer (Ctrl+Entrée)",
+      "cancel": "Annuler (Échap)",
+      "delete": "Supprimer la note",
+      "edit": "Modifier la note",
+      "add": "Ajouter une note"
+    },
+    "license": {
+      "delete": "Supprimer la licence",
+      "deleteConfirm": "Supprimer la licence « {{name}} » ?"
+    },
+    "scripts": {
+      "stop": "Arrêter",
+      "fullscreen": "Plein écran"
+    },
+    "compliance": {
+      "exportCsv": "Exporter le rapport CSV",
+      "remediate": "Corriger",
+      "ignoreRule": "Ignorer cette règle",
+      "unignoreRule": "Ne plus ignorer cette règle"
+    },
+    "reason": {
+      "disablePrivacyFirst": "Désactivez d'abord le mode confidentialité sur l'appareil",
+      "agentOnline": "L'agent doit être en ligne",
+      "reachChecking": "Vérification du statut d'Oblireach…",
+      "reachNotInstalled": "Agent Oblireach non installé — cliquez pour le déployer",
+      "chatNoReach": "ObliReach n'est pas déployé sur cet appareil — le chat est indisponible",
+      "chatPrivacy": "Le chat est indisponible tant que le mode confidentialité est actif (service ObliReach arrêté)",
+      "privacyBlocked": "Bloqué par le mode confidentialité (aucun mot de passe de confidentialité défini sur cet appareil)",
+      "tabPrivacyBlocked": "Bloqué par le mode confidentialité — aucun mot de passe de confidentialité n'est défini sur cet appareil"
+    },
+    "privacy": {
+      "enableConfirm": "Activer le mode confidentialité sur cet appareil ? Les fonctions d'accès à distance seront bloquées jusqu'à sa désactivation (localement via l'icône de la barre des tâches ou à distance depuis cette page)."
+    },
+    "remote": {
+      "chooseSession": "Choisir la session",
+      "chooseContext": "Choisir le contexte"
+    },
+    "veeam": {
+      "stopJob": "Arrêter le job"
+    },
+    "tasks": {
+      "cancel": "Annuler la tâche"
+    },
+    "pagination": {
+      "previous": "Page précédente",
+      "next": "Page suivante"
+    },
+    "services": {
+      "actionsFor": "Actions pour {{name}}",
+      "start": "Démarrer",
+      "stop": "Arrêter",
+      "restart": "Redémarrer"
+    },
+    "processes": {
+      "killConfirm": "Terminer le processus « {{name}} » (PID {{pid}}) ?",
+      "kill": "Terminer",
+      "user": "Utilisateur",
+      "memory": "Mémoire",
+      "commandLine": "Ligne de commande"
+    },
+    "header": {
+      "refuseConfirm": "Refuser cet appareil ?",
+      "refuse": "Refuser",
+      "scanAll": "Tout analyser",
+      "restartAgent": "Redémarrer l'agent",
+      "sleep": "Mettre l'appareil en veille",
+      "reboot": "Redémarrer l'appareil",
+      "shutdown": "Éteindre l'appareil",
+      "openIn": "Ouvrir dans {{app}}",
+      "rename": "Renommer",
+      "legacyHint": "Agent legacy Go 1.20 — pas de shell distant / ObliReach / conformité logicielle / mise à jour automatique",
+      "moreActions": "Autres actions sur l'appareil",
+      "refresh": "Actualiser l'appareil et forcer l'envoi des métriques de l'agent"
+    },
+    "chat": {
+      "pickSessionTitle": "Sélectionner la session pour le chat",
+      "pickSessionHint": "Choisissez la session utilisateur dans laquelle ouvrir le chat."
     }
   },
   "updates": {
@@ -1482,7 +1814,10 @@
       "clear": "Effacer",
       "approveAllCritical": "Approuver toutes les critiques",
       "allSources": "Toutes les sources",
-      "devices": "Appareils"
+      "devices": "Appareils",
+      "approveAndDeploy": "Approuver et déployer",
+      "deployAllApproved": "Déployer toutes les mises à jour approuvées",
+      "retryFailed": "Relancer les échecs"
     },
     "toast": {
       "approved": "Mise à jour approuvée",
@@ -1490,7 +1825,12 @@
       "approveFailed": "Échec de l'approbation",
       "installed": "installée avec succès",
       "failed": "échec de l'installation",
-      "loadFailed": "Échec du chargement des mises à jour"
+      "loadFailed": "Échec du chargement des mises à jour",
+      "approvedDispatched": "{{approved}} approuvée(s), {{dispatched}} envoyée(s) vers {{devices}} appareil(s)",
+      "deployFailed": "Échec du déploiement",
+      "deployed": "{{dispatched}} mise(s) à jour déployée(s) sur {{devices}} appareil(s)",
+      "retried": "{{count}} mise(s) à jour relancée(s)",
+      "retryFailed": "Échec de la relance"
     },
     "policy": {
       "new": "Nouvelle politique",
@@ -1528,8 +1868,21 @@
       "nameRequired": "Le nom de la politique est requis",
       "updated": "Politique mise à jour",
       "created": "Politique créée",
-      "saveFailed": "Échec de l'enregistrement"
-    }
+      "saveFailed": "Échec de l'enregistrement",
+      "groups": "Groupes",
+      "noGroups": "Aucun groupe disponible"
+    },
+    "pagination": {
+      "next": "Page suivante",
+      "previous": "Page précédente"
+    },
+    "perPage": "{{count}} / page",
+    "requiresReboot": "Redémarrage requis",
+    "row": {
+      "deploying": "{{count}} en déploiement",
+      "failedRetry": "{{count}} en échec — relancer"
+    },
+    "totalCount": "{{count}} mises à jour"
   },
   "privacy": {
     "badge": "Mode confidentialité",
@@ -1537,7 +1890,38 @@
     "disableTitle": "Désactiver le mode confidentialité sur cet appareil",
     "disableSent": "Commande de désactivation envoyée",
     "disableFailed": "Échec de l'envoi de la commande",
-    "locked": "Le mode confidentialité est verrouillé sur cet appareil"
+    "locked": "Le mode confidentialité est verrouillé sur cet appareil",
+    "password": {
+      "ack": "Je comprends que ce mot de passe ne peut pas être récupéré par Obliance.",
+      "changeDone": "Mot de passe de confidentialité modifié",
+      "changeSubmit": "Modifier le mot de passe",
+      "changeTitle": "Modifier le mot de passe de confidentialité",
+      "confirmNew": "Confirmer le nouveau mot de passe",
+      "current": "Mot de passe actuel",
+      "failed": "Échec de l'opération",
+      "mismatch": "Les mots de passe ne correspondent pas",
+      "mustBeOff": "Le mode confidentialité doit être désactivé sur l'appareil",
+      "new": "Nouveau mot de passe",
+      "removeDone": "Mot de passe de confidentialité supprimé",
+      "removeSubmit": "Supprimer le mot de passe",
+      "removeTitle": "Supprimer le mot de passe de confidentialité",
+      "setDone": "Mot de passe de confidentialité défini",
+      "setSubmit": "Définir le mot de passe",
+      "setTitle": "Définir le mot de passe de confidentialité",
+      "setWarning": "Ce mot de passe est stocké uniquement sur l'appareil. Obliance ne peut pas le récupérer. En cas de perte, un accès local à la machine sera nécessaire pour réinitialiser le mode confidentialité."
+    },
+    "unlock": {
+      "disableHint": "Le mode confidentialité sera désactivé sur l'appareil.",
+      "disableSubmit": "Désactiver la confidentialité",
+      "disableSubtitle": "Saisissez le mot de passe de l'appareil pour désactiver la confidentialité",
+      "disableTitle": "Désactiver le mode confidentialité",
+      "hint": "Le déverrouillage dure 15 minutes et ne s'applique qu'à cette fonctionnalité sur cet appareil.",
+      "incorrect": "Mot de passe incorrect",
+      "submit": "Déverrouiller",
+      "subtitle": "Saisissez le mot de passe de l'appareil pour accéder à",
+      "title": "Déverrouillage du mode confidentialité",
+      "unlocked": "{{feature}} déverrouillé"
+    }
   },
   "fileExplorer": {
     "back": "Retour",
@@ -1569,7 +1953,25 @@
     "renamed": "Renommé avec succès",
     "renameFailed": "Échec du renommage",
     "deleted": "Supprimé avec succès",
-    "deleteFailed": "Échec de la suppression"
+    "deleteFailed": "Échec de la suppression",
+    "close": "Fermer",
+    "ctrlSToSave": "Ctrl+S pour enregistrer",
+    "deleteConfirm": "Supprimer « {{name}} » ?",
+    "discardChanges": "Abandonner les modifications",
+    "edit": "Modifier",
+    "editorStats": "{{chars}} caractères · {{lines}} lignes",
+    "maxUploadSize": "150 Mo max. par fichier",
+    "notEditable": "Ce fichier ne peut pas être modifié comme texte",
+    "open": "Ouvrir",
+    "save": "Enregistrer",
+    "saveFailed": "Échec de l'enregistrement",
+    "saved": "Fichier enregistré",
+    "tooLarge": "{{count}} fichier(s) dépasse(nt) la limite de 150 Mo : {{names}}",
+    "tooLargeTouch": "{{count}} fichier(s) dépasse(nt) la limite d'envoi de {{limit}} Mo sur téléphone et tablette (le fichier est chargé en mémoire) : {{names}}",
+    "unsavedBadge": "modifié",
+    "unsavedChanges": "Certaines modifications ne sont pas enregistrées. Fermer quand même ?",
+    "uploadFailedCount": "Échec de l'envoi de {{count}} fichier(s)",
+    "uploadedCount": "{{count}} fichier(s) envoyé(s)"
   },
   "apiKeys": {
     "defaultGroup": "Groupe par défaut",
@@ -1589,7 +1991,17 @@
     "manualWizardTitle": "Wizard d'installation Obliance",
     "manualWizardDescription": "EXE avec le MSI embarqué. Pré-rempli avec la clé API sélectionnée. À lancer sur la machine cible — les champs restent éditables pour ajustements de dernière minute.",
     "manualDownload": "Télécharger le wizard",
-    "pickKeyFirst": "Sélectionnez d'abord une clé API"
+    "pickKeyFirst": "Sélectionnez d'abord une clé API",
+    "copyFailed": "Copie impossible : sélectionnez la commande et copiez-la manuellement",
+    "windowsLegacyHint": "Exécuter dans PowerShell (admin) — Server 2008 R2 / 2012",
+    "windowsOldTlsHint": "Exécuter dans PowerShell (admin) — Server 2012 / 2016 (correctif TLS)",
+    "windowsVariant": "Version de Windows",
+    "linuxVariant": "Méthode d'installation",
+    "manualOption": "Manuel / hors ligne (assistant)",
+    "linuxManualTitle": "Assistant d'installation Obliance (Linux)",
+    "linuxManualHint": "Téléchargez le binaire de l'assistant, copiez-le sur la machine cible (scp / SFTP / USB), rendez-le exécutable (chmod +x) et lancez-le en root. L'agent est embarqué : fonctionne même sans magasin de certificats à jour ni accès HTTP sortant.",
+    "linuxManualDescription": "Binaire Linux statique avec l'agent embarqué, prérempli avec la clé API sélectionnée. À lancer en root : configure systemd ou SysV init automatiquement et ignore la vérification TLS sur les machines aux certificats obsolètes.",
+    "downloadFailed": "Échec du téléchargement"
   },
   "about": {
     "title": "À propos",
@@ -1631,7 +2043,16 @@
       "pendingApprovalToast": "Planification enregistrée — le passage en privacy attend la validation d'un second administrateur"
     },
     "exportCsv": "Exporter CSV",
-    "exportHistory": "Exporter cette exécution en CSV (stdout/stderr complet)"
+    "exportHistory": "Exporter cette exécution en CSV (stdout/stderr complet)",
+    "openDevice": "Ouvrir l'appareil",
+    "enabledHint": "Désactivée, la planification est entièrement ignorée par la boucle cron — aucun déclenchement, aucun historique.",
+    "skipIfRunningHint": "À chaque déclenchement, les appareils dont l'exécution précédente n'est pas terminée sont ignorés. Évite les exécutions qui se chevauchent sur les hôtes lents.",
+    "catchupHint": "Si le serveur était arrêté lors d'un déclenchement planifié, celui-ci est exécuté au retour du serveur (dans la limite du nombre maximal de rattrapages).",
+    "assertPassTooltip": "Lorsque le script se termine avec un code non nul, l'appareil passe au statut « Erreur de planification » et une notification est envoyée. À laisser désactivé pour les scripts de métriques purs, pour lesquels un code de sortie non nul est normal.",
+    "notifyOnceTooltip": "Déduplique les notifications d'échec répétées par appareil : une alerte au premier échec, puis silence jusqu'au rétablissement. S'applique aux alertes Assert pass.",
+    "deleteConfirmNamed": "Supprimer la planification « {{name}} » ?",
+    "pauseSchedule": "Mettre en pause la planification",
+    "activateSchedule": "Activer la planification"
   },
   "veeam": {
     "title": "Tâches de sauvegarde Veeam",
@@ -1749,14 +2170,23 @@
       "checkpoint": "Créer un point de contrôle",
       "delete": "Supprimer la VM"
     },
-    "columns": "Colonnes"
+    "columns": "Colonnes",
+    "consoleError": "Impossible d'ouvrir la console interactive",
+    "consoleInstalling": "Installation de l'assistant console sur l'hôte (téléchargement ~130 Mo)…",
+    "installConsoleHint": "Télécharger l'assistant de console interactive (~130 Mo) sur cet hôte",
+    "installConsole": "Installer la console",
+    "interactiveConsole": "Console interactive",
+    "consoleZoomOut": "Touchez l'écran pour l'ajuster à la fenêtre.",
+    "consoleZoomIn": "Touchez l'écran pour l'afficher en taille réelle (faites défiler pour vous déplacer)."
   },
   "policies": {
     "title": "Politiques",
     "tabUpdates": "Mises à jour",
     "tabCompliance": "Conformité",
     "tabSoftware": "Logiciels",
-    "tabCves": "CVE"
+    "tabCves": "CVE",
+    "tabNotifications": "Notifications",
+    "tabThresholds": "Seuils"
   },
   "cves": {
     "statTotal": "CVE totales",
@@ -1804,7 +2234,21 @@
     "requiredAction": "Action CISA",
     "due": "Avant",
     "dismissed": "Correspondance acquittée",
-    "dismissTooltip": "Marquer comme faux positif (ne sera pas recréée au prochain scan)"
+    "dismissTooltip": "Marquer comme faux positif (ne sera pas recréée au prochain scan)",
+    "dismissConfirm": "Écarter {{cve}} comme faux positif ? Il ne sera pas recréé lors de la prochaine analyse.",
+    "dismiss": "Écarter",
+    "confidenceMatch": "Correspondance de confiance {{level}}",
+    "confidenceHigh": "Correspondance de confiance élevée",
+    "confidenceHighShort": "Élevée",
+    "confidenceLow": "Confiance faible — à vérifier",
+    "confidenceLowShort": "Faible",
+    "confidenceMedium": "Correspondance de confiance moyenne",
+    "confidenceMediumShort": "Moy.",
+    "openInGithub": "Ouvrir dans GitHub Advisories",
+    "openInNvd": "Ouvrir dans la NVD",
+    "syncError": "Synchronisation CVE : {{detail}}",
+    "syncSourcesFailed": "Échec : {{list}}",
+    "syncSummary": "Synchronisation : {{ok}}/{{total}} sources OK, {{upserted}} CVE mises à jour"
   },
   "supervision": {
     "title": "Supervision",
@@ -1899,7 +2343,12 @@
       "unix": "Linux / macOS",
       "other": "Autre",
       "unknown": "Inconnu"
-    }
+    },
+    "clearSearch": "Effacer la recherche",
+    "newBadge": "Nouveau",
+    "nextPage": "Page suivante",
+    "previousPage": "Page précédente",
+    "selectForDeploy": "Sélectionner pour le script de déploiement"
   },
   "patchReport": {
     "title": "Rapport de correctifs",
@@ -1913,7 +2362,14 @@
     "compliance": "Conformité",
     "update": "Mise à jour",
     "severity": "Sévérité",
-    "ungrouped": "Sans groupe"
+    "ungrouped": "Sans groupe",
+    "colCompliance": "Conformité",
+    "colDevices": "Appareils",
+    "colGroup": "Groupe",
+    "colPatched": "Corrigés",
+    "colSeverity": "Gravité",
+    "colUpdate": "Mise à jour",
+    "patchedOfTotal": "{{patched}}/{{total}} appareils"
   },
   "asset": {
     "title": "Gestion des actifs",
@@ -2010,14 +2466,30 @@
     "personal": "Personnel",
     "templates": "Modèles",
     "noQuickReplies": "Aucune réponse rapide configurée",
-    "viewDevice": "Voir l'appareil"
+    "viewDevice": "Voir l'appareil",
+    "sendingFile": "Envoi de {{name}}…",
+    "attachFile": "Joindre un fichier",
+    "send": "Envoyer",
+    "openChat": "Ouvrir la discussion",
+    "minimize": "Réduire",
+    "closeChat": "Fermer la discussion",
+    "closeTab": "Fermer {{name}}"
   },
   "groupPanel": {
     "title": "Groupes",
     "allDevices": "Tous les appareils",
     "filterPlaceholder": "Filtrer les groupes...",
     "expand": "Développer le panneau des groupes",
-    "collapse": "Réduire le panneau des groupes"
+    "collapse": "Réduire le panneau des groupes",
+    "cancelEsc": "Annuler (Échap)",
+    "dragHint": "Glisser pour réordonner ou déplacer vers un autre groupe",
+    "dragToResize": "Glisser pour redimensionner",
+    "moveTitle": "Déplacer « {{name}} » vers…",
+    "moveTo": "Déplacer vers…",
+    "newGroupName": "Nom du nouveau groupe",
+    "rootLevel": "Niveau racine (sans parent)",
+    "rootNoParent": "(racine — sans parent)",
+    "settings": "Paramètres du groupe"
   },
   "sort": {
     "name": "Nom",
@@ -2200,7 +2672,35 @@
     "noKey": "Aucune clé pour l'instant. Générez-en une pour permettre aux scripts de récupérer les paquets.",
     "copyPs": "Commande de téléchargement PowerShell",
     "copySh": "Commande de téléchargement Bash",
-    "snippetNeedsKey": "Générez une clé d'accès ci-dessus et remplacez <VOTRE_CLE_DEPOT> dans la commande."
+    "snippetNeedsKey": "Générez une clé d'accès ci-dessus et remplacez <VOTRE_CLE_DEPOT> dans la commande.",
+    "compliantCount": "{{count}}/{{total}} conformes",
+    "copyFailed": "Échec de la copie",
+    "entryNamePlaceholder": "ex. Google Chrome",
+    "history": {
+      "awaiting": "En attente de la réponse de l'agent…",
+      "failed": "{{count}} en échec",
+      "noOutput": "Aucune sortie capturée.",
+      "ok": "{{count}} OK",
+      "openDevice": "Ouvrir l'appareil",
+      "pending": "{{count}} en attente",
+      "scan": "Analyse"
+    },
+    "historyEmpty": "Aucun historique d'analyse ou de correction. Lancez une analyse sur une liste pour alimenter cette vue.",
+    "historyHint": "20 derniers lots d'analyse et de correction. Cliquez sur un lot pour voir le détail par appareil.",
+    "keyCopyFailed": "Échec de la copie — sélectionnez la clé et copiez-la manuellement : elle n'est affichée qu'une seule fois.",
+    "maxVersionPlaceholder": "ex. 120.0",
+    "minVersionPlaceholder": "ex. 100.0",
+    "msiUrlPlaceholder": "URL, chemin UNC ou sélection dans le dépôt",
+    "optionalPlaceholder": "Facultatif",
+    "remediateConfirm": "Lancer maintenant la correction pour {{count}} entrée(s) sur cet appareil ?",
+    "scanEnqueued_one": "Analyse programmée sur {{count}} appareil",
+    "scanEnqueued_other": "Analyse programmée sur {{count}} appareils",
+    "scanFailed": "Échec de l'analyse",
+    "scanNoTargets": "Aucun appareil cible en ligne",
+    "scanNow": "Analyser maintenant toutes les cibles",
+    "scriptPlaceholder": "Script PowerShell ou Bash...",
+    "tabHistory": "Historique",
+    "tapToChoose": "Touchez Parcourir pour choisir un fichier de paquet"
   },
   "airgap": {
     "badge": "Airgap",
@@ -2231,7 +2731,13 @@
     "title": "Automations",
     "tabSchedules": "Schedules",
     "tabScenarios": "Scenarios",
-    "tabScripts": "Scripts"
+    "tabScripts": "Scripts",
+    "readOnlyMaster": "Géré par le tenant Default — lecture seule",
+    "collapse": "Réduire",
+    "expand": "Développer",
+    "groupTree": {
+      "empty": "Aucun groupe disponible"
+    }
   },
   "scenarios": {
     "title": "Scenarios",
@@ -2277,7 +2783,77 @@
     "cancel": "Cancel",
     "deleteConfirm": "Delete this scenario?",
     "onFailureScenario": "On failure, trigger scenario",
-    "none": "None"
+    "none": "None",
+    "export": {
+      "menu": "Exporter ce scénario en JSON",
+      "lean": "Exporter (allégé)",
+      "leanDesc": "Scénario seul — référence les scripts par identifiant",
+      "withScripts": "Exporter avec les scripts",
+      "withScriptsDesc": "Autonome — embarque le contenu complet des scripts",
+      "copyJson": "Copier le JSON dans le presse-papiers",
+      "copyJsonDesc": "Export allégé, prêt à coller (par exemple dans une conversation avec une IA)",
+      "failed": "Échec de l'export du scénario"
+    },
+    "importFromTemplate": "Importer depuis un modèle",
+    "importJson": "Importer un JSON",
+    "importJsonHint": "Importer un fichier JSON de scénario (avec ou sans scripts embarqués)",
+    "emptyTemplate": "Modèle vide",
+    "emptyTemplateHint": "Télécharger un JSON de scénario vide à partager avec une IA ou un collègue",
+    "importExportMenu": "Import / modèles",
+    "pasteJson": "Coller un JSON",
+    "pasteJsonTitle": "Coller le JSON d'un scénario",
+    "pasteJsonHint": "Collez un scénario exporté (avec ou sans scripts embarqués).",
+    "invalidJson": "JSON invalide",
+    "importFailed": "Échec de l'import du scénario",
+    "templateFetchFailed": "Impossible de récupérer le modèle",
+    "graphEditor": {
+      "closeConfirm": "Fermer l'éditeur de graphe ? Les modifications non enregistrées seront perdues."
+    },
+    "savedToast": "Scénario mis à jour",
+    "createdToast": "Scénario créé",
+    "deleteConfirmNamed": "Supprimer le scénario « {{name}} » ?",
+    "stopRunsConfirm_one": "Arrêter {{count}} exécution active de « {{name}} » ?",
+    "stopRunsConfirm_other": "Arrêter les {{count}} exécutions actives de « {{name}} » ?",
+    "stopRunsAction": "Arrêter les exécutions",
+    "stopRunsFailed": "Échec de l'arrêt des exécutions : {{detail}}",
+    "cancelledRuns_one": "{{count}} exécution annulée",
+    "cancelledRuns_other": "{{count}} exécutions annulées",
+    "stopActiveRuns_one": "Arrêter {{count}} exécution active",
+    "stopActiveRuns_other": "Arrêter {{count}} exécutions actives",
+    "triggerNow": "Déclencher maintenant",
+    "runHistory": "Historique des exécutions",
+    "editGraph": "Modifier le graphe",
+    "editMetadata": "Modifier les métadonnées",
+    "runScenario": "Exécuter le scénario",
+    "run": "Exécuter",
+    "running": "Exécution…",
+    "targetDevices": "Appareils cibles",
+    "searchDevices": "Rechercher des appareils…",
+    "devicesSelected_one": "{{count}} appareil sélectionné",
+    "devicesSelected_other": "{{count}} appareils sélectionnés",
+    "import": {
+      "conflictsTitle": "Résoudre les conflits de scripts",
+      "conflictsHint_one": "L'import contient {{count}} script dont l'UUID existe déjà. Choisissez l'action à appliquer.",
+      "conflictsHint_other": "L'import contient {{count}} scripts dont l'UUID existe déjà. Choisissez l'action à appliquer pour chacun.",
+      "existingScript": "Script existant :",
+      "keepExisting": "Conserver l'existant",
+      "keepExistingDesc": "Le script existant n'est pas modifié. Les nœuds importés pointent vers lui.",
+      "overwrite": "Écraser",
+      "overwriteDesc": "Remplace le contenu du script existant par celui importé.",
+      "newCopy": "Créer une copie",
+      "newCopyDesc": "Insère un nouveau script avec le suffixe « (imported) ».",
+      "importing": "Import en cours…",
+      "confirm": "Confirmer l'import"
+    },
+    "history": {
+      "title": "Historique des exécutions — {{name}}",
+      "runCount_one": "{{count}} exécution",
+      "runCount_other": "{{count}} exécutions",
+      "empty": "Aucune exécution pour l'instant. Déclenchez le scénario pour en créer une.",
+      "pickRun": "Sélectionnez une exécution pour afficher la sortie étape par étape.",
+      "runGone": "Cette exécution n'existe plus."
+    },
+    "noTemplates": "Aucun modèle disponible."
   },
   "masterTenant": {
     "badge": "🔒 Master",
@@ -2287,11 +2863,13 @@
     "label": "Diffuser à (lecture seule sur les tenants ciblés)",
     "hint": "Le tenant Default reste propriétaire. Les tenants ciblés voient l'entité en lecture seule et ne peuvent pas la modifier.",
     "clear": "Retirer",
-    "tooltip": "Diffusé en lecture seule à ces tenants"
+    "tooltip": "Diffusé en lecture seule à ces tenants",
+    "tenantFallback": "Tenant {{id}}"
   },
   "tenantFilter": {
     "label": "Tenant",
-    "clear": "Effacer"
+    "clear": "Effacer",
+    "masterName": "{{name}} (master)"
   },
   "scenarioIo": {
     "importJson": "Importer JSON",
@@ -2349,7 +2927,8 @@
     "user": "Utilisateur",
     "services": "Services",
     "noSvcSnap": "Pas de snapshot services à cet instant.",
-    "loadError": "Impossible de charger le Rewind (erreur serveur ou accès refusé)."
+    "loadError": "Impossible de charger le Rewind (erreur serveur ou accès refusé).",
+    "timeOfDay": "Heure de la journée"
   },
   "reports": {
     "group": "Groupe",
@@ -2357,7 +2936,79 @@
     "selectDevice": "Choisir un appareil…",
     "pickTarget": "Veuillez choisir un groupe ou un appareil",
     "cancel": "Annuler",
-    "cancelled": "Génération annulée"
+    "cancelled": "Génération annulée",
+    "allTypes": "Tous les types",
+    "colGenerated": "Généré le",
+    "colSize": "Taille",
+    "count_one": "{{count}} rapport",
+    "count_other": "{{count}} rapports",
+    "created": "Rapport créé",
+    "cronPlaceholder": "ex. 0 8 * * 1",
+    "cronPresets": {
+      "daily2am": "Tous les jours à 2 h",
+      "every15min": "Toutes les 15 minutes",
+      "hourly": "Toutes les heures",
+      "monday9am": "Chaque lundi à 9 h",
+      "sundayMidnight": "Chaque dimanche à minuit"
+    },
+    "deleteConfirm": "Supprimer ce rapport ?",
+    "deleteFailed": "Échec de la suppression du rapport",
+    "deleted": "Rapport supprimé",
+    "editReport": "Modifier le rapport",
+    "empty": "Aucun rapport pour le moment",
+    "emptyHint": "Créez des rapports pour obtenir des indicateurs sur le parc et exporter des données.",
+    "enabledForScheduled": "Activé (pour les exécutions planifiées)",
+    "format": "Format",
+    "generate": "Générer",
+    "generateFailed": "Échec de la génération du rapport",
+    "generateStarted": "Génération du rapport lancée",
+    "generateTitle": "Générer le rapport",
+    "generationStartFailed": "Impossible de lancer la génération",
+    "generationStarted": "Génération lancée",
+    "lastGenerated": "Dernière génération",
+    "loadFailed": "Impossible de charger les rapports",
+    "nameLabel": "Nom",
+    "nameRequired": "Le nom du rapport est obligatoire",
+    "newReport": "Nouveau rapport",
+    "noOutputs": "Aucun fichier généré pour le moment. Cliquez sur Générer pour créer le premier.",
+    "rows": "{{count}} lignes",
+    "runNow": "Générer maintenant",
+    "runRecurring": "Récurrent (cron)",
+    "saveFailed": "Échec de l'enregistrement du rapport",
+    "scheduleCron": "Planification (cron)",
+    "scope": "Périmètre",
+    "scopeDevice": "Appareil spécifique",
+    "scopeGroup": "Groupe d'appareils",
+    "scopeTenant": "Tout le tenant",
+    "sectionLabels": {
+      "compliance": "Conformité",
+      "hardware": "Matériel",
+      "inventory_detail": "Détail par serveur",
+      "network": "Réseau",
+      "scripts_history": "Historique des scripts",
+      "software": "Logiciels",
+      "updates": "Mises à jour"
+    },
+    "sections": "Sections",
+    "status": {
+      "error": "Erreur",
+      "generating": "En cours",
+      "ready": "Prêt"
+    },
+    "subtitle": "Générer et télécharger des rapports sur le parc",
+    "timezone": "Fuseau horaire",
+    "title": "Rapports",
+    "types": {
+      "compliance": "Conformité",
+      "custom": "Personnalisé",
+      "fleet": "Vue d'ensemble du parc",
+      "scripts": "Exécutions de scripts",
+      "software": "Inventaire logiciel",
+      "updates": "Mises à jour"
+    },
+    "updated": "Rapport mis à jour",
+    "viewOutputs": "Voir les fichiers générés",
+    "whenToRun": "Quand exécuter"
   },
   "sshBastion": {
     "keys": {
@@ -2404,7 +3055,8 @@
       "manageKeys": "Gérer mes clés SSH",
       "relayed": "Obliance ne voit pas votre IP réelle (adresse de relais interne) : l'accès SSH est impossible depuis ici. Contactez un administrateur.",
       "allowlisted": "Cette IP figure dans la liste autorisée par l'administrateur : l'accès SSH est ouvert sans le bouton.",
-      "grantDisabled": "L'autorisation d'IP est désactivée sur ce tenant (durée « Trust this IP » = 0). Demandez à un administrateur d'ajouter votre IP à la liste autorisée."
+      "grantDisabled": "L'autorisation d'IP est désactivée sur ce tenant (durée « Trust this IP » = 0). Demandez à un administrateur d'ajouter votre IP à la liste autorisée.",
+      "copyFailed": "Copie impossible — sélectionnez la commande et copiez-la manuellement"
     },
     "admin": {
       "title": "Bastion SSH",
@@ -2443,5 +3095,626 @@
       "hintConfig": "À ajouter dans ~/.ssh/config (Windows : %USERPROFILE%\\.ssh\\config). Ensuite : « ssh {{alias}} » pour le bastion, « ssh <machine>.{{alias}} » pour rebondir sur une machine (scp, sftp, VS Code Remote aussi).",
       "hintScript": "Ajoute le profil à votre configuration SSH. Ensuite : « ssh {{alias}} » pour le bastion, « ssh <machine>.{{alias}} » pour rebondir sur une machine."
     }
+  },
+  "audit": {
+    "clearTitle": "Vider le journal d'audit",
+    "clearConfirm": "Vider l'INTÉGRALITÉ du journal d'audit de ce tenant ?\n\nCette action requiert généralement l'approbation d'un second administrateur (par défaut : Restreinte). Une seule entrée « audit.cleared » est conservée afin que les enquêteurs puissent voir qui l'a vidé.",
+    "clearAction": "Vider",
+    "clearHint": "Vider toutes les entrées d'audit (approbation d'un second administrateur requise par défaut)"
+  },
+  "permissionSets": {
+    "confirmDelete": "Supprimer le jeu de permissions « {{name}} » ? Cette action est irréversible.",
+    "defaultSet": "Jeu par défaut",
+    "rename": "Renommer"
+  },
+  "quickReplyTemplates": {
+    "confirmDelete": "Supprimer le modèle de réponse rapide « {{text}} » et toutes ses traductions ?"
+  },
+  "notificationCenter": {
+    "title": "Centre de notifications",
+    "dismiss": "Ignorer",
+    "markAllRead": "Tout marquer comme lu",
+    "clearLocal": "Effacer les notifications locales",
+    "local": "Local",
+    "allTenants": "Tous les tenants",
+    "localPopupsOn": "Pop-ups locales activées",
+    "localPopupsOff": "Pop-ups locales désactivées",
+    "allTenantPopupsOn": "Pop-ups de tous les tenants activées",
+    "allTenantPopupsOff": "Pop-ups de tous les tenants désactivées",
+    "empty": "Aucune notification",
+    "count_one": "{{count}} notification",
+    "count_other": "{{count}} notifications",
+    "agoSeconds": "il y a {{count}} s",
+    "agoMinutes": "il y a {{count}} min",
+    "agoHours": "il y a {{count}} h",
+    "agoDays": "il y a {{count}} j"
+  },
+  "liveAlerts": {
+    "dismiss": "Ignorer"
+  },
+  "shell": {
+    "panelTitle": "Terminaux distants",
+    "pill_one": "{{count}} terminal",
+    "pill_other": "{{count}} terminaux",
+    "pillTitle_one": "{{count}} session de terminal distant",
+    "pillTitle_other": "{{count}} sessions de terminal distant",
+    "wsFailed": "Échec de la connexion WebSocket",
+    "connectionLost": "Connexion perdue",
+    "copied": "Contenu du terminal copié",
+    "nothingToCopy": "Rien à copier",
+    "clipboardBlocked": "Presse-papiers bloqué par le navigateur",
+    "reconnect": "Reconnecter",
+    "reconnectFailed": "Échec de la reconnexion",
+    "startFailed": "Impossible de démarrer la session {{protocol}}",
+    "loadDevicesFailed": "Impossible de charger les appareils",
+    "closeSession": "Fermer la session",
+    "copyContents": "Copier le contenu du terminal",
+    "copyToClipboard": "Copier le contenu du terminal dans le presse-papiers",
+    "copyThis": "Copier le contenu de ce terminal",
+    "addToSplit": "Ajouter à la vue partagée",
+    "removeFromSplit": "Retirer de la vue partagée",
+    "clearSplit": "Quitter la vue partagée",
+    "inSplit": "Dans la vue partagée",
+    "tabHint": "Clic : activer · Glisser sur un autre onglet : vue partagée · Ctrl+clic : ajouter ou retirer de la vue partagée",
+    "tabHintGrouped": "Déposer un autre onglet ici pour l'ajouter · Ctrl+clic : retirer de la vue partagée",
+    "tabActions": "Actions pour {{name}}",
+    "openAnother": "Ouvrir une autre session distante",
+    "broadcast": "Diffusion",
+    "broadcastOn": "Diffusion ACTIVÉE — la saisie est envoyée à tous les terminaux du groupe",
+    "broadcastOff": "Diffusion DÉSACTIVÉE — la saisie n'est envoyée qu'au terminal actif",
+    "showKeys": "Afficher les touches virtuelles",
+    "hideKeys": "Masquer les touches virtuelles",
+    "enterFullscreen": "Plein écran",
+    "exitFullscreen": "Quitter le plein écran",
+    "minimize": "Réduire (la session reste active en arrière-plan)",
+    "pickerTitle": "Ouvrir une session distante",
+    "searchDevices": "Rechercher un appareil…",
+    "showingRecent_one": "{{count}} appareil récent affiché · saisissez un nom pour chercher parmi tous",
+    "showingRecent_other": "{{count}} appareils récents affichés · saisissez un nom pour chercher parmi tous",
+    "loadingDevices": "Chargement des appareils…",
+    "noMatch": "Aucun appareil ne correspond à la recherche",
+    "noDevices": "Aucun appareil disponible",
+    "privacyBadge": "confidentialité",
+    "noIp": "pas d'IP",
+    "privacyBlocked": "Le mode confidentialité est actif : déverrouillez d'abord l'accès distant sur la fiche de l'appareil"
+  },
+  "twoFactorPrompt": {
+    "title": "Action sensible",
+    "description": "est marquée comme sensible par l'administrateur du tenant. Saisissez votre code TOTP actuel à 6 chiffres pour confirmer.",
+    "invalidFormat": "Saisissez un code TOTP à 6 chiffres issu de votre application d'authentification.",
+    "failed": "Échec de la vérification",
+    "verify": "Vérifier et exécuter",
+    "codeLabel": "Code TOTP",
+    "trustIp": "Faire confiance à cette IP pendant 24 h",
+    "trustIpHint": "Le code TOTP n'est plus demandé pour les actions sensibles depuis cette IP uniquement. Révocable à tout moment depuis votre profil."
+  },
+  "tenantBadge": {
+    "title": "Tenant : {{name}}"
+  },
+  "deviceMultiSelect": {
+    "searchPlaceholder": "Nom d'hôte, IP, utilisateur, UUID, OS, tag…",
+    "clearSelection": "Tout désélectionner",
+    "noMatch": "Aucun appareil ne correspond"
+  },
+  "groupPicker": {
+    "placeholder": "Sélectionner un groupe",
+    "clearSearch": "Effacer la recherche",
+    "title": "Sélectionner un groupe",
+    "clear": "Effacer la sélection",
+    "collapse": "Replier",
+    "expand": "Déplier",
+    "chooseTitle": "Choisir un groupe"
+  },
+  "thresholds": {
+    "title": "Seuils métriques",
+    "helpDevice": "Laisser vide pour hériter du groupe (puis du défaut système).",
+    "helpGroup": "Laisser vide pour hériter du défaut système.",
+    "disk": "Disque",
+    "cpu": "CPU",
+    "ram": "RAM",
+    "warnPct": "Alerte (%)",
+    "critPct": "Critique (%)",
+    "perDisk": {
+      "empty": "Aucun disque interne remonté par l'agent pour l'instant.",
+      "helper": "Remplace le seuil disque global pour un point de montage précis — utile pour les partitions système pleines par nature, ou pour les disques de données qui demandent des alertes plus strictes. Les montages amovibles / ISO sont toujours exclus.",
+      "override": "personnalisé",
+      "inherit": "hérité",
+      "usage": "{{size}} Go · {{percent}} % utilisés",
+      "warnShort": "Alerte",
+      "critShort": "Crit.",
+      "warnTitle": "Seuil d'alerte (%)",
+      "critTitle": "Seuil critique (%)"
+    }
+  },
+  "desktopUpdate": {
+    "appName": "L'application de bureau",
+    "isAvailable": "est disponible",
+    "youHave": "vous avez la",
+    "pleaseUpdate": "mettez-la à jour pour profiter des dernières fonctionnalités",
+    "download": "Télécharger la mise à jour",
+    "skip": "Ignorer",
+    "skipTitle": "Ignorer cette version",
+    "dismiss": "Fermer"
+  },
+  "customSections": {
+    "fontSmaller": "Texte plus petit",
+    "fontLarger": "Texte plus grand",
+    "copyOutput": "Copier toute la sortie",
+    "htmlSaved": "Fichier HTML enregistré",
+    "exportHtmlHint": "Télécharger le tableau de bord sous forme de fichier HTML",
+    "exportHtml": "Exporter en HTML",
+    "builder": {
+      "fieldLabel": "Libellé du champ",
+      "moveUp": "Monter",
+      "moveDown": "Descendre",
+      "removeBlock": "Supprimer le bloc",
+      "removeRule": "Supprimer la règle"
+    },
+    "refreshNow": "Actualiser maintenant",
+    "exportPdf": "Exporter en PDF",
+    "exportPdfHint": "Ouvrir la boîte de dialogue d'impression (choisir « Enregistrer au format PDF » comme destination)",
+    "printError": "Impossible d'ouvrir la boîte de dialogue d'impression",
+    "autoRefresh": "Actualisation automatique",
+    "autoRefreshHint": "Relancer le script à intervalle régulier pour que le panneau serve de tableau de bord en direct.",
+    "collapseGroup": "Replier {{name}}",
+    "commandHint": "Prévu à l'origine pour une seule commande (htop, top, etc.), mais accepte aussi un script complet. Les scripts PowerShell peuvent produire un document HTML — voir le mode de rendu ci-dessous. Le <strong>générateur de tableau de bord</strong> crée un script autonome à partir d'un exemple de sortie pour démarrer rapidement.",
+    "commandLabel": "Commande ou script",
+    "commandPlaceholder": "htop\n\n# ou collez un script complet — PowerShell, bash, …",
+    "created": "Section personnalisée créée",
+    "dashboardBuilder": "Générateur de tableau de bord",
+    "deleteConfirm": "Supprimer la section personnalisée « {{name}} » ?",
+    "deleteFailed": "Échec de la suppression",
+    "descriptionLabel": "Description (facultative)",
+    "discard": "Abandonner",
+    "discardConfirm": "Abandonner les modifications ?",
+    "editTitle": "Modifier la section personnalisée",
+    "empty": "Aucune section personnalisée pour le moment. Cliquez sur « Nouvelle section » pour en créer une.",
+    "emptyCommand": "(vide)",
+    "expandGroup": "Déplier {{name}}",
+    "htmlPtyNote": "Le PTY est désactivé pour la sortie HTML — les séquences de contrôle du terminal corrompraient le document. L'iframe isolée bloque les scripts et formulaires : seuls le HTML et le CSS statiques s'affichent.",
+    "interval": "Intervalle (secondes)",
+    "intervalHint": "Le cycle démarre à la fin de l'exécution précédente — un intervalle de 30 s sur un script de 5 s donne une actualisation toutes les ~35 s. Minimum 1 s, maximum 3600 s (1 h).",
+    "intro": "Les sections personnalisées apparaissent comme des onglets dédiés entre <strong>Distant</strong> et <strong>Explorateur</strong> sur chaque appareil ciblé. L'onglet ouvre une console en lecture seule qui diffuse en direct la sortie de la commande configurée. Le processus est arrêté à la fermeture de l'onglet.",
+    "loadFailed": "Impossible de charger les sections personnalisées",
+    "multiline": "script multiligne",
+    "nameCommandRequired": "Le nom et la commande sont obligatoires",
+    "nameLabel": "Nom (libellé de l'onglet)",
+    "newSection": "Nouvelle section",
+    "newTitle": "Nouvelle section personnalisée",
+    "platform": "Plateforme",
+    "renderHtml": "Document HTML",
+    "renderHtmlHint": "Le script produit une page HTML complète (ex. PowerShell <code>ConvertTo-Html</code>) — affichée dans un panneau isolé.",
+    "renderMode": "Mode de rendu",
+    "renderTerminal": "Flux terminal",
+    "renderTerminalHint": "Console xterm en direct — htop, tail -f, toute commande CLI.",
+    "runtime": "Interpréteur",
+    "saveFailed": "Échec de l'enregistrement",
+    "showCommand": "Afficher la commande complète",
+    "target": "Cible",
+    "targetAll": "Tous les appareils",
+    "targetAllLower": "tous les appareils",
+    "targetDeviceCount": "{{count}} appareil(s)",
+    "targetDevices": "Appareils spécifiques",
+    "targetGroupCount": "{{count}} groupe(s)",
+    "targetGroups": "Groupes",
+    "title": "Sections personnalisées",
+    "update": "Mettre à jour",
+    "updated": "Section personnalisée mise à jour",
+    "usePty": "Utiliser un PTY",
+    "usePtyHint": "Requis pour les applications curses : htop, top, less, watch..."
+  },
+  "ui": {
+    "moreActions": "Plus d'actions",
+    "moreInfo": "Plus d'informations",
+    "confirm": {
+      "typeToConfirm": "Saisissez « {{text}} » pour confirmer"
+    }
+  },
+  "scenarioGraph": {
+    "activateScenario": "Activer le scénario",
+    "activeRuns": "{{count}} exécution(s)",
+    "activeRuns_one": "{{count}} exécution",
+    "activeRuns_other": "{{count}} exécutions",
+    "addConnectionTo": "Ajouter une connexion vers…",
+    "addNode": "Ajouter un nœud",
+    "addNodeHere": "Ajouter un nœud ici",
+    "cancelRun": "Annuler cette exécution",
+    "cancelRuns": "Annuler les exécutions",
+    "cancelRunsOnNode": "Annuler les exécutions sur ce nœud",
+    "cancelRunsOnNodeHint": "Marquer toutes les exécutions en cours comme annulées",
+    "cancelledRuns": "{{count}} exécution(s) annulée(s)",
+    "cancelledRuns_one": "{{count}} exécution annulée",
+    "cancelledRuns_other": "{{count}} exécutions annulées",
+    "configure": "Configurer",
+    "connect": "Connecter",
+    "connectExists": "Ces nœuds sont déjà connectés",
+    "connectFrom": "Depuis : {{name}}",
+    "connectHint": "Touchez ensuite le nœud à connecter",
+    "connectPrompt": "Touchez le nœud à connecter",
+    "connectTo": "Connecter à…",
+    "connectTriggerTarget": "Un déclencheur ne peut pas être la cible d'une connexion",
+    "connected": "Nœuds connectés",
+    "connection": "Connexion",
+    "deleteEdge": "Supprimer la connexion",
+    "disableScenario": "Désactiver le scénario",
+    "discard": "Abandonner",
+    "discardMessage": "Le graphe contient des modifications non enregistrées. Fermer l'éditeur et les perdre ?",
+    "discardScriptMessage": "Les modifications de ce script n'ont pas été enregistrées.",
+    "discardScriptTitle": "Abandonner ce script ?",
+    "discardTitle": "Abandonner les modifications ?",
+    "duplicate": "Dupliquer",
+    "edgeCondition": "Condition de la connexion",
+    "editCondition": "Modifier la condition",
+    "fitView": "Ajuster la vue",
+    "graphCounts": "{{nodes}} nœuds · {{edges}} liens",
+    "hideOutput": "Masquer la sortie",
+    "noActiveRun": "Aucune exécution en cours à annuler",
+    "noOutgoing": "Aucune connexion sortante pour l'instant.",
+    "noRecentRuns": "Aucune exécution au cours des dernières 24 heures.",
+    "nodeCopied": "Nœud copié",
+    "outgoing": "Connexions sortantes",
+    "output": "Sortie",
+    "paste": "Coller le nœud",
+    "pasteHere": "Coller le nœud ici",
+    "recentRuns": "Exécutions récentes (24 h)",
+    "removeDevice": "Retirer {{name}}",
+    "resizeOutput": "Redimensionner le panneau de sortie",
+    "run": "Exécuter",
+    "runFromHere": "Exécuter d'ici",
+    "runFromNode": "Exécuter à partir de ce nœud…",
+    "runFromNodeHint": "Ignore les déclencheurs — exécute ce nœud puis poursuit le graphe",
+    "runOnDevices": "Exécuter sur des appareils",
+    "runOnly": "Exécuter seul",
+    "runOnlyNode": "Exécuter uniquement ce nœud…",
+    "runOnlyNodeHint": "Exécution unique — le moteur s'arrête après ce nœud",
+    "runsInProgress": "{{count}} en cours",
+    "runsInProgress_one": "{{count}} en cours",
+    "runsInProgress_other": "{{count}} en cours",
+    "saveAndRun": "Enregistrer et exécuter",
+    "saveRunFromNode": "Enregistrer et exécuter à partir de ce nœud…",
+    "saveRunOnlyNode": "Enregistrer et exécuter uniquement ce nœud…",
+    "saved": "enregistré",
+    "saving": "Enregistrement…",
+    "showOutput": "Afficher la sortie",
+    "showOutputHint": "Ouvrir le panneau de sortie pour ce nœud",
+    "showOutputPanel": "Afficher la sortie",
+    "statusActive": "Actif",
+    "statusDisabled": "Désactivé",
+    "statusDraft": "Brouillon",
+    "tipMouse": "Astuce : faites glisser le port droit d'un nœud vers le port gauche d'un autre nœud pour les connecter.",
+    "tipTouch": "Astuce : sélectionnez un nœud, touchez « Connecter », puis touchez le nœud cible (ou touchez un port droit, puis un port gauche). Touchez ⋯ sur le nœud sélectionné, ou appuyez longuement sur un nœud ou sur le canevas, pour plus d'actions.",
+    "unsaved": "non enregistré",
+    "warningCount": "{{count}} avertissement(s)",
+    "warningCount_one": "{{count}} avertissement",
+    "warningCount_other": "{{count}} avertissements",
+    "warnings": "Avertissements du graphe"
+  },
+  "approvals": {
+    "approve": "Approuver",
+    "approveFailed": "Échec de l'approbation",
+    "approveTitle": "Approuver cette demande ?",
+    "approvedBy": "approuvée par",
+    "approvedToast": "Approuvée — commandes envoyées",
+    "by": "Par",
+    "cancelConfirm": "Annuler votre demande en attente ?",
+    "cancelFailed": "Échec de l'annulation",
+    "cancelRequest": "Annuler la demande",
+    "cancelledToast": "Annulée",
+    "deniedBy": "refusée par",
+    "deniedToast": "Refusée",
+    "deny": "Refuser",
+    "denyFailed": "Échec du refus",
+    "denyTitle": "Refuser cette demande ?",
+    "empty": "Aucune approbation.",
+    "emptyPending": "Aucune approbation en attente.",
+    "loadFailed": "Impossible de charger les approbations",
+    "reason": "Motif",
+    "reasonOptional": "Motif (facultatif)",
+    "showLess": "Afficher moins",
+    "showMore": "Afficher plus",
+    "showResolved": "Afficher les demandes traitées",
+    "status": {
+      "approved": "approuvée",
+      "cancelled": "annulée",
+      "denied": "refusée",
+      "executed": "exécutée",
+      "expired": "expirée",
+      "pending": "en attente"
+    },
+    "subtitle": "Actions destructrices en attente de la validation d'un second administrateur.",
+    "title": "Approbations",
+    "yourRequest": "votre demande"
+  },
+  "history": {
+    "clearSearch": "Effacer la recherche",
+    "cmd": {
+      "check_compliance": "Vérifier la conformité",
+      "close_remote_tunnel": "Fermer le tunnel",
+      "install_software": "Installer un logiciel",
+      "install_update": "Installer une mise à jour",
+      "list_services": "Lister les services",
+      "open_remote_tunnel": "Ouvrir un tunnel",
+      "reboot": "Redémarrer",
+      "restart_agent": "Redémarrer l'agent",
+      "restart_service": "Redémarrer un service",
+      "run_script": "Exécuter un script",
+      "scan_inventory": "Analyser l'inventaire",
+      "scan_updates": "Rechercher les mises à jour",
+      "shutdown": "Arrêter",
+      "uninstall_software": "Désinstaller un logiciel"
+    },
+    "col": {
+      "action": "Action",
+      "date": "Date",
+      "device": "Appareil",
+      "duration": "Durée",
+      "scenario": "Scénario",
+      "status": "Statut",
+      "trigger": "Déclencheur",
+      "type": "Type",
+      "user": "Utilisateur"
+    },
+    "empty": "Aucun historique pour le moment",
+    "eventCount": "{{count}} événements",
+    "filter": {
+      "all": "Tout",
+      "script": "Scripts",
+      "task": "Tâches",
+      "update": "Mises à jour"
+    },
+    "kind": {
+      "script": "Script",
+      "task": "Tâche",
+      "update": "Mise à jour"
+    },
+    "loadFailed": "Impossible de charger l'historique",
+    "loadMore": "Charger {{count}} de plus",
+    "loadingSteps": "Chargement des étapes...",
+    "noResults": "Aucun résultat pour ce filtre",
+    "noScenarioRuns": "Aucune exécution de scénario pour le moment",
+    "noSteps": "Aucun détail d'étape",
+    "searchPlaceholder": "Rechercher une tâche, un appareil…",
+    "showingOf": "{{shown}} sur {{total}}",
+    "status": {
+      "ack_running": "En cours",
+      "approved": "Approuvé",
+      "available": "Disponible",
+      "cancelled": "Annulé",
+      "failed": "Échec",
+      "failure": "Échec",
+      "installed": "Installé",
+      "pending": "En attente",
+      "running": "En cours",
+      "sent": "Envoyé",
+      "skipped": "Ignoré",
+      "success": "Réussi",
+      "timeout": "Délai dépassé"
+    },
+    "step": {
+      "check": "vérification : code {{code}}",
+      "recheck": "nouvelle vérification : code {{code}}",
+      "resolve": "résolution : code {{code}}"
+    },
+    "tabEvents": "Tâches et scripts",
+    "tabScenarios": "Scénarios",
+    "title": "Historique"
+  },
+  "reach": {
+    "block": "Bloquer",
+    "blockInput": "Bloquer la saisie de l'utilisateur distant",
+    "blocked": "Bloqué",
+    "chat": "Chat",
+    "chatWithUser": "Discuter avec l'utilisateur",
+    "chord": {
+      "altF4": "Fermer la fenêtre active",
+      "altTab": "Changer de fenêtre",
+      "ctrlEsc": "Menu Démarrer (Ctrl+Échap)",
+      "esc": "Échap",
+      "menu": "Touche menu contextuel",
+      "pause": "Pause / Attn",
+      "prtSc": "Impr. écran (capture plein écran sur la machine distante)",
+      "taskMgr": "Ctrl+Maj+Échap — Gestionnaire des tâches",
+      "win": "Touche Windows — menu Démarrer",
+      "winD": "Afficher / masquer le bureau",
+      "winDown": "Restaurer / réduire la fenêtre",
+      "winE": "Ouvrir l'Explorateur de fichiers",
+      "winI": "Paramètres",
+      "winL": "Verrouiller la session",
+      "winR": "Boîte de dialogue Exécuter",
+      "winTab": "Affichage des tâches",
+      "winUp": "Agrandir la fenêtre"
+    },
+    "chordGroup": {
+      "misc": "Divers",
+      "win": "Windows",
+      "window": "Fenêtres et applications"
+    },
+    "codec": "Codec vidéo",
+    "connectingHint": "Établissement du tunnel chiffré…",
+    "connectingRelay": "Connexion au relais…",
+    "connectionFailed": "Échec de la connexion",
+    "copyFailed": "Échec de la copie — sélectionnez le texte et copiez-le manuellement",
+    "copyFromRemote": "Copier depuis la machine distante",
+    "disconnect": "Déconnecter",
+    "enableAudio": "Activer le son distant",
+    "err": {
+      "codec": "Codec non pris en charge : {{codec}}",
+      "decoder": "Erreur du décodeur : {{msg}}",
+      "relay": "Erreur du relais",
+      "webcodecs": "WebCodecs n'est pas pris en charge par ce navigateur (Chrome/Edge 94+, Firefox 130+).",
+      "ws": "Échec de la connexion WebSocket"
+    },
+    "exitFullscreen": "Quitter le plein écran",
+    "fit": "Ajuster",
+    "fullscreen": "Plein écran",
+    "hideChat": "Masquer le chat",
+    "hideKeyboard": "Masquer le clavier",
+    "inactivityTimeout": "Session déconnectée pour inactivité",
+    "inactivityWarning": "La session sera déconnectée dans {{seconds}} s pour inactivité",
+    "keyboard": "Clavier",
+    "keyboardInput": "Saisie clavier distante",
+    "monitorN": "Écran {{n}}",
+    "muteAudio": "Couper le son distant",
+    "muteChat": "Couper les notifications du chat",
+    "pasteManually": "Collez le texte à envoyer dans le presse-papiers distant.",
+    "pasteToRemote": "Coller sur la machine distante",
+    "pasted": "Presse-papiers envoyé à la machine distante",
+    "reconnectingHint": "La session cible a changé (par ex. après l'ouverture de session) — reconnexion automatique.",
+    "reconnectingN": "Reconnexion ({{n}}/{{max}})...",
+    "record": "Enregistrer la session",
+    "recordShort": "Enregistrer",
+    "remoteClipboard": "Presse-papiers distant",
+    "saveFailed": "Impossible d'enregistrer le fichier",
+    "screenshot": "Prendre une capture d'écran",
+    "section": {
+      "clipboard": "Presse-papiers",
+      "display": "Affichage",
+      "input": "Saisie",
+      "session": "Session"
+    },
+    "selectMonitor": "Choisir l'écran",
+    "send": "Envoyer",
+    "sendCad": "Envoyer Ctrl+Alt+Suppr",
+    "showKeyboard": "Afficher le clavier",
+    "status": {
+      "connecting": "Connexion…",
+      "disconnected": "Déconnecté",
+      "error": "Erreur",
+      "reconnecting": "Reconnexion…",
+      "streaming": "Diffusion",
+      "waiting": "En attente…"
+    },
+    "stayConnected": "Rester connecté",
+    "stop": "Arrêter",
+    "stopRecording": "Arrêter l'enregistrement",
+    "systemKeys": "Touches système",
+    "systemKeysHint": "Envoyer des touches système (Win, Alt+Tab, Gestionnaire des tâches…)",
+    "tools": "Outils de session",
+    "touchModeDirect": "Tactile : direct (clic à l'endroit touché)",
+    "touchModeTrackpad": "Tactile : pavé tactile (curseur relatif)",
+    "unblockInput": "Débloquer la saisie de l'utilisateur distant",
+    "unknownError": "Une erreur inconnue s'est produite.",
+    "unmuteChat": "Réactiver les notifications du chat",
+    "waitingAgent": "En attente de la connexion de l'agent…",
+    "waitingAgentHint": "La commande de réveil a été envoyée. L'agent Oblireach se connectera sous 30 s.",
+    "zoomIn": "Zoomer",
+    "zoomOut": "Dézoomer"
+  },
+  "remoteKeys": {
+    "bar": "Touches",
+    "functionKeys": "Touches de fonction F1–F12",
+    "hide": "Masquer les touches",
+    "mod": {
+      "alt": "Alt (s'applique à la touche suivante)",
+      "ctrl": "Ctrl (s'applique à la touche suivante)",
+      "meta": "Win (s'applique à la touche suivante)",
+      "shift": "Maj (s'applique à la touche suivante)"
+    },
+    "show": "Afficher les touches"
+  },
+  "remoteSessions": {
+    "agentConnectedAt": "Agent connecté le {{date}}",
+    "change": "Changer",
+    "device": "Appareil",
+    "deviceN": "Appareil n°{{id}}",
+    "duration": "Durée",
+    "end": "Terminer",
+    "endConfirm": "Mettre fin à cette session distante ?",
+    "endFailed": "Impossible de terminer la session",
+    "ended": "Session terminée",
+    "ending": "Fermeture...",
+    "initiated": "Session {{protocol}} lancée — en attente de l'agent…",
+    "loadFailed": "Impossible de charger les sessions",
+    "noActive": "Aucune session active",
+    "noActiveHint": "Démarrez une nouvelle session pour vous connecter à un appareil.",
+    "noDevices": "Aucun appareil trouvé",
+    "noHistory": "Aucun historique de session",
+    "noHistoryHint": "Les sessions terminées apparaîtront ici.",
+    "notes": "Notes (facultatif)",
+    "notesPlaceholder": "Motif de l'accès, numéro d'incident...",
+    "protocol": {
+      "cmd": "Invite de commandes Windows",
+      "oblireach": "Diffusion d'écran native (recommandé)",
+      "powershell": "Terminal Windows PowerShell",
+      "rdp": "Bureau à distance (Windows)",
+      "ssh": "Terminal Secure Shell",
+      "sshjump": "SSH natif via le bastion Obliance",
+      "vmconsole": "Console interactive de VM Hyper-V (FreeRDP)"
+    },
+    "protocolLabel": "Protocole",
+    "searchDevices": "Rechercher des appareils...",
+    "selectDevice": "Veuillez sélectionner un appareil",
+    "startFailed": "Impossible de démarrer la session",
+    "startNew": "Nouvelle session",
+    "startProtocol": "Démarrer une session {{protocol}}",
+    "started": "Début",
+    "startedAt": "Démarrée le {{date}}",
+    "starting": "Démarrage...",
+    "status": {
+      "active": "Active",
+      "closed": "Fermée",
+      "connecting": "Connexion",
+      "expired": "Expirée",
+      "failed": "Échec",
+      "timeout": "Délai dépassé",
+      "waiting": "En attente"
+    },
+    "statusLabel": "Statut",
+    "subtitle": "Accès à distance aux appareils via Oblireach, RDP ou SSH",
+    "tabActive": "Sessions actives",
+    "tabHistory": "Historique",
+    "title": "Sessions distantes",
+    "user": "Utilisateur",
+    "view": "Voir"
+  },
+  "sshTerminal": {
+    "connectionLost": "Connexion perdue — le tunnel a été fermé de façon inattendue",
+    "disconnect": "Déconnecter",
+    "establishing": "Établissement du tunnel…",
+    "exitFullscreen": "Quitter le plein écran",
+    "failed": "Échec de la connexion au shell",
+    "fullscreen": "Plein écran",
+    "hideKeys": "Masquer les touches virtuelles",
+    "showKeys": "Afficher les touches virtuelles (F1-F12, combinaisons Ctrl...)",
+    "status": {
+      "connected": "Connecté",
+      "connecting": "Connexion…",
+      "disconnected": "Déconnecté",
+      "error": "Erreur"
+    },
+    "tunnelTimeout": "Délai d'établissement du tunnel dépassé — l'agent n'a pas répondu sous 60 s",
+    "unknownError": "Une erreur inconnue s'est produite.",
+    "waitingAgent": "En attente de la connexion de l'agent au serveur",
+    "wsFailed": "Échec de la connexion WebSocket"
+  },
+  "terminalKeys": {
+    "collapse": "Replier",
+    "expand": "Déplier",
+    "key": {
+      "ctrl_a": "Ctrl+A — début de ligne",
+      "ctrl_c": "Ctrl+C — interrompre",
+      "ctrl_d": "Ctrl+D — fin de fichier / déconnexion",
+      "ctrl_e": "Ctrl+E — fin de ligne",
+      "ctrl_l": "Ctrl+L — effacer l'écran",
+      "ctrl_r": "Ctrl+R — recherche inverse dans l'historique",
+      "ctrl_u": "Ctrl+U — effacer la ligne",
+      "ctrl_w": "Ctrl+W — effacer le mot",
+      "ctrl_z": "Ctrl+Z — suspendre",
+      "del": "Suppr",
+      "down": "Flèche bas",
+      "end": "Fin",
+      "esc": "Échap",
+      "home": "Début",
+      "ins": "Insertion",
+      "left": "Flèche gauche",
+      "pgdn": "Page suivante",
+      "pgup": "Page précédente",
+      "right": "Flèche droite",
+      "tab": "Tab",
+      "up": "Flèche haut"
+    },
+    "nav": "Nav",
+    "showKeyboard": "Afficher le clavier",
+    "title": "Touches"
   }
 }

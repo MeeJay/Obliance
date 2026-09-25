@@ -1,0 +1,522 @@
+{
+ "area": "device-detail (client/src/pages/DeviceDetailPage.tsx + hyperv/*, veeam/*, maintenance/*, customSections/*, agent/*, remediation/*, plus the device tabs it mounts: FileExplorerTab, RewindTab, CustomSectionTab, DeviceCvesSection, DeviceMetricsBar, threshold editors, and the ObliReachViewer entry points)",
+ "filesReviewed": [
+  "client/src/pages/DeviceDetailPage.tsx",
+  "client/src/components/hyperv/HyperVVmTable.tsx",
+  "client/src/components/hyperv/HyperVModals.tsx",
+  "client/src/components/hyperv/HyperVConsole.tsx",
+  "client/src/components/veeam/BackupJobTable.tsx",
+  "client/src/components/maintenance/MaintenanceWindowList.tsx",
+  "client/src/components/maintenance/MaintenanceWindowModal.tsx",
+  "client/src/components/maintenance/ScopeSelector.tsx",
+  "client/src/components/customSections/DashboardBuilder.tsx",
+  "client/src/components/remediation/RemediationBindingsPanel.tsx",
+  "client/src/components/agent/AgentDisplayConfigModal.tsx",
+  "client/src/components/agent/NotificationTypesPanel.tsx",
+  "client/src/components/devices/FileExplorerTab.tsx",
+  "client/src/components/devices/RewindTab.tsx",
+  "client/src/components/devices/CustomSectionTab.tsx",
+  "client/src/components/devices/DeviceCvesSection.tsx",
+  "client/src/components/devices/DeviceMetricsBar.tsx",
+  "client/src/components/devices/PrivacyUnlockModal.tsx (scan)",
+  "client/src/components/devices/TransferTenantModal.tsx (scan)",
+  "client/src/components/devices/PrivacyPasswordManageModal.tsx (scan)",
+  "client/src/components/common/ThresholdsEditor.tsx",
+  "client/src/components/common/PerDiskThresholdsEditor.tsx",
+  "client/src/components/ObliReachViewer.tsx (input handling only)",
+  "client/src/components/layout/GlobalShellPanel.tsx (tab/split handling only)",
+  "client/src/components/layout/AppLayout.tsx (main/sidebar context)",
+  "client/src/store/uiStore.ts (sidebar default width)"
+ ],
+ "globalFindings": [
+  {
+   "problem": "There is no shared download helper. Blob + <a download> is used at DeviceDetailPage.tsx:2026 (compliance CSV), HyperVVmTable.tsx:132 (CSV/XLSX/PDF) and FileExplorerTab.tsx:374 (file download), and there are about 12 createObjectURL sites client-wide. Android WebView ignores `download` on blob: URLs, and DownloadListener cannot fetch blob: URLs, so these downloads silently do nothing. HyperVVmTable also revokes the URL right after click().",
+   "fix": "Create client/src/utils/download.ts with saveFile({ blob | base64 | url, filename, mime }). When the native bridge exists (e.g. window.ObliNative.saveFile(base64, name, mime), or Capacitor Filesystem + Share), hand the data to it. Otherwise fall back to an anchor with a delayed revoke. Prefer authenticated HTTP endpoints with Content-Disposition for large files so the WebView DownloadListener can fetch them. Migrate every createObjectURL site.",
+   "files": [
+    "client/src/pages/DeviceDetailPage.tsx",
+    "client/src/components/hyperv/HyperVVmTable.tsx",
+    "client/src/components/devices/FileExplorerTab.tsx"
+   ]
+  },
+  {
+   "problem": "Native confirm()/prompt() is used everywhere: about 50 confirm() and 4 prompt() client-wide. In this area: DeviceDetailPage.tsx 3025, 3151, 3206, 3948, 3951 (prompt), 4068, 4738, 5133, 5280, 5815; HyperVModals.tsx 149-150; FileExplorerTab.tsx 489 and 499 (prompt). If the WebView shell has no WebChromeClient, confirm() returns false and prompt() returns null. Delete, Uninstall, Kill process, Airgap, Refuse, Stop job and New folder would then silently do nothing. The dialogs are also unthemed and unstyled.",
+   "fix": "Create client/src/components/common/ConfirmDialog.tsx with a promise-based useConfirm()/usePrompt() hook: portal, i18n, danger variant, 44px buttons, closes on Android back. Replace every confirm()/prompt() call.",
+   "files": [
+    "client/src/pages/DeviceDetailPage.tsx",
+    "client/src/components/hyperv/HyperVModals.tsx",
+    "client/src/components/devices/FileExplorerTab.tsx"
+   ]
+  },
+  {
+   "problem": "Some controls only appear on hover (`opacity-0 group-hover:opacity-100`, 22 sites client-wide). In this area: Kill process (DeviceDetailPage 4910), add note (5723), sort indicator (4787) and the File explorer row actions (FileExplorerTab 930). On touch they are invisible.",
+   "fix": "In tailwind.config add screens: { 'can-hover': { raw: '(hover: hover) and (pointer: fine)' } }. Rewrite these as `can-hover:opacity-0 can-hover:group-hover:opacity-100` so they are visible by default on touch. Also set `future.hoverOnlyWhenSupported: true` to stop sticky :hover styles after a tap.",
+   "files": [
+    "client/src/pages/DeviceDetailPage.tsx",
+    "client/src/components/devices/FileExplorerTab.tsx"
+   ]
+  },
+  {
+   "problem": "Information and disabled-state reasons often exist only in title= attributes. Examples: unsupportedTooltip(t) on every capability-gated button, 'Agent must be online', 'ObliReach not deployed', 'Disable privacy mode first', truncated names/UUID/command lines, Legacy badge, CVE confidence, VM IP lists beyond 2. On touch the user sees a greyed or truncated control with no explanation.",
+   "fix": "Add a shared Tooltip/InfoPopover in components/common that opens on tap/long-press. Add a DisabledReason wrapper: when a disabled control is tapped, show the reason as a toast, or render it as helper text under 'md'. Route utils/capabilities.ts unsupportedTooltip() output through it.",
+   "files": [
+    "client/src/pages/DeviceDetailPage.tsx",
+    "client/src/components/hyperv/HyperVVmTable.tsx",
+    "client/src/components/veeam/BackupJobTable.tsx",
+    "client/src/components/devices/DeviceCvesSection.tsx",
+    "client/src/utils/capabilities.ts"
+   ]
+  },
+  {
+   "problem": "There is no shared Modal/Sheet. Every modal hand-rolls `fixed inset-0 ... max-w-* mx-4 max-h-[80vh|90vh]`: HyperVModals ModalShell, MaintenanceWindowModal, DashboardBuilder, the 3 session pickers in DeviceDetailPage (3542, 3583, 5486/5520), PrivacyUnlockModal and TransferTenantModal. Consequences: close buttons as small as 16px, vh instead of dvh, backdrop-tap dismissal that discards forms when the user taps out to hide the keyboard, and no handling of the Android back key (back navigates the page instead of closing the modal).",
+   "fix": "Create components/common/Modal.tsx: full-screen bottom sheet under sm, max-h in dvh, safe-area insets, 44px close button, no backdrop-dismiss while an input is focused or the form is dirty, body scroll lock, and a history.pushState entry so hardware back closes it. Migrate all modals in this area.",
+   "files": [
+    "client/src/components/hyperv/HyperVModals.tsx",
+    "client/src/components/maintenance/MaintenanceWindowModal.tsx",
+    "client/src/components/customSections/DashboardBuilder.tsx",
+    "client/src/pages/DeviceDetailPage.tsx"
+   ]
+  },
+  {
+   "problem": "Data tables have no coherent mobile strategy. Some hide columns with `hidden md/lg/xl:table-cell`, which leaves the data unreachable (software 1131, tasks 4271, services 4577, processes 4846, BackupJobTable 239-241). Others are w-full tables in overflow-visible containers that force whole-page horizontal scroll (HyperVVmTable 392, BackupJobTable 232). Others use nested max-h scrollers with 2-axis scrolling (services 4576, processes 4845, FileExplorer 788). Row actions are small icon clusters, and the ⋮ menus are positioned absolutely, so they can't live in an overflow-x-auto wrapper.",
+   "fix": "Create a ResponsiveTable/DataList in components/common. Column definitions get a priority. Under md, rows render as cards, and hidden fields go into an expandable row or a detail sheet opened by tapping the row. A RowActions component renders its ⋮ menu through a portal with fixed positioning, so an overflow-x-auto wrapper is safe on tablets.",
+   "files": [
+    "client/src/pages/DeviceDetailPage.tsx",
+    "client/src/components/hyperv/HyperVVmTable.tsx",
+    "client/src/components/veeam/BackupJobTable.tsx",
+    "client/src/components/devices/FileExplorerTab.tsx"
+   ]
+  },
+  {
+   "problem": "External and cross-app links use target=_blank: DeviceDetailPage 5778 (Obliview/Obliguard/Oblimap links) and DeviceCvesSection 125 (NVD/GitHub). In a WebView, target=_blank either does nothing or replaces the app page, depending on setSupportMultipleWindows. That makes these links the natural place to hand off to the sibling Obli Android apps.",
+   "fix": "Create utils/openExternal.ts and an <ExternalLink> component. It calls the native bridge (Custom Tabs for web pages, an Android intent/App Link to open the other Obli app) and falls back to window.open.",
+   "files": [
+    "client/src/pages/DeviceDetailPage.tsx",
+    "client/src/components/devices/DeviceCvesSection.tsx"
+   ]
+  },
+  {
+   "problem": "Breakpoints are viewport-based, but the pinned sidebar defaults to 280px (uiStore.ts loadSavedWidth). At a 1024px landscape tablet, lg: layouts turn on (Rewind scrubber `hidden lg:flex`, lg:grid-cols-2, lg:table-cell columns) with only about 696px of content width after p-6. At 768px portrait, md: layouts get about 440px. Everything in this page is sized for more room than it actually has.",
+   "fix": "Use container queries (@tailwindcss/container-queries, `@container` on AppLayout <main>) for page-internal layouts: @md/@lg instead of md/lg. Separately, the layout auditor should make the sidebar an overlay below lg.",
+   "files": [
+    "client/src/components/layout/AppLayout.tsx",
+    "client/src/store/uiStore.ts",
+    "client/src/pages/DeviceDetailPage.tsx",
+    "client/src/components/devices/RewindTab.tsx"
+   ]
+  },
+  {
+   "problem": "Remote input has no touch layer. ObliReachViewer (canvas, pointer + onKeyDown on a tabIndex=-1 div) and GlobalShellPanel (xterm) are both launched from device detail. Neither offers a soft-keyboard trigger, a special-key bar (Esc/Tab/Ctrl/Alt/Win/arrows/F-keys) or touch gestures (right-click, scroll, pinch-zoom). The HyperV live console reuses ObliReachViewer, so it has the same problems.",
+   "fix": "Create a shared TouchKeyboardBar component: a keyboard toggle that focuses a hidden <textarea inputmode=text autocapitalize=off>, forwards beforeinput/input text as unicode (Gboard sends keyCode 229 and an empty e.code), plus sticky modifier keys. Create a useTouchPointerGestures hook: tap = click, long-press = right-click, two-finger drag = wheel, pinch = zoom and pan the canvas. Reuse both in ObliReachViewer, the HyperV console and GlobalShellPanel.",
+   "files": [
+    "client/src/components/ObliReachViewer.tsx",
+    "client/src/components/layout/GlobalShellPanel.tsx"
+   ]
+  },
+  {
+   "problem": "Icon-only buttons are consistently p-0.5/p-1/p-1.5 with w-3 to w-4 icons, giving 12-28px tap targets, and their meaning is only in title=. Examples: compliance rule actions, HyperV/Veeam row actions, tag/custom-field remove X, rename pencil, CVE dismiss, maintenance edit/delete, license delete, script-output maximize.",
+   "fix": "Add an IconButton in components/common with a required aria-label (also used as the tap tooltip) and `[@media(pointer:coarse)]:min-h-10 [@media(pointer:coarse)]:min-w-10`. Migrate the icon buttons in this area to it.",
+   "files": [
+    "client/src/pages/DeviceDetailPage.tsx",
+    "client/src/components/hyperv/HyperVVmTable.tsx",
+    "client/src/components/veeam/BackupJobTable.tsx",
+    "client/src/components/maintenance/MaintenanceWindowList.tsx",
+    "client/src/components/devices/DeviceCvesSection.tsx"
+   ]
+  },
+  {
+   "problem": "Several features depend on WebView shell behaviour that is off by default: <input type=file> (FileExplorer upload) needs WebChromeClient.onShowFileChooser; window.print() (CustomSection Export PDF) needs a PrintManager bridge; blob downloads need a bridge; confirm/prompt need onJsConfirm/onJsPrompt; target=_blank needs onCreateWindow. If this isn't handled in the web layer, it must be written down as the native-shell contract for all Obli apps.",
+   "fix": "Put the bridge detection in one place: client/src/native/bridge.ts, exposing saveFile, openExternal, print, pickFiles and isNativeApp. Build download.ts, openExternal.ts and ConfirmDialog on top of it so the shell contract is small and reusable by the other Obli apps.",
+   "files": [
+    "client/src/components/devices/FileExplorerTab.tsx",
+    "client/src/components/devices/CustomSectionTab.tsx"
+   ]
+  },
+  {
+   "problem": "Almost every input uses text-xs or text-sm (12-14px), for example DeviceDetailPage inputCls at 2719, the filters at 4548 and 4824, and all of DashboardBuilder. iOS zooms the page on focus; on Android this is a lower-severity readability issue.",
+   "fix": "Add one rule in client/src/index.css: `@media (pointer: coarse) { input, select, textarea { font-size: 16px; } }`.",
+   "files": [
+    "client/src/index.css"
+   ]
+  }
+ ],
+ "issues": [
+  {
+   "file": "client/src/pages/DeviceDetailPage.tsx",
+   "loc": "5601, 5614, 5745, 5770-5791, 5839-6040, 5773",
+   "severity": "blocker",
+   "problem": "The header action bar can never wrap. The right-hand cluster is `flex ... shrink-0 flex-wrap`; because it is shrink-0 its width is its max-content, so the wrap never happens. The inner action bar (5791, `flex items-center gap-2`) and the quick-actions group (5839) have no flex-wrap, and the cross-app links row (5773) doesn't wrap either. Typical width for a Windows device with an admin: Scan All + Enable Airgap + Chat/Remote/Agent/Sleep/Reboot/Off + refresh is about 765px, and about 220px more with Disable Privacy or Update agent. With the 280px pinned sidebar, content is about 440px at 768 portrait and about 696px at 1024 landscape. The left column (flex-1 min-w-0) collapses to about 0px, so the device name h1 shows as '…', the badges stack one per line, and <main> scrolls horizontally. Reboot, Off and refresh end up off-screen.",
+   "fix": "Stack the header (`flex flex-col gap-3 lg:flex-row`) and drop shrink-0 below lg. Make the action bar `flex flex-wrap`. Below md, keep Remote and Chat as primary buttons and move Scan All, Airgap, Update agent, Agent, Sleep, Reboot, Off and the cross-app links into a '⋮ Actions' bottom sheet (shared Modal/Sheet)."
+  },
+  {
+   "file": "client/src/pages/DeviceDetailPage.tsx",
+   "loc": "4904-4915",
+   "severity": "blocker",
+   "problem": "The Kill process button is `opacity-0 group-hover:opacity-100`, so it is invisible on touch. It is still clickable, so a tap on the empty right edge of a row opens the kill confirm() unexpectedly. The process-kill feature cannot be discovered on a tablet.",
+   "fix": "Make it always visible on coarse pointers (can-hover variant, see global findings), or make a row tap open a process detail sheet with a Kill button (40px, danger style)."
+  },
+  {
+   "file": "client/src/components/devices/FileExplorerTab.tsx",
+   "loc": "808-824, 930-978, 1013-1080",
+   "severity": "blocker",
+   "problem": "A single tap on a row only toggles selection (810). Opening a folder, opening the text editor or downloading a file are bound to onDoubleClick (811). The Edit/Download/Rename/Delete row actions are hover-only (930). The only other path is the custom context menu opened by onContextMenu (820), which on Android means an undiscoverable long-press that also triggers text selection. Browsing into sub-folders on a tablet depends on an unreliable double-tap.",
+   "fix": "Tapping a folder name navigates into it; tapping a file opens a file action sheet. Keep selection on a dedicated checkbox column. Show the row actions permanently on coarse pointers, or add a trailing ⋮ button that opens the existing context menu anchored to the button. Keep double-click as a desktop shortcut only."
+  },
+  {
+   "file": "client/src/components/devices/FileExplorerTab.tsx",
+   "loc": "680-684, 1084",
+   "severity": "blocker",
+   "problem": "The text editor panel is `w-1/2 min-w-[400px]` in a flex row next to the file list. On a phone (content under 400px) it forces horizontal overflow. On tablet portrait (about 440px of content) the file list gets about 30px.",
+   "fix": "Below lg, open the editor as a full-screen overlay (fixed inset-0, h-[100dvh]) with Save and Close in a sticky top bar. Use side-by-side only at @lg container width."
+  },
+  {
+   "file": "client/src/components/devices/FileExplorerTab.tsx",
+   "loc": "373-381",
+   "severity": "blocker",
+   "problem": "File download builds a Blob, clicks an <a download> and revokes the URL synchronously. In Android WebView, blob: downloads are ignored or passed to a DownloadListener that cannot fetch them, so downloading a file from a device silently does nothing.",
+   "fix": "Use the shared saveFile() helper backed by the native bridge (base64 → MediaStore/SAF + share sheet), or serve the file from an authenticated HTTP endpoint with Content-Disposition."
+  },
+  {
+   "file": "client/src/components/ObliReachViewer.tsx",
+   "loc": "1036-1044, 775-777, 601-633 (opened from DeviceDetailPage 3528, 4020, 5462)",
+   "severity": "blocker",
+   "problem": "Remote control is unusable on a tablet. The canvas has no touch-action:none, so finger drags pan/zoom the WebView and fire pointercancel. A tap only sends button 0; right-click is preventDefault-ed and long-press is not mapped. Scrolling needs a mouse wheel. There is no pinch/pan to reach small targets on a 1920px desktop scaled down to 360-1000px. Keyboard input relies on onKeyDown of a tabIndex=-1 div, so the Android soft keyboard never opens, and Gboard sends e.code='' / keyCode 229 anyway. The HyperV live console (DeviceDetailPage 4020) inherits all of this. This may overlap the remote-viewer area.",
+   "fix": "Add touch-action:none on the canvas and a gesture layer: tap = click, long-press = right-click, two-finger drag = wheel, pinch = zoom and pan the viewport, plus an optional trackpad mode. Add a keyboard toggle that focuses a hidden textarea and forwards beforeinput/input text, and a key bar (Esc, Tab, Ctrl, Alt, Win, arrows, F1-F12) with sticky modifiers (see global TouchKeyboardBar)."
+  },
+  {
+   "file": "client/src/pages/DeviceDetailPage.tsx",
+   "loc": "5704, 5718-5729",
+   "severity": "major",
+   "problem": "The 'add note' button in the header info line is `opacity-0 group-hover:opacity-100`, so it is invisible on touch. The only other route is Settings > Identity > Description, which is not discoverable.",
+   "fix": "Show it by default on coarse pointers, or put 'Add note' in the header ⋮ sheet."
+  },
+  {
+   "file": "client/src/pages/DeviceDetailPage.tsx",
+   "loc": "4529-4560 (services), 4794-4827 (processes)",
+   "severity": "major",
+   "problem": "The Services and Processes card headers are `flex justify-between` without wrap. They hold the title, count and CPU/Mem summary plus fixed-width filter inputs (w-40 / w-48) and the Live badge / Load button. Both cards are overflow-hidden, so on a phone the filter input and the Refresh/Load Services button are clipped or unreachable.",
+   "fix": "Use flex-wrap with the filter input `w-full sm:w-48` on its own row under sm; move the CPU/Mem summary to a second line."
+  },
+  {
+   "file": "client/src/pages/DeviceDetailPage.tsx",
+   "loc": "4576-4666",
+   "severity": "major",
+   "problem": "Services table: Description is hidden below md, Startup below lg and Run As below xl, so startup type and run-as account are unreachable on tablet portrait, and Run As on 1024-1279 landscape. The Name cell is whitespace-nowrap and each row has three labelled action buttons (about 200px), so the table scrolls horizontally inside a max-h-[65vh] nested scroller: two-axis nested scrolling on touch, with the actions off-screen to the right.",
+   "fix": "Use a card layout under md: name + display name, status pill, startup/run-as line, and Start/Stop/Restart as full-width buttons or a ⋮ sheet. Alternatively, make a row tap open a detail sheet with the hidden fields. Drop the nested max-h on small screens."
+  },
+  {
+   "file": "client/src/pages/DeviceDetailPage.tsx",
+   "loc": "4786-4787, 4846-4903, 4890",
+   "severity": "major",
+   "problem": "Processes table: the User column is hidden below lg (tablet portrait). The full command line exists only as title= on the <tr>, so it is unreachable on touch, and that is the only way to tell apart processes like several svchost/java instances. Sort affordances are opacity-0 group-hover:opacity-30.",
+   "fix": "Row tap opens a process detail sheet (command line, user, PID, CPU/mem, Kill). Show the command line as a truncated second line under the name on wide screens. Keep the sort chevrons visible."
+  },
+  {
+   "file": "client/src/pages/DeviceDetailPage.tsx",
+   "loc": "4270-4311",
+   "severity": "major",
+   "problem": "Tasks table: User and Priority are hidden below md; Created and Duration are hidden below lg. On tablet portrait you cannot see when a task was issued or how long it ran. The error message is truncated and shown in full only via title= (4308), and the payload is truncated.",
+   "fix": "Under lg, render created time and duration as a secondary line under the task label. Make rows expandable (or open a detail sheet) to show the full payload and error text."
+  },
+  {
+   "file": "client/src/pages/DeviceDetailPage.tsx",
+   "loc": "1131-1148",
+   "severity": "major",
+   "problem": "Software inventory table hides Version below md and Publisher below lg with no alternative, so phones can't see versions and tablets in portrait can't see publishers.",
+   "fix": "Under md, show `version · publisher` as a muted second line under the name (or use the ResponsiveTable card mode)."
+  },
+  {
+   "file": "client/src/pages/DeviceDetailPage.tsx",
+   "loc": "1216-1236",
+   "severity": "major",
+   "problem": "The licenses table has 5 columns, no overflow-x wrapper and no breakpoints, so it overflows on a phone. The delete action is a bare 14px Trash icon with no padding and no confirmation.",
+   "fix": "Use a card list under sm (or an overflow-x-auto wrapper), a 40px labelled delete button, and ConfirmDialog."
+  },
+  {
+   "file": "client/src/pages/DeviceDetailPage.tsx",
+   "loc": "2153-2207, 2373-2428",
+   "severity": "major",
+   "problem": "The compliance and software-compliance policy headers put a `shrink-0` cluster (Fix All + Export + pass/fail counts + score, about 300px) next to a policy name that has no min-w-0. The card is overflow-hidden, so on a phone the score and Export are clipped and the policy name is squeezed.",
+   "fix": "Split into two rows under sm (name/date on the first; score, counts and actions on the second, flex-wrap). Or move Fix All and Export into the expanded body or a ⋮ menu."
+  },
+  {
+   "file": "client/src/pages/DeviceDetailPage.tsx",
+   "loc": "2274-2281, 2283-2320, 2494-2501",
+   "severity": "major",
+   "problem": "In compliance rule rows, the actual/expected mono values sit in a non-wrapping `flex gap-4`, so long registry paths or values overflow and get clipped. Per-rule Remediate, Ignore and Unignore are icon-only (Wrench/EyeOff/Eye), p-1 with 14px icons (22px targets), and their meaning is only in title=.",
+   "fix": "Add flex-wrap and break-all on values, and 40px targets with text labels on coarse pointers (or a ⋮ menu per rule)."
+  },
+  {
+   "file": "client/src/pages/DeviceDetailPage.tsx",
+   "loc": "2003-2035",
+   "severity": "major",
+   "problem": "Compliance 'Export' CSV uses a Blob + <a download>, which doesn't work in Android WebView.",
+   "fix": "Use the shared saveFile() helper."
+  },
+  {
+   "file": "client/src/components/hyperv/HyperVVmTable.tsx",
+   "loc": "121-143",
+   "severity": "major",
+   "problem": "VM export (CSV/XLSX/PDF) uses a Blob + a.click() and calls URL.revokeObjectURL immediately. This fails in WebView and is racy even in browsers.",
+   "fix": "Use the shared saveFile() helper."
+  },
+  {
+   "file": "client/src/pages/DeviceDetailPage.tsx",
+   "loc": "3976-4005",
+   "severity": "major",
+   "problem": "Hyper-V tab header puts the title plus Install console, New VM and Refresh buttons in a non-wrapping `flex justify-between`, so it overflows on a phone.",
+   "fix": "flex-wrap; on phones, collapse to icon + label buttons in a second row, or move Install console into a ⋮ menu."
+  },
+  {
+   "file": "client/src/components/hyperv/HyperVVmTable.tsx",
+   "loc": "392-537, 482-518",
+   "severity": "major",
+   "problem": "The VM table is w-full inside an `overflow-visible` container (kept that way so the ⋮ menu isn't clipped). By default it has 9 columns: name, state, CPU, memory, guest OS, uptime, MAC, IP, actions. There are no breakpoints and no scroll wrapper, so on tablet portrait the whole page scrolls horizontally and the Actions column is off-screen. A column picker exists, but every optional column is on by default.",
+   "fix": "Card layout under @lg: name + state + CPU/mem line, with actions in a portal ⋮ sheet. Or wrap the table in overflow-x-auto and render the kebab menu through a portal with fixed positioning. Default to hiding MAC/IP/guest OS on narrow containers."
+  },
+  {
+   "file": "client/src/components/hyperv/HyperVVmTable.tsx",
+   "loc": "441-447, 453, 464, 471-485, 100-113",
+   "severity": "major",
+   "problem": "The console-preview expander is a bare 14px chevron with no padding. Start/Shutdown/Restart/⋮ are icon-only 28px buttons labelled only via title=. AddrList hides the 3rd and later IPs/MACs behind title=. The state detail (statusText) and guest OS full text are title-only.",
+   "fix": "40px IconButtons with labels in the ⋮ menu; make the whole name cell toggle the preview; show every address in the expanded row."
+  },
+  {
+   "file": "client/src/components/veeam/BackupJobTable.tsx",
+   "loc": "232-242, 282, 288, 298-307, 310-326",
+   "severity": "major",
+   "problem": "Last run is hidden below md, Next run below lg and Repository below xl, so next-run schedule and repository are unreachable on tablets. Job description and raw state are title-only. The table sits in an overflow-visible container with no horizontal scroll. Start/Stop/Retry/⋮ are icon-only 28px buttons.",
+   "fix": "Card or expandable-row layout on narrow containers exposing lastRun/nextRun/repository/description; 40px labelled actions."
+  },
+  {
+   "file": "client/src/components/devices/RewindTab.tsx",
+   "loc": "318-321, 139, 112-113",
+   "severity": "major",
+   "problem": "The vertical TimeScrubber (the main time-travel control) is `hidden lg:flex`, so tablet portrait and phones lose it. Their only options are tapping the chart (AreaChart onClick) and dragging the Recharts Brush, whose travellers are 8px wide and can't be dragged with a finger.",
+   "fix": "Below lg, render a horizontal scrubber: a pointer-captured slider with touch-none and a 44px thumb (the TimeScrubber pick() logic can be reused with clientX). Enlarge the Brush travellers or hide the Brush on coarse pointers."
+  },
+  {
+   "file": "client/src/components/devices/CustomSectionTab.tsx",
+   "loc": "334-338, 449-455, 416-473",
+   "severity": "major",
+   "problem": "The HTML section's 'Export PDF' calls iframe.contentWindow.print(). window.print() is a no-op in Android WebView unless the host wires PrintManager, so it fails silently. The header row (name + 'Refresh now' + 'Export PDF' + a minWidth 96 status pill) doesn't wrap, so the title is squeezed to nothing on a phone. The buttons are text-[10px] py-0.5 (about 20px tall).",
+   "fix": "Route through a native print bridge or a server-rendered PDF via saveFile(); flex-wrap the header; use 40px buttons."
+  },
+  {
+   "file": "client/src/components/devices/DeviceCvesSection.tsx",
+   "loc": "123-130, 158-166, 112-121",
+   "severity": "major",
+   "problem": "CVE links use target=_blank, which in a WebView does nothing or navigates the app away. The admin 'Dismiss' is an unlabelled 22px X that permanently marks a false positive with no confirmation, so an accidental tap loses data. Confidence and KEV meaning are title-only.",
+   "fix": "Use ExternalLink/openExternal; a labelled Dismiss button with ConfirmDialog or an undo toast; visible text for KEV/confidence."
+  },
+  {
+   "file": "client/src/pages/DeviceDetailPage.tsx",
+   "loc": "5772-5788",
+   "severity": "major",
+   "problem": "Cross-app links (Obliview/Obliguard/Oblimap) use <a target=_blank>. In the Android app they should deep-link into the sibling Obli app or open in Custom Tabs. As written they either do nothing or replace the Obliance WebView.",
+   "fix": "Use ExternalLink/openExternal with an app-intent mapping per appType."
+  },
+  {
+   "file": "client/src/pages/DeviceDetailPage.tsx",
+   "loc": "3948-3953, 3025, 3151, 3206, 4068, 4738, 5133, 5280, 5815",
+   "severity": "major",
+   "problem": "Destructive or state-changing actions are gated by native confirm(), and the HyperV checkpoint name uses prompt(). If the WebView shell has no JS dialog handlers, Delete device, Uninstall agent, Kill process, Enable airgap, Refuse device, Update agent, Stop Veeam job and Delete VM all silently cancel, and checkpoints are always unnamed.",
+   "fix": "Use the shared ConfirmDialog/usePrompt (see global findings)."
+  },
+  {
+   "file": "client/src/pages/DeviceDetailPage.tsx",
+   "loc": "1812-1817",
+   "severity": "major",
+   "problem": "The update title/KB is `truncate` with no title attribute and no expand, so on a phone only about 15 characters of the update name are visible and there is no detail view.",
+   "fix": "line-clamp-2 plus tap-to-expand, or an update detail sheet (title, KB, source, status, installed date)."
+  },
+  {
+   "file": "client/src/pages/DeviceDetailPage.tsx",
+   "loc": "1326-1341, 1349-1355, 1364-1370",
+   "severity": "major",
+   "problem": "In script history rows, the start date is hidden below md (1334). The Stop control is a <span onClick> nested inside the row's toggle <button> (1337) with a 24px target, so a near miss expands the row instead of stopping the script. The stdout/stderr fullscreen buttons are p-0.5 with 12px icons (16px targets).",
+   "fix": "Put Stop as a real button outside the toggle button; use a two-line row under md (name/status on the first, trigger · date · duration on the second); 40px targets."
+  },
+  {
+   "file": "client/src/components/maintenance/MaintenanceWindowList.tsx",
+   "loc": "139-142, 444, 145-165, 452-468",
+   "severity": "major",
+   "problem": "The schedule line is `truncate`. A one-time window is 'start → end', about 40 characters, so the end date is cut on a phone with no way to expand it. Edit and Delete are icon-only 25px (size 13, p-1.5), and Delete (156-164, 460-467) fires without confirmation.",
+   "fix": "Let the schedule wrap (break-words) or split start and end onto two lines; 40px IconButtons; ConfirmDialog on delete."
+  },
+  {
+   "file": "client/src/components/maintenance/ScopeSelector.tsx",
+   "loc": "325, 336-353, 356-380, 395-410",
+   "severity": "major",
+   "problem": "Device rows are `py-0.5 text-xs` (about 20px tall) and group rows `py-1`, inside a `max-h-52` nested scroll list that is itself inside the modal's scrolling form. Including or excluding individual devices by touch is error-prone, and the nested scroller traps vertical swipes.",
+   "fix": "min-h-10 rows on coarse pointers; remove the nested max-h under sm and let the sheet scroll, or open a full-screen picker."
+  },
+  {
+   "file": "client/src/components/maintenance/MaintenanceWindowModal.tsx",
+   "loc": "354-363, 411-420, 278-280",
+   "severity": "major",
+   "problem": "datetime-local and time inputs sit in a fixed `grid-cols-2`. On a 360px phone each is about 135px, and Android renders datetime-local truncated ('24/09/2026, 1…'). The close X has no padding (18px target).",
+   "fix": "grid-cols-1 sm:grid-cols-2; p-2 close button (or use the shared Modal)."
+  },
+  {
+   "file": "client/src/components/customSections/DashboardBuilder.tsx",
+   "loc": "381-408, 371, 576-584, 612-653",
+   "severity": "major",
+   "problem": "The detected-field row doesn't wrap: checkbox + path (`w-[180px] shrink-0`) + label input (flex-1) + type select + sample (max-w-[100px]). On a phone the label input (the only way to rename a field) shrinks to about 0, inside a max-h-[260px] nested scroller. ColorRulePill uses borderless text-[10px] selects/inputs and a ✕ remove with no padding (about 10px target). Block ↑/↓/trash are p-1 text glyphs. GripVertical implies drag and drop that doesn't exist.",
+   "fix": "Under md, stack each field row (path on its own line; label input full width; type and sample below). 40px controls in ColorRulePill and the block toolbar. Remove the grip icon or implement touch-sortable reordering."
+  },
+  {
+   "file": "client/src/components/layout/GlobalShellPanel.tsx",
+   "loc": "520-558 (sessions opened from DeviceDetailPage 5941-5961 and RemoteTab 3698-3708)",
+   "severity": "major",
+   "problem": "The CMD/PowerShell/SSH shells reached from device detail have no special-key bar: the Android keyboard has no Esc, Tab, Ctrl or arrow keys. Split view is toggled only by Ctrl+Click or by HTML5 drag-and-drop of tabs, and neither exists on touch. This is flagged here because it is the only shell entry point from device detail; the layout area owns the file.",
+   "fix": "Add the shared TouchKeyboardBar above the xterm on coarse pointers, and a visible 'Split' toggle button per tab or in the tab's ⋮ menu."
+  },
+  {
+   "file": "client/src/pages/DeviceDetailPage.tsx",
+   "loc": "5459",
+   "severity": "minor",
+   "problem": "The page wrapper is `p-6` at every width, which wastes 48px on a 360px phone.",
+   "fix": "p-4 sm:p-6."
+  },
+  {
+   "file": "client/src/pages/DeviceDetailPage.tsx",
+   "loc": "6101-6184, 6162, 6226",
+   "severity": "minor",
+   "problem": "The 12-15 tab buttons scroll horizontally, which works, but there is no scroll affordance (fade or chevrons). The active tab is not scrolled into view (for example after the unlock modal switches tab at 6226). The reason a tab is hard-blocked is shown only in title=.",
+   "fix": "scrollIntoView({inline:'nearest'}) on activeTab change; edge fades; under sm, consider a select-style tab switcher; show the privacy lock reason as a tap popover."
+  },
+  {
+   "file": "client/src/pages/DeviceDetailPage.tsx",
+   "loc": "530-535, 549-552",
+   "severity": "minor",
+   "problem": "The Agent UUID is truncated and shown in full only via title=, so it can't be read or copied on touch. The Network dl rows have no min-w-0/break-all, so an IPv6 public IP (about 39 mono characters) overflows the card on a phone.",
+   "fix": "break-all on dd plus a tap-to-copy button for UUID/IP/MAC."
+  },
+  {
+   "file": "client/src/pages/DeviceDetailPage.tsx",
+   "loc": "860-871, 897-904, 1057",
+   "severity": "minor",
+   "problem": "The Windows/Office product key is `truncate select-all`, so on narrow widths the key is cut and can't be read. Disk rows are a non-wrapping flex (model, type, size, mounts) and overflow with long mount lists.",
+   "fix": "Wrap the key or add a copy button; flex-wrap on disk rows."
+  },
+  {
+   "file": "client/src/pages/DeviceDetailPage.tsx",
+   "loc": "1161, 1307-1309, 1527-1529, 4255-4260, 4394-4408",
+   "severity": "minor",
+   "problem": "Undersized controls: '+ Add License' is a text-xs link, the refresh icon buttons are 28px, and the pagination ←/→ buttons are px-2 py-1 (about 24px).",
+   "fix": "Use IconButton or Button with 40px minimums on coarse pointers."
+  },
+  {
+   "file": "client/src/pages/DeviceDetailPage.tsx",
+   "loc": "1536",
+   "severity": "minor",
+   "problem": "The schedule create form uses `grid grid-cols-2` with no breakpoint, so Name and the Script select are cramped at 360px.",
+   "fix": "grid-cols-1 sm:grid-cols-2."
+  },
+  {
+   "file": "client/src/pages/DeviceDetailPage.tsx",
+   "loc": "2806-2811, 2836, 2953",
+   "severity": "minor",
+   "problem": "The tag chip remove X is w-3 h-3 with no padding (12px target); the custom-field and sensor-rename remove X are 14px. Mis-taps are easy.",
+   "fix": "p-1.5 with a larger hit area (IconButton)."
+  },
+  {
+   "file": "client/src/pages/DeviceDetailPage.tsx",
+   "loc": "2732-2881",
+   "severity": "minor",
+   "problem": "Settings text fields auto-save only onBlur. On Android, dismissing the keyboard with Back doesn't blur the field, and leaving the page with system Back can unmount it without a blur, so edits are lost.",
+   "fix": "Debounce the save on change (autoSave already debounces 300ms) and flush on unmount."
+  },
+  {
+   "file": "client/src/pages/DeviceDetailPage.tsx",
+   "loc": "3032-3033, 3079-3102, 4553-4554, 4628-4659, 5795-5796, 5881-5888, 5997-6034",
+   "severity": "minor",
+   "problem": "Disabled buttons (agent offline, command not supported by the legacy agent, ObliReach not deployed, privacy active) explain themselves only via title=. On touch the user sees a greyed button with no reason.",
+   "fix": "DisabledReason wrapper: tap shows a toast or popover, or render helper text under 'md' (see global findings)."
+  },
+  {
+   "file": "client/src/pages/DeviceDetailPage.tsx",
+   "loc": "5617-5656, 286-325",
+   "severity": "minor",
+   "problem": "The inline rename input is text-2xl at intrinsic width (about 300px) plus two buttons, so it overflows on a phone. The rename Pencil and the save/cancel/delete note buttons are 22-24px targets. The note textarea is text-xs.",
+   "fix": "Rename input `w-full min-w-0`; 40px IconButtons; text-base textarea on coarse pointers."
+  },
+  {
+   "file": "client/src/pages/DeviceDetailPage.tsx",
+   "loc": "3549-3554, 3590-3595, 5527-5532",
+   "severity": "minor",
+   "problem": "The WTS/shell session picker modals close with a bare 16px X that has no padding, and their full-screen layout is hand-rolled.",
+   "fix": "Use the shared Modal/Sheet with a 44px close button."
+  },
+  {
+   "file": "client/src/pages/DeviceDetailPage.tsx",
+   "loc": "5251-5260",
+   "severity": "minor",
+   "problem": "The Remote dropdown's click-outside listens for `mousedown`. That works via compatibility events, but it fires late and doesn't fire when the user starts scrolling.",
+   "fix": "Use pointerdown, or the shared portal dropdown/sheet."
+  },
+  {
+   "file": "client/src/components/hyperv/HyperVModals.tsx",
+   "loc": "14-21",
+   "severity": "minor",
+   "problem": "Tapping the backdrop closes the modal. Tapping outside to hide the soft keyboard therefore discards the Create VM or Edit form. The close button is p-1 (24px). max-h-[80vh] uses vh rather than dvh.",
+   "fix": "Use the shared Modal (no backdrop dismissal when the form is dirty, dvh, 44px close)."
+  },
+  {
+   "file": "client/src/components/hyperv/HyperVConsole.tsx",
+   "loc": "117-139",
+   "severity": "minor",
+   "problem": "The full-screen read-only console image is object-contain with no pinch-zoom or pan, so a 1024x768 frame is unreadable on a phone.",
+   "fix": "Wrap the image in a pinch-zoom/pan container (CSS transform with pointer events and touch-none)."
+  },
+  {
+   "file": "client/src/components/common/PerDiskThresholdsEditor.tsx",
+   "loc": "107-129",
+   "severity": "minor",
+   "problem": "Warn and crit inputs are told apart only by colour and title=. The row (mount + override checkbox + two w-14 inputs) leaves about 50px for the mount name on a phone.",
+   "fix": "Visible 'W'/'C' prefixes or labels; wrap the inputs onto a second line under sm."
+  },
+  {
+   "file": "client/src/components/devices/FileExplorerTab.tsx",
+   "loc": "633-648, 757-767",
+   "severity": "minor",
+   "problem": "Upload uses a synthetic <input type=file>, which does nothing in a WebView without WebChromeClient.onShowFileChooser. The drop zone is desktop-only (acceptable, since the button alternative exists). The Upload, New folder and Refresh toolbar buttons are icon-only 28px.",
+   "fix": "Use the native bridge pickFiles() when present; 40px labelled toolbar buttons on coarse pointers."
+  },
+  {
+   "file": "client/src/components/devices/FileExplorerTab.tsx",
+   "loc": "788, 794-796, 859, 1139",
+   "severity": "minor",
+   "problem": "Fixed column widths (w-28 + w-44 + w-28, about 400px) plus the name column force horizontal scrolling inside a `max-h-[calc(100vh-320px)]` nested scroller, which leaves only a few rows on a landscape phone. The rename input is fixed at w-64. The 'Ctrl+S to save' hint means nothing on touch (a Save button exists).",
+   "fix": "Card rows under md (name + size · modified on a second line); rename input w-full; hide the shortcut hint on coarse pointers."
+  },
+  {
+   "file": "client/src/components/devices/RewindTab.tsx",
+   "loc": "377, 380, 417",
+   "severity": "minor",
+   "problem": "Truncated process, user and service names in the snapshot tables are readable only via title=.",
+   "fix": "Tap-to-expand row or break-words under sm."
+  },
+  {
+   "file": "client/src/components/devices/CustomSectionTab.tsx",
+   "loc": "141, 161, 485",
+   "severity": "minor",
+   "problem": "Panel height is calc(100vh - 340px) with minHeight 400px, which is taller than a landscape phone viewport. The terminal header command is title-only.",
+   "fix": "Use dvh with a smaller minimum on small screens; show the command on tap."
+  },
+  {
+   "file": "client/src/components/maintenance/MaintenanceWindowList.tsx",
+   "loc": "280-287, 491-497",
+   "severity": "minor",
+   "problem": "The 'Add' and 'Add window' buttons are px-2 py-0.5 / py-1 (about 20-24px tall).",
+   "fix": "min-h-10 on coarse pointers."
+  },
+  {
+   "file": "client/src/components/agent/AgentDisplayConfigModal.tsx",
+   "loc": "299-313, 387-411, 489-513",
+   "severity": "minor",
+   "problem": "AgentDisplayConfigModal and NotificationTypesPanel are not mounted anywhere (dead code), and RemediationBindingsPanel.tsx is a stub that returns null. If they are revived, the rename/confirm buttons are p-0.5 with 11-12px icons (about 15px targets).",
+   "fix": "Delete them, or migrate them to IconButton and the shared Modal before reuse."
+  }
+ ]
+}

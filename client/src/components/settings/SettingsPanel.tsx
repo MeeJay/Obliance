@@ -75,7 +75,7 @@ export function SettingsPanel({ scope, scopeId, title }: SettingsPanelProps) {
  }
 
  return (
- <div className="rounded-lg bg-bg-secondary p-5">
+ <div className="rounded-lg bg-bg-secondary p-4 sm:p-5">
  {title && (
  <h2 className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-4">
  {title}

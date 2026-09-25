@@ -49,13 +49,23 @@ class WebHelpersTest {
         val obliDark = 0xFF0F1220.toInt()
         val white = 0xFFFFFFFF.toInt()
         val mid = 0xFF808080.toInt()
-        // Dark background: light icons whatever the page asked.
-        assertTrue(SystemBarContrast.lightIcons(obliDark, requestedLightIcons = false))
-        assertTrue(SystemBarContrast.lightIcons(obliDark, requestedLightIcons = true))
-        // Light background: dark icons whatever the page asked.
-        assertFalse(SystemBarContrast.lightIcons(white, requestedLightIcons = true))
-        // Mid tones follow the request.
-        assertTrue(SystemBarContrast.lightIcons(mid, requestedLightIcons = true))
-        assertFalse(SystemBarContrast.lightIcons(mid, requestedLightIcons = false))
+        // Dark background: light icons whatever the page says about its theme.
+        assertTrue(SystemBarContrast.lightIcons(obliDark, lightTheme = false))
+        assertTrue(SystemBarContrast.lightIcons(obliDark, lightTheme = true))
+        assertTrue(SystemBarContrast.lightIcons(obliDark, lightTheme = null))
+        // Light background: dark icons whatever the page says about its theme.
+        assertFalse(SystemBarContrast.lightIcons(white, lightTheme = false))
+        assertFalse(SystemBarContrast.lightIcons(white, lightTheme = true))
+        assertFalse(SystemBarContrast.lightIcons(white, lightTheme = null))
+    }
+
+    @Test fun midToneSystemBarsFollowTheTheme() {
+        val mid = 0xFF808080.toInt()
+        // lightTheme = true: the web theme is LIGHT -> DARK icons.
+        assertFalse(SystemBarContrast.lightIcons(mid, lightTheme = true))
+        // lightTheme = false: dark theme -> light icons.
+        assertTrue(SystemBarContrast.lightIcons(mid, lightTheme = false))
+        // Not stated: dark icons (better contrast in this band).
+        assertFalse(SystemBarContrast.lightIcons(mid, lightTheme = null))
     }
 }

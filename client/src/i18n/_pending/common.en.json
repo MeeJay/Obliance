@@ -18,6 +18,7 @@
   "deviceMultiSelect.noMatch": "No device matches your search",
   "groupPicker.placeholder": "Select a group",
   "groupPicker.clearSearch": "Clear search",
+  "groupPicker.title": "Select a group",
   "thresholds.title": "Metric thresholds",
   "thresholds.helpDevice": "Leave empty to inherit from the group (then the system default).",
   "thresholds.helpGroup": "Leave empty to inherit the system default.",

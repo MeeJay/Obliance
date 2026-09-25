@@ -65,6 +65,44 @@ export async function copyText(text: string): Promise<boolean> {
 }
 
 /**
+ * Copy text that is still being fetched (e.g. an export built by the
+ * server). WebKit (iOS / iPadOS browsers, macOS Safari) only allows a
+ * clipboard write that STARTS inside the click / tap gesture — after an
+ * `await` it throws NotAllowedError. So the write is started synchronously
+ * with a promised ClipboardItem that resolves once `textPromise` settles;
+ * when that is unsupported or rejected, it falls back to copyText() once
+ * the text has arrived.
+ *
+ * Call it directly from the event handler, before any `await`. Resolves
+ * false (never rejects) when the copy failed OR `textPromise` rejected —
+ * the caller can await `textPromise` itself to tell the two apart.
+ */
+export async function copyTextDeferred(textPromise: Promise<string>): Promise<boolean> {
+  if (
+    typeof ClipboardItem !== 'undefined'
+    && typeof navigator !== 'undefined'
+    && typeof navigator.clipboard?.write === 'function'
+    && window.isSecureContext
+  ) {
+    const blobPromise = textPromise.then((text) => new Blob([text], { type: 'text/plain' }));
+    blobPromise.catch(() => { /* surfaced by the fallback's await below */ });
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ 'text/plain': blobPromise })]);
+      return true;
+    } catch {
+      /* unsupported promised item / permission denied — fall back below */
+    }
+  }
+  let text: string;
+  try {
+    text = await textPromise;
+  } catch {
+    return false;
+  }
+  return copyText(text);
+}
+
+/**
  * Read the clipboard as text. Native bridge first (the WebView denies the
  * async Clipboard read permission), then navigator.clipboard.readText.
  * Resolves null when nothing can read it (or the user refused).

@@ -10,7 +10,11 @@ import { NetworkDiscoveryPage } from './NetworkDiscoveryPage';
 import { CustomSectionsPage } from './CustomSectionsPage';
 import type { AgentApiKey, DeviceGroupTreeNode } from '@obliance/shared';
 import toast from 'react-hot-toast';
-import { clsx } from 'clsx';
+import { PageContainer } from '@/components/common/PageContainer';
+import { SegmentedTabs } from '@/components/common/SegmentedTabs';
+import { IconButton } from '@/components/common/IconButton';
+import { useConfirm } from '@/components/common/ConfirmDialog';
+import { copyText } from '@/utils/clipboard';
 
 // /admin/devices used to host the device list (Agents tab) too, but
 // that's now the canonical /devices page (with admin features
@@ -21,6 +25,8 @@ type Tab = 'keys' | 'custom-sections' | 'discovery';
 
 export function AdminDevicesPage() {
  const { t } = useTranslation();
+ // Shared dialog (window.confirm is a no-op in the Android WebView — docs §5.6).
+ const confirm = useConfirm();
  const [searchParams] = useSearchParams();
  const rawTab = searchParams.get('tab');
  const isLegacyAgentsTab = rawTab === 'agents';
@@ -73,7 +79,7 @@ export function AdminDevicesPage() {
  };
 
  const handleDeleteKey = async (key: AgentApiKey) => {
- if (!confirm(t('devices.apiKeys.confirmDelete'))) return;
+ if (!(await confirm({ message: t('devices.apiKeys.confirmDelete'), danger: true }))) return;
  try {
  await deviceApi.deleteKey(key.id);
  loadKeys();
@@ -92,6 +98,14 @@ export function AdminDevicesPage() {
  } catch {
  toast.error(t('common.error'));
  }
+ };
+
+ // Clipboard through the shared helper (Clipboard API → execCommand → native
+ // bridge) and a toast that reflects the real outcome: an API key is only
+ // displayed once, a false "Copied" would lose it.
+ const copyKey = async (value: string) => {
+ if (await copyText(value)) toast.success(t('common.copied'));
+ else toast.error(t('devices.apiKeys.copyFailed', 'Could not copy — select the key and copy it manually'));
  };
 
  // Flatten group tree for select options
@@ -113,7 +127,7 @@ export function AdminDevicesPage() {
  }
 
  return (
- <div className="p-6 space-y-6">
+ <PageContainer className="space-y-6">
  <div>
  <h1 className="text-2xl font-bold text-text-primary">{t('agents.title')}</h1>
  <p className="text-sm text-text-muted mt-0.5">{t('agents.subtitle')}</p>
@@ -121,24 +135,18 @@ export function AdminDevicesPage() {
 
  {/* Tabs — three admin-only surfaces. The agent list itself is
  on /devices (single canonical page, role-gated). */}
- <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-transparent">
- {(['keys', 'custom-sections', 'discovery'] as Tab[]).map((t2) => (
- <button
- key={t2}
- onClick={() => setTab(t2)}
- className={clsx(
- 'flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center justify-center gap-1.5',
- tab === t2 ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary',
- )}
- >
- {t2 === 'discovery' && <Wifi className="w-3.5 h-3.5" />}
- {t2 === 'custom-sections' && <TerminalSquare className="w-3.5 h-3.5" />}
- {t2 === 'keys' ? t('devices.tabApiKeys')
- : t2 === 'custom-sections' ? (t('nav.customSections') || 'Custom sections')
- : (t('nav.discovery') || 'Discovery')}
- </button>
- ))}
- </div>
+ {/* Shared segmented bar: same look on desktop; scrolls horizontally
+ (instead of 2-3 line wrapped labels) when it does not fit on a phone. */}
+ <SegmentedTabs<Tab>
+ value={tab}
+ onChange={setTab}
+ tabClassName="gap-1.5"
+ tabs={[
+ { id: 'keys', label: t('devices.tabApiKeys') },
+ { id: 'custom-sections', label: t('nav.customSections', 'Custom sections'), icon: <TerminalSquare className="w-3.5 h-3.5" /> },
+ { id: 'discovery', label: t('nav.discovery', 'Discovery'), icon: <Wifi className="w-3.5 h-3.5" /> },
+ ]}
+ />
 
  {/* Tab: API Keys */}
  {tab === 'keys' && (
@@ -151,14 +159,16 @@ export function AdminDevicesPage() {
  <p className="text-sm font-medium text-green-400">{t('devices.apiKeys.newKeyAlert')}</p>
  <div className="flex items-center gap-2">
  <code className="flex-1 text-sm font-mono bg-bg-tertiary p-2 rounded text-text-primary break-all">{showNewKey}</code>
- <button
- onClick={() => { navigator.clipboard.writeText(showNewKey); toast.success(t('common.copied')); }}
- className="p-2 hover:bg-bg-tertiary rounded transition-colors flex-shrink-0"
- >
- <Copy className="w-4 h-4" />
- </button>
+ <IconButton
+ label={t('common.copy', 'Copy')}
+ icon={<Copy className="w-4 h-4" />}
+ size="lg"
+ variant="plain"
+ onClick={() => void copyKey(showNewKey)}
+ className="hover:bg-bg-tertiary flex-shrink-0 text-current hover:text-current"
+ />
  </div>
- <button onClick={() => setShowNewKey(null)} className="text-xs text-text-muted hover:text-text-primary">{t('common.close')}</button>
+ <button onClick={() => setShowNewKey(null)} className="text-xs text-text-muted hover:text-text-primary coarse:min-h-10 coarse:text-sm">{t('common.close')}</button>
  </div>
  )}
 
@@ -169,13 +179,14 @@ export function AdminDevicesPage() {
  value={newKeyName}
  onChange={e => setNewKeyName(e.target.value)}
  placeholder={t('devices.apiKeys.namePlaceholder')}
- className="flex-1 min-w-[200px] px-3 py-2 bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent text-sm"
+ enterKeyHint="done"
+ className="flex-1 min-w-[200px] max-sm:min-w-0 max-sm:basis-full px-3 py-2 bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent text-sm"
  onKeyDown={e => e.key === 'Enter' && handleCreateKey()}
  />
  <select
  value={newKeyGroupId ?? ''}
  onChange={e => setNewKeyGroupId(e.target.value ? parseInt(e.target.value) : null)}
- className="px-3 py-2 bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent text-sm"
+ className="px-3 py-2 bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent text-sm max-sm:min-w-0 max-sm:flex-1"
  >
  <option value="">{t('apiKeys.noGroup')}</option>
  {flatGroups.map(g => (
@@ -205,18 +216,20 @@ export function AdminDevicesPage() {
  const truncatedKey = `${key.key.slice(0, 8)}...${key.key.slice(-4)}`;
  const isEditing = editingKeyId === key.id;
  return (
- <div key={key.id} className="flex items-center gap-3 p-4 bg-bg-secondary rounded-lg">
- <Key className="w-4 h-4 text-accent flex-shrink-0" />
+ <div key={key.id} className="flex items-center gap-3 p-4 bg-bg-secondary rounded-lg max-sm:items-start max-sm:gap-2.5 max-sm:p-3">
+ <Key className="w-4 h-4 text-accent flex-shrink-0 max-sm:mt-0.5" />
  <div className="flex-1 min-w-0">
  <div className="flex items-center gap-2 flex-wrap">
- <span className="font-medium text-text-primary text-sm">{key.name || t('common.unknown')}</span>
+ <span className="font-medium text-text-primary text-sm max-sm:break-all">{key.name || t('common.unknown')}</span>
  <code className="text-xs text-text-muted font-mono">{truncatedKey}</code>
- <button
- onClick={() => { navigator.clipboard.writeText(key.key); toast.success(t('common.copied')); }}
- className="p-0.5 rounded hover:bg-bg-tertiary transition-colors text-text-muted hover:text-text-primary"
- >
- <Copy className="w-3.5 h-3.5" />
- </button>
+ <IconButton
+ label={t('common.copy', 'Copy')}
+ icon={<Copy className="w-3.5 h-3.5" />}
+ size="xs"
+ variant="plain"
+ onClick={() => void copyKey(key.key)}
+ className="hover:bg-bg-tertiary"
+ />
  <span className="flex items-center gap-1 text-xs text-text-muted">
  <ChevronRight className="w-3 h-3" />
  {t('devices.apiKeys.devices', { count: key.deviceCount })}
@@ -229,44 +242,45 @@ export function AdminDevicesPage() {
  )}
  {/* Default group display/edit */}
  {isEditing ? (
- <span className="flex items-center gap-1">
+ <span className="flex items-center gap-1 flex-wrap coarse:gap-2">
  <FolderOpen className="w-3 h-3" />
  <select
  value={editGroupId ?? ''}
  onChange={e => setEditGroupId(e.target.value ? parseInt(e.target.value) : null)}
- className="px-1.5 py-0.5 bg-bg-tertiary rounded text-xs text-text-primary"
+ className="px-1.5 py-0.5 bg-bg-tertiary rounded text-xs text-text-primary max-sm:min-w-0 max-sm:max-w-[60vw] coarse:min-h-9"
  >
  <option value="">{t('apiKeys.noGroup')}</option>
  {flatGroups.map(g => (
  <option key={g.id} value={g.id}>{' '.repeat(g.depth)}{g.name}</option>
  ))}
  </select>
- <button onClick={() => handleSaveKeyGroup(key.id)} className="text-accent hover:underline text-xs">{t('common.save')}</button>
- <button onClick={() => setEditingKeyId(null)} className="text-text-muted hover:text-text-primary text-xs">{t('common.cancel')}</button>
+ <button onClick={() => handleSaveKeyGroup(key.id)} className="text-accent hover:underline text-xs coarse:min-h-9 coarse:px-2 coarse:text-sm">{t('common.save')}</button>
+ <button onClick={() => setEditingKeyId(null)} className="text-text-muted hover:text-text-primary text-xs coarse:min-h-9 coarse:px-2 coarse:text-sm">{t('common.cancel')}</button>
  </span>
  ) : (
  <button
  onClick={() => { setEditingKeyId(key.id); setEditGroupId(key.defaultGroupId); }}
- className="flex items-center gap-1 text-text-muted hover:text-accent transition-colors"
+ className="flex items-center gap-1 text-text-muted hover:text-accent transition-colors text-left coarse:min-h-9"
  >
- <FolderOpen className="w-3 h-3" />
+ <FolderOpen className="w-3 h-3 shrink-0" />
  {key.defaultGroupName ? (
  <span>{t('apiKeys.defaultGroup')}: <span className="text-text-primary">{key.defaultGroupName}</span></span>
  ) : (
  <span className="italic">{t('apiKeys.noGroup')}</span>
  )}
- <Edit className="w-2.5 h-2.5 ml-0.5" />
+ <Edit className="w-2.5 h-2.5 ml-0.5 shrink-0 coarse:w-3.5 coarse:h-3.5" />
  </button>
  )}
  </div>
  </div>
- <button
+ <IconButton
+ label={t('common.delete')}
+ icon={<Trash2 className="w-4 h-4" />}
+ size="lg"
+ variant="danger"
  onClick={() => handleDeleteKey(key)}
- className="p-2 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded transition-colors flex-shrink-0"
- title={t('common.delete')}
- >
- <Trash2 className="w-4 h-4" />
- </button>
+ className="flex-shrink-0"
+ />
  </div>
  );
  })}
@@ -280,6 +294,6 @@ export function AdminDevicesPage() {
 
  {/* Tab: Discovery */}
  {tab === 'discovery' && <NetworkDiscoveryPage embedded />}
- </div>
+ </PageContainer>
  );
 }

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Plus, Search, Terminal, Edit, Trash2, RefreshCw, Code, Tag, ChevronDown, ChevronRight, FolderOpen, Copy } from 'lucide-react';
 import { MasterDetail } from '@/components/common/MasterDetail';
 import { IconButton } from '@/components/common/IconButton';
-import { Tip } from '@/components/common/Tip';
+import { Tip, InfoTip } from '@/components/common/Tip';
 import { useConfirm } from '@/components/common/ConfirmDialog';
 import { StickyFormActions, useRevealOnOpen } from '@/components/automation/FormActions';
 import { useClickOutside } from '@/hooks/useClickOutside';
@@ -103,6 +103,7 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
  const confirm = useConfirm();
  const canHover = useCanHover();
  const readOnlyReason = t('automations.readOnlyMaster', 'Managed by the Default tenant — read-only');
+ const expectedExitHint = t('scripts.expectedExitCodeHint', "The agent marks the execution as 'success' only when the script exits with this code (default: 0)");
  const currentTenantId = useTenantStore((s) => s.currentTenantId);
  /** A script is read-only for the active tenant when it's owned by a
  * different tenant AND the caller isn't on the master tenant (master
@@ -553,13 +554,17 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
  />
  </div>
  <div className="space-y-1">
- <label className="text-xs font-medium text-text-muted uppercase">Expected exit code</label>
+ <label className="text-xs font-medium text-text-muted uppercase">
+ Expected exit code
+ {/* The explanation lives in the input's title= for mouse users; touch gets a tap (i). */}
+ {!canHover && <InfoTip content={expectedExitHint} className="ml-1 align-middle normal-case" />}
+ </label>
  <input
  type="number"
  value={form.expectedExitCode}
  onChange={(e) => setForm({ ...form, expectedExitCode: parseInt(e.target.value, 10) || 0 })}
  className="w-full px-3 py-2 text-sm bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent"
- title="The agent marks the execution as 'success' only when the script exits with this code (default: 0)"
+ title={expectedExitHint}
  />
  </div>
  <div className="space-y-1">

@@ -3,6 +3,7 @@ import { logger } from '../utils/logger';
 import { getIO } from '../socket';
 import { SocketEvents } from '@obliance/shared';
 import { privacyGateService } from './privacyGate.service';
+import { redactCommandPayload } from './remoteSessionSecurity';
 import type { Command, CommandAck, CommandType, CommandPriority } from '@obliance/shared';
 
 // Sync-wait map used by privacy-password routes and anywhere else that
@@ -23,7 +24,10 @@ class CommandService {
       deviceId: row.device_id,
       tenantId: row.tenant_id,
       type: row.type,
-      payload: row.payload || {},
+      // User-facing view (REST + COMMAND_* socket events): agent-only secrets
+      // (relay token / URL, privacy unlock token, reconfigure API key) are
+      // stripped. The agent never reads this — it gets raw command_queue rows.
+      payload: redactCommandPayload(row.payload || {}),
       status: row.status,
       priority: row.priority,
       sentAt: row.sent_at,
@@ -202,17 +206,10 @@ class CommandService {
               .update({ status: 'failed', ended_at: new Date(), end_reason: 'command_failure' })
               .returning('*');
             if (updatedSession) {
+              // Token only to the starter — lazy import: remote.service imports this module.
               try {
-                const io = getIO();
-                io.to(`tenant:${updatedSession.tenant_id}`).emit(SocketEvents.REMOTE_SESSION_UPDATED, {
-                  id: updatedSession.id, deviceId: updatedSession.device_id,
-                  tenantId: updatedSession.tenant_id, protocol: updatedSession.protocol,
-                  status: updatedSession.status, sessionToken: updatedSession.session_token,
-                  startedBy: updatedSession.started_by, startedAt: updatedSession.started_at,
-                  connectedAt: updatedSession.connected_at, endedAt: updatedSession.ended_at,
-                  durationSeconds: updatedSession.duration_seconds,
-                  endReason: updatedSession.end_reason, createdAt: updatedSession.created_at,
-                });
+                const { remoteService } = await import('./remote.service');
+                remoteService.emitSessionEvent(SocketEvents.REMOTE_SESSION_UPDATED, updatedSession);
               } catch {}
             }
           }

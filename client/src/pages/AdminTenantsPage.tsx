@@ -46,7 +46,7 @@ function TenantForm({
  };
 
  const handleSubmit = async () => {
- if (!name.trim() || !slug.trim()) { setError(t('common.requiredField')); return; }
+ if (!name.trim() || !slug.trim()) { setError(t('common.requiredField', 'This field is required')); return; }
  setSaving(true);
  setError('');
  try {
@@ -166,7 +166,8 @@ function MembersPanel({ tenantId, onClose }: { tenantId: number; onClose: () => 
  closeOnBackdrop={false}
  icon={<Users size={15} className="text-text-primary" />}
  title={t('tenant.members')}
- className="sm:rounded-2xl"
+ // sm+: header padding of the former hand-rolled dialog (px-5 py-4).
+ className="sm:rounded-2xl sm:[&>div:first-child]:px-5 sm:[&>div:first-child]:py-4"
  overlayClassName="backdrop-blur-none"
  bodyClassName="px-5 py-4 space-y-3 sm:max-h-80"
  footerClassName="flex-nowrap justify-start px-5"

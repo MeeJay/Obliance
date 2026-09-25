@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { anonymize } from '@/utils/anonymize';
 import { clsx } from 'clsx';
 import { Drawer } from '@/components/common/Drawer';
-import { useLayoutMode } from '@/hooks/useMediaQuery';
+import { useCanHover, useLayoutMode } from '@/hooks/useMediaQuery';
 import { useClickOutside } from '@/hooks/useClickOutside';
 import { useNativeBack } from '@/hooks/useNativeBack';
 import { useAnchoredPosition } from '@/native/overlay';
@@ -27,6 +27,9 @@ export function GroupTreePicker({ value, onChange, className }: GroupTreePickerP
  const { t } = useTranslation();
  const layout = useLayoutMode();
  const asSheet = layout === 'phone';
+ // With a mouse, a click on the chevron keeps its historic meaning (select
+ // + expand, like the rest of the row); on touch it only expands.
+ const canHover = useCanHover();
  const [open, setOpen] = useState(false);
  const [tree, setTree] = useState<DeviceGroupTreeNode[]>([]);
  const [expanded, setExpanded] = useState<Set<number>>(new Set());
@@ -108,7 +111,7 @@ export function GroupTreePicker({ value, onChange, className }: GroupTreePickerP
  {hasChildren ? (
  <button
  type="button"
- onClick={() => toggle(node.id)}
+ onClick={() => { if (canHover) select(node.id); toggle(node.id); }}
  aria-label={isExpanded ? t('groupPicker.collapse', 'Collapse') : t('groupPicker.expand', 'Expand')}
  aria-expanded={isExpanded}
  className="shrink-0 flex items-center justify-center rounded coarse:-my-2 coarse:h-9 coarse:w-9 coarse:-ml-2"
@@ -200,8 +203,8 @@ export function GroupTreePicker({ value, onChange, className }: GroupTreePickerP
  onClose={() => setOpen(false)}
  side="bottom"
  size="lg"
- title={t('groupPicker.title', 'Choose a group')}
- ariaLabel={t('groupPicker.title', 'Choose a group')}
+ title={t('groupPicker.chooseTitle', 'Choose a group')}
+ ariaLabel={t('groupPicker.chooseTitle', 'Choose a group')}
  overlayClassName="z-[260]"
  bodyClassName="px-2 pb-3 pt-0"
  >

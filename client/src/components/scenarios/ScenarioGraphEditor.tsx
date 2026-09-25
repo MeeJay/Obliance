@@ -21,7 +21,7 @@ import {
  type NodeProps,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Save, Plus, Trash2, X, AlertCircle, Play, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronRight, Terminal as TerminalIcon, Copy, Files, FlaskConical, ClipboardPaste, Crosshair, History, ToggleLeft, ToggleRight, Link2, SlidersHorizontal, ArrowRight } from 'lucide-react';
+import { Save, Plus, Trash2, X, AlertCircle, Play, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronRight, Terminal as TerminalIcon, Copy, Files, FlaskConical, ClipboardPaste, Crosshair, History, ToggleLeft, ToggleRight, Link2, SlidersHorizontal, ArrowRight, MoreHorizontal } from 'lucide-react';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
 import { Modal } from '@/components/common/Modal';
@@ -173,9 +173,17 @@ const toActionMenuItems = (actions: GraphAction[]): ActionMenuItem[] =>
 const PROSE_FIELD_KEYS = new Set(['subject', 'body', 'message']);
 const PLAIN_INPUT_PROPS = { autoCapitalize: 'off', autoCorrect: 'off', spellCheck: false, autoComplete: 'off' } as const;
 
+/** Opens the node action menu (popover on tablet, sheet on phone) at a
+ * screen point — lets CustomNode render a touch "⋯" button on the
+ * selected node without prop-drilling through React Flow. */
+const NodeMenuContext = createContext<((nodeId: string, x: number, y: number) => void) | null>(null);
+
 // ── Custom node component — single renderer parameterised by registry ───────
-function CustomNode({ data, selected }: NodeProps) {
+function CustomNode({ id, data, selected }: NodeProps) {
  const d = data as NodeData;
+ const { t } = useTranslation();
+ const openNodeMenu = useContext(NodeMenuContext);
+ const coarse = useIsCoarsePointer();
  const meta = NODE_TYPE_BY_KEY[d.scenarioType];
  const isTrigger = meta?.category === 'trigger';
  const isTerminator = meta?.category === 'terminator';
@@ -241,6 +249,24 @@ function CustomNode({ data, selected }: NodeProps) {
  // are sufficient. Setting an explicit id requires every edge
  // to carry a sourceHandle that matches, which we don't generate.
  <Handle type="source" position={Position.Right} style={handleStyle} className={handleTouchCls} />
+ )}
+ {/* Touch: visible "⋯" on the selected node — same menu as a
+ right-click / long-press (Run from here, Duplicate, Copy…).
+ nodrag / nopan keep React Flow from starting a drag or pan. */}
+ {selected && coarse && openNodeMenu && (
+ <button
+ type="button"
+ aria-label={t('ui.moreActions', 'More actions')}
+ className="nodrag nopan absolute -top-4 -right-4 w-9 h-9 rounded-full bg-bg-secondary border border-border shadow-md flex items-center justify-center text-text-primary"
+ onPointerDown={(e) => e.stopPropagation()}
+ onClick={(e) => {
+ e.stopPropagation();
+ const r = e.currentTarget.getBoundingClientRect();
+ openNodeMenu(id, r.left, r.bottom + 4);
+ }}
+ >
+ <MoreHorizontal className="w-4 h-4" />
+ </button>
  )}
  </div>
  );
@@ -1089,11 +1115,15 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  // flips the `selected` flags (ring on the canvas, and the next
  // onSelectionChange agrees with us).
  const onSelectionChange = useCallback(({ nodes: selNodes, edges: selEdges }: { nodes: Node[]; edges: Edge[] }) => {
+ // Multi-select (Ctrl/Meta+click, Shift+box): keep the node the
+ // user just clicked (set by onNodeClick) as long as it is still
+ // part of the selection — the last array entry is lookup order,
+ // not click order. Only fall back to it when the current one left.
  if (selNodes.length > 0) {
- setSelectedNodeId(selNodes[selNodes.length - 1].id);
+ setSelectedNodeId((cur) => (cur && selNodes.some((n) => n.id === cur) ? cur : selNodes[selNodes.length - 1].id));
  setSelectedEdgeId(null);
  } else if (selEdges.length > 0) {
- setSelectedEdgeId(selEdges[selEdges.length - 1].id);
+ setSelectedEdgeId((cur) => (cur && selEdges.some((e) => e.id === cur) ? cur : selEdges[selEdges.length - 1].id));
  setSelectedNodeId(null);
  } else {
  setSelectedNodeId(null);
@@ -1198,14 +1228,14 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  // accidentally hit already-finished ones.
  const ids = [...activeRunIds];
  if (ids.length === 0) {
- toast.error('No active run to cancel');
+ toast.error(t('scenarioGraph.noActiveRun', 'No active run to cancel'));
  return;
  }
  let n = 0;
  for (const id of ids) {
  try { await scenarioApi.cancelRun(id); n++; } catch { /* keep going */ }
  }
- toast.success(`Cancelled ${n} run${n > 1 ? 's' : ''}`);
+ toast.success(t('scenarioGraph.cancelledRuns', 'Cancelled {{count}} run(s)', { count: n }));
  await openHistoryPanel(true);
  };
  const canBeSource = (n: Node<NodeData>) => NODE_TYPE_BY_KEY[n.data.scenarioType as ScenarioNodeType]?.category !== 'terminator';
@@ -1425,8 +1455,10 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  }
  };
 
- // ── Close guard — Android back and the touch toolbar's X ────────
- // (the desktop X keeps its historic one-click close). An unsaved
+ // ── Close guard — Android back and every X on a touch device ─────
+ // (compact toolbar, and the desktop-layout toolbar on a coarse
+ // pointer such as a landscape tablet ≥ 1024px). The mouse desktop X
+ // keeps its historic one-click close. An unsaved
  // graph asks before being discarded: the back gesture is easy to
  // trigger by accident.
  const requestClose = async () => {
@@ -1444,7 +1476,13 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  };
  // Registration order = priority order (latest wins): the editor
  // itself first, then the transient states opened on top of it.
- useNativeBack(() => { void requestClose(); }, !!onClose);
+ // Activated one commit after mount so it lands ABOVE a handler the
+ // host page registers for the same close in the same commit (parent
+ // effects run after child effects): the dirty-aware guard here must
+ // win over a host's generic one.
+ const [backReady, setBackReady] = useState(false);
+ useEffect(() => { setBackReady(true); }, []);
+ useNativeBack(() => { void requestClose(); }, !!onClose && backReady);
  useNativeBack(() => setShowHistoryPanel(false), compact && showHistoryPanel);
  useNativeBack(() => setConnectFrom(null), connectFrom !== null, { escape: true });
 
@@ -1490,6 +1528,14 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  setNodeMenu(null);
  setPaneMenu({ x, y, flowX, flowY });
  };
+ // Stable callback for CustomNode's touch "⋯" button (through
+ // NodeMenuContext): a new function per render would re-render every
+ // node of the canvas on each editor render.
+ const openNodeMenuRef = useRef(openNodeMenuAt);
+ openNodeMenuRef.current = openNodeMenuAt;
+ const nodeMenuCtx = useCallback((nodeId: string, x: number, y: number) => {
+ openNodeMenuRef.current(nodeId, x, y);
+ }, []);
  const onCanvasPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
  if (e.pointerType === 'mouse') return;
  // The first finger down is the primary pointer: drop ids whose
@@ -1553,7 +1599,7 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  addNodeAt({ scenarioType: m.type, label: m.label, config: { ...m.defaultConfig } }, position, true);
  setSheet(null);
  };
- const runLabel = dirty ? 'Save & run' : 'Run on device(s)';
+ const runLabel = dirty ? t('scenarioGraph.saveAndRun', 'Save & run') : t('scenarioGraph.runOnDevices', 'Run on device(s)');
 
  const outputPanel = showOutputPanel ? (
  <NodeOutputPanel
@@ -1572,7 +1618,7 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
 
  const renderPalette = (inSheet: boolean) => (
  <div className="p-3">
- {!inSheet && <div className="text-xs font-mono uppercase tracking-wider text-text-muted mb-2">Add node</div>}
+ {!inSheet && <div className="text-xs font-mono uppercase tracking-wider text-text-muted mb-2">{t('scenarioGraph.addNode', 'Add node')}</div>}
  {touchUi && (
  // Touch: the canvas-level actions that otherwise only live in
  // the right-click pane menu / keyboard shortcuts.
@@ -1598,9 +1644,9 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  <div className="mt-4 px-2 py-2 rounded-md bg-bg-tertiary text-[11px] text-text-muted flex gap-2">
  <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
  {touchUi ? (
- <span>{t('scenarioGraph.tipTouch', 'Tip: select a node, tap “Connect”, then tap the target node (or tap a right port, then a left port). Long-press a node or the canvas for more actions.')}</span>
+ <span>{t('scenarioGraph.tipTouch', 'Tip: select a node, tap “Connect”, then tap the target node (or tap a right port, then a left port). Tap ⋯ on the selected node, or long-press a node or the canvas, for more actions.')}</span>
  ) : (
- <span>Tip: drag from a node's right port to another node's left port to connect them.</span>
+ <span>{t('scenarioGraph.tipMouse', "Tip: drag from a node's right port to another node's left port to connect them.")}</span>
  )}
  </div>
  </div>
@@ -1654,7 +1700,7 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  const to = nodes.find((n) => n.id === selectedEdge.target);
  return (
  <div className="p-4 space-y-3">
- <div className="text-xs font-mono uppercase tracking-wider text-text-muted">Edge condition</div>
+ <div className="text-xs font-mono uppercase tracking-wider text-text-muted">{t('scenarioGraph.edgeCondition', 'Edge condition')}</div>
  {touchUi && from && to && (
  <div className="flex items-center gap-1.5 text-[12px] text-text-secondary min-w-0">
  <span className="truncate">{nodeTitle(from)}</span>
@@ -1696,7 +1742,11 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  key: 'status',
  icon: scenarioStatus === 'active' ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />,
  label: scenarioStatus === 'active' ? t('scenarioGraph.disableScenario', 'Disable scenario') : t('scenarioGraph.activateScenario', 'Activate scenario'),
- description: scenarioStatus === 'active' ? 'Active' : scenarioStatus === 'disabled' ? 'Disabled' : 'Draft',
+ description: scenarioStatus === 'active'
+ ? t('scenarioGraph.statusActive', 'Active')
+ : scenarioStatus === 'disabled'
+ ? t('scenarioGraph.statusDisabled', 'Disabled')
+ : t('scenarioGraph.statusDraft', 'Draft'),
  onClick: () => { void toggleScenarioStatus(); },
  disabled: statusToggling,
  hidden: scenarioStatus === null,
@@ -1734,6 +1784,7 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  onPointerUpCapture={onCanvasPointerEnd}
  onPointerCancelCapture={onCanvasPointerEnd}
  >
+ <NodeMenuContext.Provider value={nodeMenuCtx}>
  <ReactFlow
  // Re-key on scenarioId so opening a different scenario
  // forces a fresh mount with a re-measured wrapper rect —
@@ -1835,10 +1886,12 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  <span className="text-[11px] text-text-muted font-mono">{nodes.length} nodes · {edges.length} edges</span>
  </div>
  </Panel>
- {/* Wraps instead of sliding under the status panel on the
- narrowest desktop canvases (1024px − sidebar). */}
- <Panel position="top-right" className="!m-3" style={{ maxWidth: 'calc(100% - 16rem)' }}>
- <div className="flex flex-wrap justify-end items-center gap-2">
+ {/* Touch tablets in the desktop layout (≥ 1024px, coarse
+ pointer): wraps instead of sliding under the status panel
+ on the narrowest canvases (1024px − sidebar). The mouse
+ desktop keeps its historic single row. */}
+ <Panel position="top-right" className="!m-3" style={coarse ? { maxWidth: 'calc(100% - 16rem)' } : undefined}>
+ <div className={clsx('flex items-center gap-2', coarse && 'flex-wrap justify-end')}>
  {(selectedNode || selectedEdge) && (
  <button onClick={deleteSelected}
  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-400/10 border border-red-400/30 text-red-400 hover:bg-red-400/20 transition-colors text-[12px] font-medium">
@@ -1900,7 +1953,9 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  {onClose && (
  <IconButton
  label={t('common.close', 'Close')}
- onClick={onClose}
+ // Coarse pointer (landscape tablet): a stray tap must not
+ // discard an unsaved graph. Mouse keeps the direct close.
+ onClick={coarse ? () => { void requestClose(); } : onClose}
  size="md"
  variant="plain"
  showTooltip={false}
@@ -1924,13 +1979,13 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  className="bg-bg-secondary/90 text-text-primary hover:bg-bg-hover"
  />
  <BarButton
- label={dirty ? 'Save & run' : t('scenarioGraph.run', 'Run')}
+ label={dirty ? t('scenarioGraph.saveAndRun', 'Save & run') : t('scenarioGraph.run', 'Run')}
  icon={<Play className="w-4 h-4" />}
  onClick={() => openRunPicker({ kind: 'graph' })}
  className="bg-bg-secondary/90 text-text-primary hover:bg-bg-hover"
  />
  <BarButton
- label={saving ? 'Saving…' : t('common.save', 'Save')}
+ label={saving ? t('scenarioGraph.saving', 'Saving…') : t('common.save', 'Save')}
  icon={saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
  onClick={() => { void handleSave(); }}
  disabled={saving || !dirty}
@@ -1960,7 +2015,7 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  type="button"
  onClick={() => { void openHistoryPanel(true); }}
  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-400/10 border border-blue-400/30 text-blue-400 text-[11px] font-mono coarse:min-h-9">
- <Loader2 className="w-3 h-3 animate-spin" /> {activeRunIds.size} run{activeRunIds.size > 1 ? 's' : ''}
+ <Loader2 className="w-3 h-3 animate-spin" /> {t('scenarioGraph.activeRuns', '{{count}} run(s)', { count: activeRunIds.size })}
  </button>
  )}
  {warningList.length > 0 && (
@@ -1989,16 +2044,19 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  )}
  <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-bg-secondary/90 backdrop-blur">
  {dirty
- ? <span className="text-[11px] text-amber-400 font-mono">unsaved</span>
- : <span className="text-[11px] text-text-muted font-mono">saved</span>}
+ ? <span className="text-[11px] text-amber-400 font-mono">{t('scenarioGraph.unsaved', 'unsaved')}</span>
+ : <span className="text-[11px] text-text-muted font-mono">{t('scenarioGraph.saved', 'saved')}</span>}
  <span className="hidden sm:inline text-text-muted/40">·</span>
- <span className="hidden sm:inline text-[11px] text-text-muted font-mono">{nodes.length} nodes · {edges.length} edges</span>
+ <span className="hidden sm:inline text-[11px] text-text-muted font-mono">
+ {t('scenarioGraph.graphCounts', '{{nodes}} nodes · {{edges}} edges', { nodes: nodes.length, edges: edges.length })}
+ </span>
  </div>
  </div>
  </Panel>
  </>
  )}
  </ReactFlow>
+ </NodeMenuContext.Provider>
  </div>
 
  {/* Touch layouts: the output panel docks under the canvas (full
@@ -2007,7 +2065,9 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
 
  {/* ── Touch selection bar — node / edge actions + connect mode ── */}
  {compact && (connectFrom || selectedNode || selectedEdge) && (
- <div className="shrink-0 flex items-center gap-1.5 px-2 pt-1.5 pb-[calc(0.375rem+var(--safe-bottom))] bg-bg-secondary border-t border-border">
+ // No safe-area padding here: the host (ScenariosPage portal
+ // wrapper) already applies pb-safe around the whole editor.
+ <div className="shrink-0 flex items-center gap-1.5 px-2 py-1.5 bg-bg-secondary border-t border-border">
  {connectFrom ? (
  <>
  <Link2 className="w-4 h-4 text-accent shrink-0 ml-1" />
@@ -2194,12 +2254,12 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  'absolute z-30 flex flex-col bg-bg-secondary/95 backdrop-blur rounded-xl shadow-xl overflow-hidden',
  compact
  // Below the touch toolbar; full width on phone.
- ? 'top-14 left-2 right-2 sm:left-auto sm:w-[340px] max-h-[70vh] max-h-[70dvh]'
- : 'top-3 right-[300px] w-[340px] max-h-[60vh]',
+ ? 'top-14 left-2 right-2 sm:left-auto sm:w-[340px] max-h-[70dvh] supports-[not(height:100dvh)]:max-h-[70vh]'
+ : 'top-3 right-[300px] w-[340px] max-h-[60dvh] supports-[not(height:100dvh)]:max-h-[60vh]',
  )}>
  <div className="px-3 py-2 flex items-center gap-2">
  <History className="w-3.5 h-3.5 text-accent" />
- <span className="text-[11px] font-mono uppercase tracking-wider text-text-muted">Recent runs (24h)</span>
+ <span className="text-[11px] font-mono uppercase tracking-wider text-text-muted">{t('scenarioGraph.recentRuns', 'Recent runs (24h)')}</span>
  <div className="flex-1" />
  <IconButton
  label={t('common.close', 'Close')}
@@ -2215,10 +2275,10 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  <div className="flex-1 overflow-y-auto overscroll-contain">
  {historyLoading ? (
  <div className="px-3 py-3 text-[12px] text-text-muted flex items-center gap-2">
- <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading…
+ <Loader2 className="w-3.5 h-3.5 animate-spin" /> {t('common.loading', 'Loading…')}
  </div>
  ) : historyRuns.length === 0 ? (
- <div className="px-3 py-3 text-[12px] text-text-muted">No runs in the last 24 hours.</div>
+ <div className="px-3 py-3 text-[12px] text-text-muted">{t('scenarioGraph.noRecentRuns', 'No runs in the last 24 hours.')}</div>
  ) : (
  historyRuns.map((r) => {
  const dev = devices.find((d) => d.id === r.deviceId);
@@ -2916,7 +2976,7 @@ function ScriptPicker({
  <ChevronDown className={clsx('w-3.5 h-3.5 text-text-muted transition-transform', open && 'rotate-180')} />
  </button>
  {open && (
- <div className="absolute z-30 left-0 right-0 mt-1 bg-bg-secondary rounded-lg shadow-xl max-h-[360px] max-h-[min(360px,60dvh)] flex flex-col overflow-hidden">
+ <div className="absolute z-30 left-0 right-0 mt-1 bg-bg-secondary rounded-lg shadow-xl max-h-[min(360px,60dvh)] supports-[not(height:100dvh)]:max-h-[360px] flex flex-col overflow-hidden">
  <div className="p-2 ">
  <input ref={inputRef} value={query} onChange={(e) => setQuery(e.target.value)}
  placeholder="Search scripts…"
@@ -3056,8 +3116,8 @@ function RunPickerModal({
  <Modal
  open
  onClose={onCancel}
- title={<>{title}<span className="block mt-0.5 text-[11px] font-normal text-text-muted whitespace-normal">{subtitle}</span></>}
- className="sm:max-w-[480px] sm:max-h-[80vh] shadow-xl"
+ title={<><span className="block whitespace-normal">{title}</span><span className="block mt-0.5 text-[11px] font-normal text-text-muted whitespace-normal">{subtitle}</span></>}
+ className="sm:max-w-[480px] sm:max-h-[80dvh] sm:supports-[not(height:100dvh)]:max-h-[80vh] shadow-xl"
  overlayClassName="bg-bg-primary/70"
  bodyClassName="p-0 flex flex-col overflow-hidden"
  footerClassName="justify-between"
@@ -3223,7 +3283,7 @@ function ContextMenu({
  return (
  <div id="scenario-ctx-menu" ref={ref} role="menu"
  style={{ position: 'fixed', left: pos.left, top: pos.top, zIndex: 90 }}
- className="min-w-[220px] max-w-[calc(100vw-16px)] max-h-[calc(100vh-16px)] max-h-[calc(100dvh-16px)] overflow-y-auto overscroll-contain bg-bg-secondary rounded-lg shadow-xl">
+ className="min-w-[220px] max-w-[calc(100vw-16px)] max-h-[calc(100dvh-16px)] supports-[not(height:100dvh)]:max-h-[calc(100vh-16px)] overflow-y-auto overscroll-contain bg-bg-secondary rounded-lg shadow-xl">
  <div className="py-1">{children}</div>
  </div>
  );
@@ -3631,7 +3691,7 @@ function NodeOutputPanel({
  : <ChevronDown className="w-3.5 h-3.5 text-text-muted shrink-0" />}
  <span className="text-text-primary font-mono">{formatRunDate(startedAt)}</span>
  {trigger && (
- <span className="text-[10px] px-1.5 py-0 rounded bg-bg-primary text-text-muted truncate max-w-[220px]" title={trigger}>
+ <span className="text-[10px] px-1.5 py-0 rounded bg-bg-primary text-text-muted truncate max-w-[220px] max-lg:max-w-full" title={trigger}>
  {trigger}
  </span>
  )}
@@ -3827,9 +3887,12 @@ function InlineScriptEditor({
  const [saving, setSaving] = useState(false);
  const { t } = useTranslation();
  const confirm = useConfirm();
- // Android back / Escape-less close path: unsaved typing (the script
- // content can be long) is not thrown away without asking. The ×
- // button keeps its historic immediate cancel.
+ const coarse = useIsCoarsePointer();
+ // Android back, and the × / Cancel buttons on a coarse pointer (the
+ // full-screen phone header puts × where a stray tap lands): unsaved
+ // typing (the script content can be long) is not thrown away
+ // without asking. With a mouse, × / Cancel keep their historic
+ // immediate cancel.
  const isDirty = name !== (initialScript?.name ?? '')
  || description !== (initialScript?.description ?? '')
  || content !== (initialScript?.content ?? '');
@@ -3876,6 +3939,10 @@ function InlineScriptEditor({
  // Shared Modal: full-screen on phones, scrolling body + sticky
  // Save / Cancel footer (the old 90vh card let the keyboard cover them).
  // Backdrop and Escape stay inert as before; Android back asks first.
+ // The header keeps the historic px-5 py-4 geometry (aligned with the
+ // px-5 body / footer) through the panel's first child, and the title
+ // wraps instead of being truncated by Modal's h2.
+ const cancelClick = coarse ? () => { void requestCancel(); } : onCancel;
  return (
  <Modal
  open
@@ -3885,7 +3952,11 @@ function InlineScriptEditor({
  showCloseButton={false}
  size="xl"
  icon={<TerminalIcon className="w-4 h-4 text-accent" />}
- title={mode === 'create' ? 'New script' : `Edit "${initialScript?.name}"`}
+ title={
+ <span className="block whitespace-normal break-words">
+ {mode === 'create' ? 'New script' : `Edit "${initialScript?.name}"`}
+ </span>
+ }
  headerExtra={
  <IconButton
  label={t('common.close', 'Close')}
@@ -3893,15 +3964,15 @@ function InlineScriptEditor({
  size="sm"
  variant="plain"
  showTooltip={false}
- onClick={onCancel}
+ onClick={cancelClick}
  disabled={saving}
  />
  }
- className="sm:max-h-[90vh]"
+ className="sm:max-h-[90dvh] sm:supports-[not(height:100dvh)]:max-h-[90vh] [&>div:first-child]:px-5 [&>div:first-child]:py-4"
  bodyClassName="px-5 py-4 space-y-3"
  footerClassName="px-5 py-3"
  footer={<>
- <button onClick={onCancel} disabled={saving}
+ <button onClick={cancelClick} disabled={saving}
  className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary disabled:opacity-50 coarse:min-h-10">
  Cancel
  </button>

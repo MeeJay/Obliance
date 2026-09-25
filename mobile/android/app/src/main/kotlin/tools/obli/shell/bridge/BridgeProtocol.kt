@@ -39,7 +39,7 @@ object BridgeProtocol {
         "share" to listOf("text", "title"),
         "notify" to listOf("title", "body", "navigateTo"),
         "openSettings" to emptyList(),
-        "setSystemBars" to listOf("colorHex", "lightIcons"),
+        "setSystemBars" to listOf("colorHex", "lightTheme"),
         "requestNotificationPermission" to emptyList(),
         "checkForUpdate" to listOf("prompt"),
         "getInfo" to emptyList(),
@@ -121,8 +121,11 @@ class BridgeParams(private val values: JsonObject) {
         return p.content.takeIf { it.isNotEmpty() }
     }
 
-    fun bool(name: String, default: Boolean): Boolean {
-        val p = primitive(name) ?: return default
+    fun bool(name: String, default: Boolean): Boolean = optBool(name) ?: default
+
+    /** null when absent (or JSON null); a non-boolean is an error. */
+    fun optBool(name: String): Boolean? {
+        val p = primitive(name) ?: return null
         if (p.isString) throw BridgeParamException("$name must be a boolean")
         return p.booleanOrNull ?: throw BridgeParamException("$name must be a boolean")
     }

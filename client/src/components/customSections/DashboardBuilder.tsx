@@ -15,6 +15,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Wand2, X, FileText, Terminal, Plus, GripVertical, Trash2, Check, ChevronRight, ChevronDown } from 'lucide-react';
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
+import { IconButton } from '@/components/common/IconButton';
+import { useNativeBack } from '@/hooks/useNativeBack';
 import {
  automap,
  type FieldCandidate,
@@ -46,6 +49,9 @@ interface Props {
 }
 
 export function DashboardBuilder({ runtime, initialCommand, initialTitle, onClose, onInsert }: Props) {
+ const { t } = useTranslation();
+ // Android back closes the builder (Escape keeps its current behaviour).
+ useNativeBack(() => { onClose(); }, true);
  // ── Step 1 state — Source ────────────────────────────────────────────────
  const [activeRuntime, setActiveRuntime] = useState<BuilderRuntime>(runtime);
  const [sourceKind, setSourceKind] = useState<'command' | 'file'>('command');
@@ -217,23 +223,21 @@ export function DashboardBuilder({ runtime, initialCommand, initialTitle, onClos
  }, [sample, pickedIds]);
 
  const modal = (
- <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
- <div className="bg-bg-secondary rounded-xl w-full max-w-6xl max-h-[92vh] flex flex-col shadow-2xl"
+ <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 max-sm:p-0 max-sm:items-stretch" onClick={onClose}>
+ <div className="bg-bg-secondary rounded-xl w-full max-w-6xl sm:max-h-[92dvh] sm:supports-[not(height:100dvh)]:max-h-[92vh] max-sm:h-dvh max-sm:supports-[not(height:100dvh)]:h-screen max-sm:rounded-none max-sm:pt-safe max-sm:pb-safe flex flex-col shadow-2xl"
  onClick={(e) => e.stopPropagation()}>
- <div className="px-5 py-3 flex items-center gap-3">
- <Wand2 className="w-5 h-5 text-purple-400" />
- <div className="flex-1">
+ <div className="px-5 py-3 flex items-center gap-3 max-sm:px-3">
+ <Wand2 className="w-5 h-5 text-purple-400 shrink-0" />
+ <div className="flex-1 min-w-0">
  <h2 className="text-sm font-semibold text-text-primary">Dashboard builder</h2>
  <p className="text-[11px] text-text-muted">
  Generate a self-contained {activeRuntime === 'powershell' ? 'PowerShell' : 'bash'} script that fetches your data and renders an Obliance-branded HTML dashboard.
  </p>
  </div>
- <button onClick={onClose} className="p-1 text-text-muted hover:text-text-primary">
- <X className="w-4 h-4" />
- </button>
+ <IconButton onClick={onClose} label={t('common.close')} size="sm" variant="plain" className="shrink-0" icon={<X className="w-4 h-4" />} />
  </div>
 
- <div className="flex-1 overflow-y-auto p-5 space-y-4">
+ <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 space-y-4 max-sm:p-3">
  {/* ── Step 1 — Source ────────────────────────────────────────── */}
  <Section
  n={1} open={openStep === 1} onToggle={() => setOpenStep(openStep === 1 ? 3 : 1)}
@@ -242,7 +246,7 @@ export function DashboardBuilder({ runtime, initialCommand, initialTitle, onClos
  ? (command ? `command: ${command.split('\n')[0].slice(0, 60)}${command.length > 60 ? '…' : ''}` : 'no command')
  : `file: ${filePath || '—'} (${fileMode === 'all' ? 'all' : `${fileMode} ${fileLines}`})`}
  >
- <div className="grid grid-cols-2 gap-2">
+ <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
  <button type="button" onClick={() => setSourceKind('command')}
  className={clsx('p-2.5 text-left rounded-lg border transition-colors', sourceKind === 'command' ? 'bg-accent/10 border-accent text-accent' : 'border-transparent text-text-muted hover:border-accent/50')}>
  <div className="flex items-center gap-2 text-sm font-semibold"><Terminal className="w-4 h-4" /> Command</div>
@@ -259,7 +263,7 @@ export function DashboardBuilder({ runtime, initialCommand, initialTitle, onClos
  <div className="flex gap-2 mt-1">
  {(['sh', 'powershell'] as const).map((r) => (
  <button key={r} type="button" onClick={() => setActiveRuntime(r)}
- className={clsx('px-3 py-1 text-xs rounded-full border', activeRuntime === r ? 'bg-accent/10 border-accent text-accent' : 'border-transparent text-text-muted hover:border-accent/50')}>
+ className={clsx('px-3 py-1 text-xs rounded-full border coarse:min-h-9', activeRuntime === r ? 'bg-accent/10 border-accent text-accent' : 'border-transparent text-text-muted hover:border-accent/50')}>
  {r === 'sh' ? 'bash / sh' : 'powershell'}
  </button>
  ))}
@@ -271,6 +275,7 @@ export function DashboardBuilder({ runtime, initialCommand, initialTitle, onClos
  <textarea value={command} onChange={(e) => setCommand(e.target.value)}
  rows={2}
  placeholder={activeRuntime === 'powershell' ? 'Get-PSDrive -PSProvider FileSystem | Select-Object Name,Used,Free' : 'df -h --output=source,size,used,avail,pcent | head -n 5'}
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
  className="w-full mt-1 px-3 py-2 text-sm bg-bg-tertiary rounded-lg focus:outline-none focus:border-accent font-mono whitespace-pre" />
  </div>
  ) : (
@@ -278,11 +283,12 @@ export function DashboardBuilder({ runtime, initialCommand, initialTitle, onClos
  <label className="text-[11px] text-text-muted uppercase">File path</label>
  <input value={filePath} onChange={(e) => setFilePath(e.target.value)}
  placeholder={activeRuntime === 'powershell' ? 'C:\\Windows\\Logs\\CBS\\CBS.log' : '/var/log/syslog'}
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
  className="w-full px-3 py-2 text-sm bg-bg-tertiary rounded-lg focus:outline-none focus:border-accent font-mono" />
- <div className="flex items-center gap-2">
+ <div className="flex items-center gap-2 flex-wrap">
  {(['tail', 'head', 'all'] as const).map((m) => (
  <button key={m} type="button" onClick={() => setFileMode(m)}
- className={clsx('px-3 py-1 text-xs rounded-full border', fileMode === m ? 'bg-accent/10 border-accent text-accent' : 'border-transparent text-text-muted hover:border-accent/50')}>
+ className={clsx('px-3 py-1 text-xs rounded-full border coarse:min-h-9', fileMode === m ? 'bg-accent/10 border-accent text-accent' : 'border-transparent text-text-muted hover:border-accent/50')}>
  {m === 'all' ? 'whole file' : m === 'tail' ? 'last N lines' : 'first N lines'}
  </button>
  ))}
@@ -341,13 +347,15 @@ export function DashboardBuilder({ runtime, initialCommand, initialTitle, onClos
  value={regexPattern}
  onChange={(e) => setRegexPattern(e.target.value)}
  placeholder="^(?<host>\\S+)\\s+(?<status>\\w+)\\s+(?<rate>\\d+)"
- className="flex-1 px-2 py-1 text-xs bg-bg-primary rounded font-mono text-text-primary focus:outline-none focus:border-accent"
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
+ className="flex-1 min-w-0 max-sm:basis-full px-2 py-1 text-xs bg-bg-primary rounded font-mono text-text-primary focus:outline-none focus:border-accent"
  />
  <span className="text-[11px] text-text-muted uppercase">Flags</span>
  <input
  value={regexFlags}
  onChange={(e) => setRegexFlags(e.target.value.replace(/[^gimsx]/g, ''))}
  placeholder="gim"
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
  className="w-16 px-2 py-1 text-xs bg-bg-primary rounded font-mono text-text-primary focus:outline-none focus:border-accent"
  />
  <span className="text-[10px] text-text-muted/70">
@@ -358,17 +366,18 @@ export function DashboardBuilder({ runtime, initialCommand, initialTitle, onClos
  <textarea value={sample} onChange={(e) => setSample(e.target.value)}
  rows={6}
  placeholder={'Paste a real output sample here. The builder walks JSON, splits CSV, or treats the rest as raw lines.'}
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
  className="w-full px-3 py-2 text-xs bg-bg-tertiary rounded-lg focus:outline-none focus:border-accent font-mono whitespace-pre" />
  {automapResult.candidates.length > 0 && (
  <div className="rounded-lg overflow-hidden">
  <div className="px-3 py-1.5 bg-bg-tertiary/40 text-[11px] font-mono uppercase text-text-muted flex items-center justify-between">
  <span>Detected fields · {automapResult.format}</span>
  <div className="flex items-center gap-3 text-[10px]">
- <button onClick={() => setPickedIds(new Set(automapResult.candidates.map((c) => c.id)))} className="text-accent hover:underline">all</button>
- <button onClick={() => setPickedIds(new Set())} className="text-text-muted hover:text-text-primary">none</button>
+ <button onClick={() => setPickedIds(new Set(automapResult.candidates.map((c) => c.id)))} className="text-accent hover:underline coarse:min-h-8 coarse:px-1">all</button>
+ <button onClick={() => setPickedIds(new Set())} className="text-text-muted hover:text-text-primary coarse:min-h-8 coarse:px-1">none</button>
  </div>
  </div>
- <div className="max-h-[260px] overflow-y-auto">
+ <div className="max-h-[260px] overflow-y-auto max-sm:max-h-none">
  {automapResult.candidates.map((c) => {
  const checked = pickedIds.has(c.id);
  const ov = overrides[c.id] ?? {};
@@ -378,19 +387,20 @@ export function DashboardBuilder({ runtime, initialCommand, initialTitle, onClos
  const updateOverride = (patch: Partial<BuilderField>) => setOverrides((prev) => ({ ...prev, [c.id]: { ...prev[c.id], ...patch } }));
  return (
  <div key={c.id} className={clsx('/40 last:border-b-0', checked && 'bg-accent/5')}>
- <div className="px-3 py-1.5 flex items-center gap-2 text-xs">
+ <div className="px-3 py-1.5 flex items-center gap-2 text-xs max-md:flex-wrap max-md:gap-y-1.5">
  <input type="checkbox" checked={checked} onChange={() => {
  setPickedIds((prev) => {
  const next = new Set(prev);
  if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
  return next;
  });
- }} className="accent-accent" />
- <span className="font-mono text-[10px] text-text-muted shrink-0 w-[180px] truncate" title={c.path}>{c.path}</span>
+ }} className="accent-accent coarse:w-5 coarse:h-5" />
+ <span className="font-mono text-[10px] text-text-muted shrink-0 w-[180px] truncate max-md:w-auto max-md:flex-1 max-md:min-w-0 max-md:break-all max-md:whitespace-normal" title={c.path}>{c.path}</span>
  <input
  value={ov.label ?? c.suggestedLabel}
  onChange={(e) => updateOverride({ label: e.target.value })}
- className="flex-1 px-1.5 py-0.5 bg-bg-primary rounded text-text-primary focus:outline-none focus:border-accent" />
+ aria-label={t('customSections.builder.fieldLabel', 'Field label')}
+ className="flex-1 px-1.5 py-0.5 bg-bg-primary rounded text-text-primary focus:outline-none focus:border-accent max-md:order-last max-md:basis-full max-md:py-1.5" />
  <select
  value={effectiveType}
  onChange={(e) => updateOverride({ type: e.target.value as BuilderField['type'] })}
@@ -404,7 +414,7 @@ export function DashboardBuilder({ runtime, initialCommand, initialTitle, onClos
  <option value="datetime">datetime</option>
  <option value="duration">duration (s)</option>
  </select>
- <span className="text-[10px] text-text-muted/70 truncate max-w-[100px]" title={c.sampleValue}>{c.sampleValue}</span>
+ <span className="text-[10px] text-text-muted/70 truncate max-w-[100px] max-md:max-w-[40%]" title={c.sampleValue}>{c.sampleValue}</span>
  </div>
  {/* Extras row — visible only for picked fields. Holds the
  history toggle (numeric only) + the colour rules
@@ -424,7 +434,7 @@ export function DashboardBuilder({ runtime, initialCommand, initialTitle, onClos
  )}
  </label>
  )}
- <div className="inline-flex items-center gap-1.5">
+ <div className="inline-flex items-center gap-1.5 flex-wrap">
  <span className="text-[11px] text-text-muted">color when:</span>
  {rules.map((r, i) => (
  <ColorRulePill key={i} rule={r}
@@ -439,7 +449,7 @@ export function DashboardBuilder({ runtime, initialCommand, initialTitle, onClos
  ))}
  <button type="button"
  onClick={() => updateOverride({ colorRules: [...rules, { when: isNumeric ? 'gt' : 'eq', value: isNumeric ? 0 : '', color: 'red' }] })}
- className="text-[11px] px-1.5 py-0.5 rounded bg-bg-tertiary text-text-muted hover:text-text-primary hover:border-accent/40">
+ className="text-[11px] px-1.5 py-0.5 rounded bg-bg-tertiary text-text-muted hover:text-text-primary hover:border-accent/40 coarse:min-h-9 coarse:px-2.5">
  + rule
  </button>
  </div>
@@ -467,7 +477,7 @@ export function DashboardBuilder({ runtime, initialCommand, initialTitle, onClos
  placeholder="Disk Usage Dashboard"
  className="flex-1 px-2 py-1 text-xs bg-bg-tertiary rounded text-text-primary focus:outline-none focus:border-accent" />
  <button type="button" onClick={suggestLayout}
- className="px-2 py-1 text-[11px] rounded border border-purple-400/30 bg-purple-400/10 text-purple-400 hover:bg-purple-400/20">
+ className="px-2 py-1 text-[11px] rounded border border-purple-400/30 bg-purple-400/10 text-purple-400 hover:bg-purple-400/20 coarse:min-h-9">
  Auto layout
  </button>
  </div>
@@ -486,7 +496,7 @@ export function DashboardBuilder({ runtime, initialCommand, initialTitle, onClos
  <span className="text-[10px] text-text-muted uppercase mr-2">Add block</span>
  {(['hero-row', 'stat-grid', 'pill-row', 'table', 'sparkline-card', 'pre'] as const).map((k) => (
  <button key={k} onClick={() => addBlock(k)}
- className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded bg-bg-tertiary text-text-muted hover:text-text-primary hover:border-accent/40">
+ className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded bg-bg-tertiary text-text-muted hover:text-text-primary hover:border-accent/40 coarse:min-h-9">
  <Plus className="w-3 h-3" /> {k}
  </button>
  ))}
@@ -505,20 +515,20 @@ export function DashboardBuilder({ runtime, initialCommand, initialTitle, onClos
  )}
  </div>
 
- <div className="px-5 py-3 flex items-center justify-between">
+ <div className="px-5 py-3 flex items-center justify-between gap-2 max-sm:flex-wrap max-sm:px-3">
  <span className="text-[11px] text-text-muted">
  {generated
  ? 'Click Insert to drop the script into the section.'
  : 'Configure source, paste a sample, pick fields, and add at least one layout block.'}
  </span>
- <div className="flex items-center gap-2">
- <button onClick={onClose} className="px-3 py-1.5 text-[12px] bg-bg-tertiary text-text-muted hover:text-text-primary rounded">
+ <div className="flex items-center gap-2 max-sm:ml-auto">
+ <button onClick={onClose} className="px-3 py-1.5 text-[12px] bg-bg-tertiary text-text-muted hover:text-text-primary rounded coarse:min-h-10">
  Cancel
  </button>
  <button
  onClick={() => onInsert(generated, activeRuntime)}
  disabled={!generated}
- className="px-3 py-1.5 text-[12px] bg-accent text-white rounded hover:bg-accent/80 disabled:opacity-50 inline-flex items-center gap-1.5">
+ className="px-3 py-1.5 text-[12px] bg-accent text-white rounded hover:bg-accent/80 disabled:opacity-50 inline-flex items-center gap-1.5 coarse:min-h-10">
  <Check className="w-3.5 h-3.5" /> Insert into command
  </button>
  </div>
@@ -543,11 +553,11 @@ function Section({
  return (
  <div className="rounded-lg overflow-hidden">
  <button type="button" onClick={onToggle}
- className="w-full px-3 py-2 bg-bg-tertiary/30 flex items-center gap-2 text-left hover:bg-bg-tertiary/60 transition-colors">
+ className="w-full px-3 py-2 bg-bg-tertiary/30 flex items-center gap-2 text-left hover:bg-bg-tertiary/60 transition-colors max-sm:flex-wrap coarse:min-h-10">
  {open ? <ChevronDown className="w-3.5 h-3.5 text-text-muted shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-text-muted shrink-0" />}
  <span className="text-[10px] font-mono text-text-muted/70 shrink-0">STEP {n}</span>
  <span className="text-sm font-semibold text-text-primary">{title}</span>
- <span className="ml-auto text-[10px] text-text-muted truncate">{summary}</span>
+ <span className="ml-auto text-[10px] text-text-muted truncate min-w-0 max-sm:ml-0 max-sm:basis-full max-sm:pl-5">{summary}</span>
  </button>
  {open && <div className="p-3">{children}</div>}
  </div>
@@ -569,21 +579,23 @@ function BlockEditor({
  onRemove: () => void;
  onToggleField: (id: string) => void;
 }) {
+ const { t } = useTranslation();
  const pickedCandidates = candidates.filter((c) => pickedIds.has(c.id));
  return (
  <div className="rounded-lg overflow-hidden">
- <div className="px-3 py-1.5 bg-bg-tertiary/30 flex items-center gap-2">
- <GripVertical className="w-3.5 h-3.5 text-text-muted/70" />
+ <div className="px-3 py-1.5 bg-bg-tertiary/30 flex items-center gap-2 max-sm:flex-wrap">
+ {/* Visual cue only (reordering uses the arrows) — hidden on touch where it would suggest a drag. */}
+ <GripVertical className="w-3.5 h-3.5 text-text-muted/70 coarse:hidden" />
  <span className="text-[10px] font-mono uppercase text-purple-400 shrink-0">{block.kind}</span>
  <input value={block.title ?? ''} onChange={(e) => onRename(e.target.value)}
  placeholder="optional title"
- className="flex-1 bg-transparent border-none text-xs text-text-primary placeholder-text-muted/50 focus:outline-none" />
+ className="flex-1 min-w-0 bg-transparent border-none text-xs text-text-primary placeholder-text-muted/50 focus:outline-none max-sm:min-w-[8rem]" />
  <span className="text-[10px] text-text-muted/70">{block.fieldIds.length} field{block.fieldIds.length > 1 ? 's' : ''}</span>
- <button onClick={() => onMove(-1)} disabled={index === 0} className="p-1 text-text-muted hover:text-text-primary disabled:opacity-30" title="Move up">↑</button>
- <button onClick={() => onMove(1)} disabled={index === total - 1} className="p-1 text-text-muted hover:text-text-primary disabled:opacity-30" title="Move down">↓</button>
- <button onClick={onRemove} className="p-1 text-text-muted hover:text-red-400" title="Remove block"><Trash2 className="w-3.5 h-3.5" /></button>
+ <button onClick={() => onMove(-1)} disabled={index === 0} aria-label={t('customSections.builder.moveUp', 'Move up')} className="p-1 text-text-muted hover:text-text-primary disabled:opacity-30 coarse:min-h-10 coarse:min-w-10" title="Move up">↑</button>
+ <button onClick={() => onMove(1)} disabled={index === total - 1} aria-label={t('customSections.builder.moveDown', 'Move down')} className="p-1 text-text-muted hover:text-text-primary disabled:opacity-30 coarse:min-h-10 coarse:min-w-10" title="Move down">↓</button>
+ <button onClick={onRemove} aria-label={t('customSections.builder.removeBlock', 'Remove block')} className="p-1 text-text-muted hover:text-red-400 coarse:min-h-10 coarse:min-w-10 coarse:inline-flex coarse:items-center coarse:justify-center" title="Remove block"><Trash2 className="w-3.5 h-3.5" /></button>
  </div>
- <div className="p-2 grid grid-cols-2 gap-1">
+ <div className="p-2 grid grid-cols-1 sm:grid-cols-2 gap-1">
  {pickedCandidates.length === 0
  ? <div className="text-[11px] text-text-muted col-span-2 italic px-1">No picked fields — go back to step 2 and check at least one.</div>
  : pickedCandidates.map((c) => {
@@ -591,7 +603,7 @@ function BlockEditor({
  const label = overrides[c.id]?.label ?? c.suggestedLabel;
  return (
  <label key={c.id} className={clsx(
- 'flex items-center gap-2 px-2 py-1 text-[11px] rounded cursor-pointer transition-colors',
+ 'flex items-center gap-2 px-2 py-1 text-[11px] rounded cursor-pointer transition-colors coarse:min-h-10',
  checked ? 'bg-accent/10 border border-accent/30' : 'border border-transparent hover:bg-bg-tertiary',
  )}>
  <input type="checkbox" checked={checked} onChange={() => onToggleField(c.id)} className="accent-accent" />
@@ -610,10 +622,11 @@ function BlockEditor({
 // One rule per pill; the rule list builds up by clicking "+ rule" on the
 // parent row. Order matters at codegen time (first match wins).
 function ColorRulePill({ rule, onChange, onRemove }: { rule: ColorRule; onChange: (r: ColorRule) => void; onRemove: () => void }) {
+ const { t } = useTranslation();
  const operatorNeedsValue = rule.when !== 'truthy' && rule.when !== 'falsy';
  return (
  <span className={clsx(
- 'inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-mono',
+ 'inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-mono coarse:min-h-9 coarse:gap-1.5 coarse:px-2',
  rule.color === 'green' && 'border-green-400/40 bg-green-400/10 text-green-400',
  rule.color === 'amber' && 'border-amber-400/40 bg-amber-400/10 text-amber-400',
  rule.color === 'red' && 'border-red-400/40 bg-red-400/10 text-red-400',
@@ -622,7 +635,7 @@ function ColorRulePill({ rule, onChange, onRemove }: { rule: ColorRule; onChange
  rule.color === 'muted' && 'border-transparent bg-bg-tertiary text-text-muted',
  )}>
  <select value={rule.when} onChange={(e) => onChange({ ...rule, when: e.target.value as ColorRule['when'] })}
- className="bg-transparent border-none focus:outline-none text-[10px] cursor-pointer pr-0.5">
+ className="bg-transparent border-none focus:outline-none text-[10px] cursor-pointer pr-0.5 coarse:min-h-8">
  <option value="eq">=</option>
  <option value="neq">≠</option>
  <option value="gt">&gt;</option>
@@ -636,11 +649,12 @@ function ColorRulePill({ rule, onChange, onRemove }: { rule: ColorRule; onChange
  {operatorNeedsValue && (
  <input value={String(rule.value ?? '')}
  onChange={(e) => onChange({ ...rule, value: e.target.value })}
- className="w-12 bg-transparent border-none focus:outline-none text-[10px] font-mono" />
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
+ className="w-12 bg-transparent border-none focus:outline-none text-[10px] font-mono coarse:min-h-8 coarse:w-16" />
  )}
  <span>→</span>
  <select value={rule.color} onChange={(e) => onChange({ ...rule, color: e.target.value as FieldColor })}
- className="bg-transparent border-none focus:outline-none text-[10px] cursor-pointer">
+ className="bg-transparent border-none focus:outline-none text-[10px] cursor-pointer coarse:min-h-8">
  <option value="red">red</option>
  <option value="amber">amber</option>
  <option value="green">green</option>
@@ -648,7 +662,7 @@ function ColorRulePill({ rule, onChange, onRemove }: { rule: ColorRule; onChange
  <option value="purple">purple</option>
  <option value="muted">muted</option>
  </select>
- <button type="button" onClick={onRemove} className="opacity-60 hover:opacity-100" title="Remove">✕</button>
+ <button type="button" onClick={onRemove} aria-label={t('customSections.builder.removeRule', 'Remove rule')} className="opacity-60 hover:opacity-100 coarse:min-h-8 coarse:min-w-8" title="Remove">✕</button>
  </span>
  );
 }

@@ -1,9 +1,62 @@
 import { Router } from 'express';
 import { requireTenantCapability } from '../middleware/rbac';
+import { AppError } from '../middleware/errorHandler';
+import { permissionService } from '../services/permission.service';
 import { scenarioService } from '../services/scenario.service';
 import { isMasterTenant } from '@obliance/shared';
 
 const router = Router();
+
+/**
+ * Manual scenario runs execute scripts / commands on devices, so a non-admin
+ * gets the same per-device gate as POST /api/scripts/:id/execute: the team
+ * 'execute' capability on every device a run_script / run_command node will
+ * hit — the run devices (the node default) plus any node-level override list
+ * (targetMode 'devices'). Nodes that only mutate devices (tag_device,
+ * move_device_to_group) require rw on their override targets. The tenant
+ * capability `scripts.execute` (route guard) is not a device scope.
+ * `onlyNodeId`: a single-node test run only executes that node.
+ */
+async function assertMayRunScenarioOn(
+  req: any,
+  scenario: { id: number; tenant_id: number },
+  runDeviceIds: number[],
+  onlyNodeId?: number,
+): Promise<void> {
+  if (req.session.role === 'admin') return;
+  const userId = req.session.userId as number;
+  const nodesQ = db('scenario_nodes')
+    .where({ scenario_id: scenario.id })
+    .whereIn('type', ['run_script', 'run_command', 'tag_device', 'move_device_to_group']);
+  if (onlyNodeId != null) nodesQ.where({ id: onlyNodeId });
+  const nodes = await nodesQ.select('id', 'type', 'config') as Array<{ id: number; type: string; config: unknown }>;
+
+  const execIds = new Set<number>(runDeviceIds);
+  const writeIds = new Set<number>();
+  for (const node of nodes) {
+    const cfg = (typeof node.config === 'string' ? JSON.parse(node.config) : node.config) as
+      { targetMode?: string; targetDeviceIds?: unknown } | null;
+    if (cfg?.targetMode !== 'devices' || !Array.isArray(cfg.targetDeviceIds)) continue;
+    const ids = cfg.targetDeviceIds.map((x) => Number(x)).filter((n) => Number.isInteger(n) && n > 0);
+    // Only ids the engine would actually act on (validateTargetsInTenant
+    // drops stale / foreign ids at run time).
+    const live: number[] = ids.length
+      ? await db('devices').whereIn('id', ids).where({ tenant_id: scenario.tenant_id }).pluck('id')
+      : [];
+    const bucket = node.type === 'run_script' || node.type === 'run_command' ? execIds : writeIds;
+    for (const id of live) bucket.add(Number(id));
+  }
+
+  const lacking = await permissionService.devicesLackingCapability(userId, [...execIds], 'execute');
+  if (lacking.length) {
+    throw new AppError(403, `Capability 'execute' not permitted for your team on device #${lacking[0]} targeted by this scenario`);
+  }
+  for (const id of writeIds) {
+    if (!(await permissionService.canWriteDevice(userId, id, false))) {
+      throw new AppError(403, `Write access to device #${id} (targeted by this scenario) not permitted for your team`);
+    }
+  }
+}
 
 // ── Routes with fixed paths MUST come before /:id ──
 
@@ -397,7 +450,18 @@ router.post('/:id/disable', requireTenantCapability('scripts.execute'), async (r
 router.post('/:id/trigger', requireTenantCapability('scripts.execute'), async (req, res, next) => {
   try {
     const { deviceIds } = req.body;
-    const runs = await scenarioService.triggerManual(parseInt(req.params.id), deviceIds, req.tenantId!);
+    const scenarioId = parseInt(req.params.id);
+    if (req.session.role !== 'admin') {
+      // Same scenario + device set triggerManual will use (strict tenant
+      // scope; empty deviceIds = the scenario's own target, e.g. all devices).
+      const scenario = await db('scenarios').where({ id: scenarioId, tenant_id: req.tenantId! }).first('id', 'tenant_id');
+      if (!scenario) return res.status(404).json({ error: 'Scenario not found' });
+      const runIds: number[] = Array.isArray(deviceIds) && deviceIds.length
+        ? deviceIds.map((d: unknown) => Number(d)).filter((n: number) => Number.isInteger(n) && n > 0)
+        : await scenarioService.resolveTargetDevices(scenarioId, req.tenantId!);
+      await assertMayRunScenarioOn(req, scenario, runIds);
+    }
+    const runs = await scenarioService.triggerManual(scenarioId, deviceIds, req.tenantId!);
     try {
       const { auditService } = await import('../services/audit.service');
       await auditService.logReq(req, 'scenario.triggered_manually', {
@@ -606,6 +670,13 @@ router.post('/:id/start-graph-run', requireTenantCapability('scripts.execute'), 
     const validIds = new Set(tenantDevices.map((d) => d.id));
     const missing = deviceIds.filter((id) => !validIds.has(id));
     if (missing.length) return res.status(404).json({ error: `Devices not in tenant: ${missing.join(',')}` });
+
+    // Per-device gate for non-admins (see assertMayRunScenarioOn). A
+    // single-node test only runs its start node.
+    await assertMayRunScenarioOn(
+      req, scenario, deviceIds,
+      body.singleNode && body.startNodeId != null ? Number(body.startNodeId) : undefined,
+    );
 
     // Resolve a default trigger node when none was supplied: prefer a
     // trigger_manual to avoid accidentally firing a schedule trigger's

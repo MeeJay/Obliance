@@ -119,7 +119,7 @@ class BridgeScriptTest {
               try { await p2; } catch (e) { rejected = e; }
               assert(rejected instanceof Error && rejected.message === 'storage permission denied', 'rejected with the native error');
               win.ObliNative.setSystemBars('#0f1220', false);
-              assert(sent[2].params.colorHex === '#0f1220' && sent[2].params.lightIcons === false, 'setSystemBars params');
+              assert(sent[2].params.colorHex === '#0f1220' && sent[2].params.lightTheme === false, 'setSystemBars params');
               win.ObliNative.checkForUpdate({ prompt: false });
               assert(sent[3].params.prompt === false, 'checkForUpdate prompt=false');
               win.ObliNative.checkForUpdate();

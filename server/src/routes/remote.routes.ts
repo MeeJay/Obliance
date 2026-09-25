@@ -1,5 +1,8 @@
 import { Router } from 'express';
 import { remoteService } from '../services/remote.service';
+import { agentHub } from '../services/agentHub.service';
+import { isUuid } from '../services/remoteSessionSecurity';
+import { isMasterTenant } from '@obliance/shared';
 import { permissionService } from '../services/permission.service';
 import { AppError } from '../middleware/errorHandler';
 import { db } from '../db';
@@ -23,6 +26,14 @@ router.post('/sessions', async (req, res, next) => {
     if (dev?.agent_flavor === 'legacy') {
       return next(new AppError(409,
         'Remote sessions (SSH / CMD / PowerShell / ObliReach) are not supported on the legacy agent. Upgrade the agent first.'));
+    }
+
+    // The VM console is live-only (no queue fallback): refuse up front when
+    // the host agent's command channel is down, instead of creating a
+    // session that is already dead (and, on a viewer's reconnect path, one
+    // more per retry). createSession re-checks on the actual push.
+    if (protocol === 'vmconsole' && !agentHub.isConnected(Number(deviceId))) {
+      return next(new AppError(409, 'The host agent is not connected — the VM console needs a live agent connection.'));
     }
 
     // Action restriction gate — any remote session (SSH, CMD, PowerShell,
@@ -49,7 +60,8 @@ router.post('/sessions', async (req, res, next) => {
         deviceId,
         resourceType: 'remote_session',
         resourcePath: String(session.id),
-        details: { protocol, sessionToken: session.sessionToken?.slice(0, 8) + '…' },
+        // Never the session token (relay key) — the session id is the reference.
+        details: { protocol, sessionId: session.id },
       });
     } catch {}
     res.status(201).json({ data: session });
@@ -72,9 +84,25 @@ router.get('/sessions', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// Plain users may only end sessions they started — the same visibility rule
+// as GET /sessions (they never see other users' sessions). Admins keep the
+// supervision "End" action on any session of the tenant.
+async function assertCanEndSession(req: any): Promise<void> {
+  if (!isUuid(req.params.id)) throw new AppError(404, 'Session not found');
+  if (req.session.role === 'admin') return;
+  // Same scope as remoteService.endSession (master = god view).
+  const q = db('remote_sessions').where({ id: req.params.id });
+  if (!isMasterTenant(req.tenantId!)) q.where({ tenant_id: req.tenantId! });
+  const row = await q.first('started_by');
+  if (row && Number(row.started_by) !== Number(req.session.userId)) {
+    throw new AppError(403, 'You can only end remote sessions you started');
+  }
+}
+
 // POST /sessions/:id/end — matches client remoteApi.endSession
 router.post('/sessions/:id/end', async (req, res, next) => {
   try {
+    await assertCanEndSession(req);
     await remoteService.endSession(req.params.id, req.tenantId!, 'user_disconnect');
     try {
       const { auditService } = await import('../services/audit.service');
@@ -89,6 +117,7 @@ router.post('/sessions/:id/end', async (req, res, next) => {
 // DELETE /sessions/:id — legacy path kept for backward compat
 router.delete('/sessions/:id', async (req, res, next) => {
   try {
+    await assertCanEndSession(req);
     await remoteService.endSession(req.params.id, req.tenantId!, 'user_disconnect');
     res.status(204).send();
   } catch (err) { next(err); }
@@ -143,8 +172,11 @@ router.post('/relay/issue-viewer-token', async (req, res, next) => {
     const { sessionId } = req.body as { sessionId?: string };
     if (!sessionId) return res.status(400).json({ error: 'missing sessionId' });
 
+    // SECURITY: a viewer token lets its bearer watch/drive the stream through
+    // the standalone relay, so — like the built-in relay upgrade — only the
+    // user who started the session may get one (was: any tenant member).
     const session = await db('remote_sessions')
-      .where({ id: sessionId, tenant_id: req.tenantId! })
+      .where({ id: sessionId, tenant_id: req.tenantId!, started_by: req.session.userId! })
       .whereIn('status', ['waiting', 'connecting', 'active'])
       .first();
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ShieldCheck, Loader2, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, Loader2, AlertTriangle, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { deviceApi } from '@/api/device.api';
@@ -84,35 +84,29 @@ export function PrivacyPasswordManageModal({ deviceId, mode, onClose, onSuccess 
     }
   };
 
+  // While the request is in flight the dialog cannot be dismissed (× /
+  // Cancel disabled; Escape / Android back / backdrop are no-ops).
+  const guardedClose = () => { if (!submitting) onClose(); };
+
   const inputCls = 'w-full px-3 py-2.5 text-sm bg-bg-tertiary rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent transition-colors';
 
   return (
     <Modal
       open
-      onClose={onClose}
+      onClose={guardedClose}
       size="sm"
-      dismissible={!submitting}
+      // The historic header (px-5 py-4, icon circle, × kept visible but
+      // disabled while submitting) is rendered in the body instead of
+      // Modal's px-4 py-3 header, so the desktop dialog is unchanged.
+      showCloseButton={false}
       // Tapping outside (e.g. to hide the soft keyboard) must not discard
       // the typed passwords on touch; the × / Cancel / back still close.
       closeOnBackdrop={!coarse}
       overlayClassName="bg-black/70"
       className="sm:max-w-md sm:rounded-2xl"
-      bodyClassName="px-5 py-5 space-y-3"
+      bodyClassName="p-0"
       footerClassName="px-5 bg-bg-tertiary/30"
       ariaLabel={title}
-      title={
-        <span className="flex items-center gap-3 font-normal">
-          <span className="w-9 h-9 shrink-0 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center">
-            <ShieldCheck className="w-4 h-4 text-accent" />
-          </span>
-          <span className="flex-1 min-w-0">
-            <span className="block text-sm font-semibold text-text-primary truncate">{title}</span>
-            <span className="block text-xs text-text-muted truncate">
-              {t('privacy.password.mustBeOff', 'Privacy mode must be OFF on the device')}
-            </span>
-          </span>
-        </span>
-      }
       footer={
         <>
           <button
@@ -139,7 +133,28 @@ export function PrivacyPasswordManageModal({ deviceId, mode, onClose, onSuccess 
         </>
       }
     >
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <div className="px-5 py-4 flex items-center gap-3">
+        <div className="w-9 h-9 shrink-0 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center">
+          <ShieldCheck className="w-4 h-4 text-accent" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-semibold text-text-primary">{title}</div>
+          <div className="text-xs text-text-muted">{t('privacy.password.mustBeOff', 'Privacy mode must be OFF on the device')}</div>
+        </div>
+        {/* Historic × (same classes as before the Modal migration) with a
+            40px touch target on coarse pointers. */}
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={submitting}
+          aria-label={t('common.close', 'Close')}
+          className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-colors disabled:opacity-50 coarse:min-h-10 coarse:min-w-10 coarse:flex coarse:items-center coarse:justify-center"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      <form onSubmit={handleSubmit} className="px-5 py-5 space-y-3">
         {mode === 'set' && (
           <div className="flex gap-2 p-3 rounded-lg border border-orange-400/30 bg-orange-400/5 text-xs text-orange-200">
             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />

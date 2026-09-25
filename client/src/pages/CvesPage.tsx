@@ -11,6 +11,7 @@ import { TableScroll } from '@/components/common/TableScroll';
 import { Drawer } from '@/components/common/Drawer';
 import { Modal } from '@/components/common/Modal';
 import { IconButton } from '@/components/common/IconButton';
+import { Tip } from '@/components/common/Tip';
 import { useIsCoarsePointer, useMediaQuery, MEDIA } from '@/hooks/useMediaQuery';
 import { useClickOutside } from '@/hooks/useClickOutside';
 import { useNativeBack } from '@/hooks/useNativeBack';
@@ -62,6 +63,9 @@ function KevMarker({ size = 'w-3.5 h-3.5' }: { size?: string }) {
 // drawer with the affected devices (the same UX as Updates → "Devices
 // affected" view).
 
+/** Width of the desktop sources dropdown (keep in sync with its w-[420px]). */
+const SOURCES_DROPDOWN_WIDTH = 420;
+
 const SEVERITY_CONFIG: Record<string, { label: string; color: string }> = {
  critical: { label: 'Critical', color: 'text-red-400 bg-red-400/10 border-red-400/30' },
  high:     { label: 'High',     color: 'text-orange-400 bg-orange-400/10 border-orange-400/30' },
@@ -73,9 +77,15 @@ const SEVERITY_CONFIG: Record<string, { label: string; color: string }> = {
 export function CvesPage(_props: { embedded?: boolean } = {}) {
  const { t } = useTranslation();
  const coarse = useIsCoarsePointer();
- // Below sm the sources picker is a bottom sheet (a 420px dropdown anchored
- // to a wrapping toolbar button can end up off-screen).
- const sourcesAsSheet = !useMediaQuery(MEDIA.sm);
+ // Below lg the sources picker is a Modal (bottom sheet on phones, centred
+ // card from sm): the toolbar is ~820px wide, so on tablets / landscape
+ // phones the Sources button wraps to the left edge and a right-anchored
+ // 420px dropdown would overflow off-screen to the left.
+ const sourcesAsSheet = !useMediaQuery(MEDIA.lg);
+ // Desktop: anchor the dropdown to the button's left edge instead when a
+ // right-anchored one would not fit (narrow desktop window where the
+ // toolbar wraps). Otherwise it stays right-anchored exactly as before.
+ const [sourcesAlignLeft, setSourcesAlignLeft] = useState(false);
  const { isAdmin } = useAuthStore();
  const [items, setItems] = useState<CveAggregated[]>([]);
  const [stats, setStats] = useState<CveStats | null>(null);
@@ -108,7 +118,7 @@ export function CvesPage(_props: { embedded?: boolean } = {}) {
  };
 
  // Close the sources dropdown on outside tap / click, Escape and Android
- // back. (The phone sheet is a Modal, which handles all of that itself —
+ // back. (Below lg the picker is a Modal, which handles all of that itself —
  // and is portaled, so it would count as "outside".)
  useClickOutside(sourcesRef, () => setSourcesOpen(false), sourcesOpen && !sourcesAsSheet);
  useNativeBack(() => setSourcesOpen(false), sourcesOpen && !sourcesAsSheet, { escape: true });
@@ -209,7 +219,13 @@ export function CvesPage(_props: { embedded?: boolean } = {}) {
        {isAdmin() && (
          <div ref={sourcesRef} className="relative">
            <button
-             onClick={() => setSourcesOpen((v) => !v)}
+             onClick={(e) => {
+               // Room on the button's left, within the toolbar (content area)?
+               const btnRight = e.currentTarget.getBoundingClientRect().right;
+               const minLeft = Math.max(0, sourcesRef.current?.parentElement?.getBoundingClientRect().left ?? 0);
+               setSourcesAlignLeft(btnRight - SOURCES_DROPDOWN_WIDTH < minLeft);
+               setSourcesOpen((v) => !v);
+             }}
              disabled={!!syncing}
              className="px-3 py-1.5 text-sm bg-accent text-white rounded-md flex items-center gap-1.5 disabled:opacity-50 coarse:min-h-10"
              title={t('cves.sourcesTooltip') || 'Pick a CVE source to sync'}
@@ -228,6 +244,7 @@ export function CvesPage(_props: { embedded?: boolean } = {}) {
                onSyncAll={() => { setSourcesOpen(false); void handleSync(); }}
                onClose={() => setSourcesOpen(false)}
                asSheet={sourcesAsSheet}
+               alignLeft={sourcesAlignLeft}
              />
            )}
          </div>
@@ -365,7 +382,7 @@ export function CvesPage(_props: { embedded?: boolean } = {}) {
 }
 
 function SourcesDropdown({
- sources, freshestKey, syncing, onSync, onSyncAll, onClose, asSheet = false,
+ sources, freshestKey, syncing, onSync, onSyncAll, onClose, asSheet = false, alignLeft = false,
 }: {
  sources: CveSourceStats[];
  freshestKey: string | null;
@@ -373,10 +390,21 @@ function SourcesDropdown({
  onSync: (key: string) => void;
  onSyncAll: () => void;
  onClose: () => void;
- /** Render as a bottom sheet (phone) instead of an anchored dropdown. */
+ /** Render as a Modal (sheet on phones, card from sm; used below lg) instead of an anchored dropdown. */
  asSheet?: boolean;
+ /** Anchor the dropdown to the button's left edge (no room on its left). */
+ alignLeft?: boolean;
 }) {
  const { t } = useTranslation();
+ const coarse = useIsCoarsePointer();
+ // Relative date with the full timestamp on hover (title) — on touch the
+ // title is unreachable, so the full timestamp is a tap-to-show Tip.
+ const stamped = (iso: string | null, node: React.ReactNode) => {
+   const full = iso ? new Date(iso).toLocaleString() : '';
+   return coarse && full
+     ? <Tip content={full}>{node}</Tip>
+     : <span title={full}>{node}</span>;
+ };
  const fmt = (iso: string | null) => {
    if (!iso) return '—';
    const d = new Date(iso);
@@ -414,12 +442,12 @@ function SourcesDropdown({
                      <span className="text-text-primary font-medium tabular-nums">{s.count}</span>{' '}
                      {t('cves.entries') || 'entrées'}
                    </span>
-                   <span title={s.latestPublished ? new Date(s.latestPublished).toLocaleString() : ''}>
+                   {stamped(s.latestPublished, <>
                      {t('cves.lastPublished') || 'Dernière publication'}: <span className="text-text-primary">{fmt(s.latestPublished)}</span>
-                   </span>
-                   <span title={s.lastSyncedAt ? new Date(s.lastSyncedAt).toLocaleString() : ''}>
+                   </>)}
+                   {stamped(s.lastSyncedAt, <>
                      {t('cves.lastSync') || 'Dernier sync'}: <span className="text-text-primary">{fmt(s.lastSyncedAt)}</span>
-                   </span>
+                   </>)}
                  </div>
                </div>
                <button
@@ -471,7 +499,7 @@ function SourcesDropdown({
    );
  }
  return (
-   <div className="absolute right-0 top-full mt-1 w-[420px] max-w-[calc(100vw-2rem)] max-h-[70vh] max-h-[70dvh] overflow-y-auto overscroll-contain bg-bg-secondary border border-bg-tertiary rounded-md shadow-2xl z-30">
+   <div className={clsx(alignLeft ? 'left-0' : 'right-0', 'absolute top-full mt-1 w-[420px] max-w-[calc(100vw-2rem)] max-h-[70dvh] supports-[not(height:100dvh)]:max-h-[70vh] overflow-y-auto overscroll-contain bg-bg-secondary border border-bg-tertiary rounded-md shadow-2xl z-30')}>
      <div className="px-3 py-2 text-[11px] uppercase font-semibold text-text-muted bg-bg-tertiary/40 border-b border-bg-tertiary">
        {t('cves.sourcesHeading') || 'Sources de CVE'}
      </div>

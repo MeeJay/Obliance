@@ -31,9 +31,10 @@ interface GroupSidePanelProps {
   className?: string;
   /**
    * 'panel' (default): the resizable / collapsible inline column of /devices
-   * (desktop, ≥ lg). 'drawer': full-width content of the off-canvas groups
-   * drawer used below lg — no collapse, no resize, a close button instead
-   * (docs/obli-mobile.md §4 / §5.8).
+   * (desktop with a mouse ≥ lg, any pointer ≥ xl). 'drawer': full-width
+   * content of the off-canvas groups drawer used below lg and on touch
+   * screens below xl (DevicesPageLayout) — no collapse, no resize, a close
+   * button instead (docs/obli-mobile.md §4 / §5.8).
    */
   variant?: 'panel' | 'drawer';
   /** Drawer variant: closes the drawer (header × button). */
@@ -250,10 +251,12 @@ function TreeNode({
           <span className="w-3 shrink-0 coarse:w-5" />
         )}
 
-        {/* Expand / collapse chevron — 32px tap target on touch. */}
+        {/* Expand / collapse chevron — 32px box on touch with an invisible
+            40px hit area around it (no extra row width). */}
         <span
           className={clsx(
             'flex h-4 w-4 shrink-0 items-center justify-center coarse:h-8 coarse:w-8 coarse:rounded',
+            "relative coarse:after:absolute coarse:after:-inset-1 coarse:after:content-['']",
             !hasChildren && 'invisible',
           )}
           onPointerDown={(e) => e.stopPropagation()}

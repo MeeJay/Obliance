@@ -4,9 +4,6 @@ import { useTranslation } from 'react-i18next';
 import {
  DndContext,
  DragOverlay,
- PointerSensor,
- useSensor,
- useSensors,
  useDraggable,
  useDroppable,
  type DragStartEvent,
@@ -21,6 +18,9 @@ import { GroupPicker } from '@/components/common/GroupPicker';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
 import { NotificationBindingsPanel } from '@/components/notifications/NotificationBindingsPanel';
 import { MaintenanceWindowList } from '@/components/maintenance/MaintenanceWindowList';
+import { IconButton } from '@/components/common/IconButton';
+import { useConfirm } from '@/components/common/ConfirmDialog';
+import { useDndSensors } from '@/hooks/useDndSensors';
 import { cn } from '@/utils/cn';
 import toast from 'react-hot-toast';
 
@@ -92,11 +92,9 @@ export function GroupManagePage({ embedded }: { embedded?: boolean } = {}) {
  const [saving, setSaving] = useState(false);
  const [draggingNode, setDraggingNode] = useState<DeviceGroupTreeNode | null>(null);
 
- const sensors = useSensors(
- useSensor(PointerSensor, {
- activationConstraint: { distance: 5 },
- }),
- );
+ // Mouse: drag after 5 px (as before) · touch: long-press · keyboard (docs §5.3).
+ const sensors = useDndSensors();
+ const confirm = useConfirm();
 
  useEffect(() => {
  fetchGroups();
@@ -152,7 +150,7 @@ export function GroupManagePage({ embedded }: { embedded?: boolean } = {}) {
  };
 
  const handleDelete = async (id: number, name: string) => {
- if (!confirm(t('groups.confirmDelete', { name }))) {
+ if (!(await confirm({ message: t('groups.confirmDelete', { name }), danger: true }))) {
  return;
  }
  try {
@@ -252,7 +250,7 @@ export function GroupManagePage({ embedded }: { embedded?: boolean } = {}) {
  };
 
  return (
- <div className={embedded ? 'min-w-0' : 'p-6 min-w-0'}>
+ <div className={embedded ? 'min-w-0' : 'p-3 sm:p-4 lg:p-6 min-w-0'}>
  {!embedded && <div className="flex items-center justify-between mb-6">
  <h1 className="text-2xl font-semibold text-text-primary">{t('nav.groups')}</h1>
  <Button size="sm" onClick={() => openCreate()}>
@@ -527,7 +525,7 @@ function DraggableGroupRow({
  <div
  {...attributes}
  {...listeners}
- className="text-text-muted opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing touch-none"
+ className="text-text-muted can-hover:opacity-0 can-hover:group-hover:opacity-100 cursor-grab active:cursor-grabbing touch-none"
  >
  <GripVertical size={14} />
  </div>
@@ -539,27 +537,31 @@ function DraggableGroupRow({
  {t('groups.groupedBadge')}
  </span>
  )}
- <button
+ {/* Row actions: hover reveal with a mouse, always visible on touch (docs §5.1). */}
+ <IconButton
+ label={t('groups.addSubgroup', 'Add sub-group')}
  onClick={() => openCreate(node.id)}
- className="p-1 text-text-muted hover:text-accent opacity-0 group-hover:opacity-100"
- title="Add sub-group"
- >
- <Plus size={14} />
- </button>
- <button
+ size="sm"
+ variant="plain"
+ className="hover:text-accent can-hover:opacity-0 can-hover:group-hover:opacity-100"
+ icon={<Plus size={14} />}
+ />
+ <IconButton
+ label={t('common.edit', 'Edit')}
  onClick={() => openEdit(node)}
- className="p-1 text-text-muted hover:text-text-primary opacity-0 group-hover:opacity-100"
- title={t('common.edit')}
- >
- <Pencil size={14} />
- </button>
- <button
+ size="sm"
+ variant="plain"
+ className="can-hover:opacity-0 can-hover:group-hover:opacity-100"
+ icon={<Pencil size={14} />}
+ />
+ <IconButton
+ label={t('common.delete', 'Delete')}
  onClick={() => handleDelete(node.id, node.name)}
- className="p-1 text-text-muted hover:text-status-down opacity-0 group-hover:opacity-100"
- title={t('common.delete')}
- >
- <Trash2 size={14} />
- </button>
+ size="sm"
+ variant="plain"
+ className="hover:text-status-down can-hover:opacity-0 can-hover:group-hover:opacity-100"
+ icon={<Trash2 size={14} />}
+ />
  </div>
  );
 }

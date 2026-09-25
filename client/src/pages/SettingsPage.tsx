@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent, type KeyboardEvent } from 'react';
 import { Shield, Server, Plus, Pencil, Trash2, Wifi, Eye, EyeOff, ArrowLeftRight, Info, Cpu, HardDrive, Database, Clock, PackageOpen, FolderOpen, X, Download, Upload, GitBranch, Activity, Save, RotateCcw } from 'lucide-react';
 import { scenarioApi } from '@/api/scenario.api';
 import { ImportExportPage } from './ImportExportPage';
@@ -21,13 +21,23 @@ import { TableScroll } from '@/components/common/TableScroll';
 import { IconButton } from '@/components/common/IconButton';
 import { Modal } from '@/components/common/Modal';
 import { useConfirm } from '@/components/common/ConfirmDialog';
-import { MEDIA, useMediaQuery } from '@/hooks/useMediaQuery';
+import { MEDIA, matchesMedia, useMediaQuery } from '@/hooks/useMediaQuery';
 import { saveJson } from '@/utils/download';
 import { openExternal } from '@/utils/openExternal';
 
 // Invisible ≥40px hit area around small hand-rolled switches / icon toggles
 // (touch only — desktop geometry unchanged). The element must be positioned.
 const TOUCH_HIT = "coarse:after:absolute coarse:after:-inset-2.5 coarse:after:content-['']";
+
+// Touch: the keyboard's Done/Enter key commits a blur-saved field (closing
+// the Android keyboard does not blur it). Mouse/keyboard desktop: Enter keeps
+// doing nothing, as before (these inputs are not in a <form>).
+function blurOnEnterTouch(e: KeyboardEvent<HTMLInputElement>) {
+ if (e.key === 'Enter' && matchesMedia(MEDIA.coarse)) {
+ e.preventDefault();
+ e.currentTarget.blur();
+ }
+}
 
 function AboutRow({ label, value }: { label: string; value: string }) {
  return (
@@ -347,7 +357,7 @@ export function SettingsPage() {
  </thead>
  <tbody>
  {servers.map((server) => (
- <tr key={server.id} className=" last:border-0 hover:bg-bg-hover transition-colors">
+ <tr key={server.id} className=" last:border-0 hover:bg-bg-hover transition-colors hover:[--table-sticky-bg:rgb(var(--c-bg-hover))]">
  <td className="px-4 py-3 text-text-primary font-medium">{server.name}</td>
  <td className="px-4 py-3 text-text-secondary whitespace-nowrap">
  {server.host}:{server.port}
@@ -502,7 +512,7 @@ export function SettingsPage() {
  value={obligateUrl}
  onChange={(e) => setObligateUrl(e.target.value)}
  onBlur={() => void saveObligateConfig()}
- onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }}
+ onKeyDown={blurOnEnterTouch}
  className="w-full min-w-0 flex-1 rounded-lg bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent/30"
  />
  {/* Touch: closing the Android keyboard does not blur the field,
@@ -530,7 +540,7 @@ export function SettingsPage() {
  value={obligateApiKey}
  onChange={(e) => setObligateApiKey(e.target.value)}
  onBlur={() => { if (obligateApiKey.trim()) void saveObligateConfig(); }}
- onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }}
+ onKeyDown={blurOnEnterTouch}
  enterKeyHint="done"
  autoCapitalize="off"
  autoCorrect="off"
@@ -596,7 +606,10 @@ export function SettingsPage() {
  onClose={closeSmtpModal}
  size="sm"
  closeOnBackdrop={false}
- title={smtpMode === 'create' ? t('settings.smtp.addTitle') : t('settings.smtp.editTitle')}
+ // Same header as the former hand-rolled dialog from sm up
+ // (text-base title, px-5 py-4).
+ title={<span className="text-base">{smtpMode === 'create' ? t('settings.smtp.addTitle') : t('settings.smtp.editTitle')}</span>}
+ className="sm:[&>div:first-child]:px-5 sm:[&>div:first-child]:py-4"
  bodyClassName="p-5"
  footer={
  <>

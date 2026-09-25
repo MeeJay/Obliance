@@ -17,6 +17,10 @@ interface GroupPickerProps {
  excludeId?: number;
  /** When set, only show groups whose kind matches this value */
  kindFilter?: string;
+ /** Title of the phone bottom sheet (defaults to "Select a group"). The
+  *  placeholder is only the trigger's empty-state label (callers often pass
+  *  "None (root level)", which would be a misleading sheet title). */
+ sheetTitle?: string;
 }
 
 /** Find a group name by ID in the tree recursively */
@@ -141,7 +145,7 @@ function TreeNode({ node, depth, selectedId, onSelect, filter, excludeId, kindFi
  * only auto-focused with a mouse — on touch it would raise the keyboard
  * over the list.
  */
-export function GroupPicker({ value, onChange, tree, placeholder, excludeId, kindFilter }: GroupPickerProps) {
+export function GroupPicker({ value, onChange, tree, placeholder, excludeId, kindFilter, sheetTitle }: GroupPickerProps) {
  const { t } = useTranslation();
  const canHover = useCanHover();
  const isPhone = useLayoutMode() === 'phone';
@@ -255,7 +259,7 @@ export function GroupPicker({ value, onChange, tree, placeholder, excludeId, kin
  open={open}
  onClose={() => setOpen(false)}
  side="bottom"
- title={placeholderText}
+ title={sheetTitle ?? t('groupPicker.title', 'Select a group')}
  bodyClassName="flex flex-col p-0"
  >
  {search}

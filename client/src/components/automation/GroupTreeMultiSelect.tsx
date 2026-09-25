@@ -99,7 +99,7 @@ export function GroupTreeMultiSelect({ selectedIds, onChange }: Props) {
  <button
  type="button"
  onClick={(e) => { e.stopPropagation(); if (hasChildren) toggleExpand(node.id); }}
- aria-label={isExpanded ? t('automations.groupTree.collapse', 'Collapse') : t('automations.groupTree.expand', 'Expand')}
+ aria-label={isExpanded ? t('automations.collapse', 'Collapse') : t('automations.expand', 'Expand')}
  aria-expanded={hasChildren ? isExpanded : undefined}
  tabIndex={hasChildren ? 0 : -1}
  className={clsx(

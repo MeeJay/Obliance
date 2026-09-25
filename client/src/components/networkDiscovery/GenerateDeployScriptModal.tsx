@@ -1,10 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
-import { X, Copy, Download, Check, Search, AlertTriangle } from 'lucide-react';
+import { Copy, Download, Check, Search, AlertTriangle } from 'lucide-react';
 import { deviceApi } from '@/api/device.api';
 import type { AgentApiKey, DiscoveredDevice } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import { useTranslation } from 'react-i18next';
+import { Modal } from '@/components/common/Modal';
+import { useIsCoarsePointer } from '@/hooks/useMediaQuery';
+import { copyText } from '@/utils/clipboard';
+import { saveText } from '@/utils/download';
 
 type TargetOs = 'linux' | 'windows';
 type ScriptFormat = 'sh' | 'ps1';
@@ -18,6 +22,7 @@ interface HostRow { ip: string; hostname: string }
 
 export function GenerateDeployScriptModal({ hosts, onClose }: Props) {
  const { t } = useTranslation();
+ const coarse = useIsCoarsePointer();
 
  const [keys, setKeys] = useState<AgentApiKey[]>([]);
  const [keyQuery, setKeyQuery] = useState('');
@@ -80,54 +85,62 @@ export function GenerateDeployScriptModal({ hosts, onClose }: Props) {
 
  const filename = scriptFormat === 'sh' ? 'obliance-deploy.sh' : 'obliance-deploy.ps1';
 
+ // Shared helpers: Clipboard API → execCommand → native bridge, and a
+ // native saveFile in the Android shell (blob: URLs never reach
+ // DownloadManager). Failures are reported instead of silently ignored.
  const handleCopy = async () => {
  if (!script) return;
- try {
- await navigator.clipboard.writeText(script);
+ if (await copyText(script)) {
  setCopied(true);
  setTimeout(() => setCopied(false), 1800);
- } catch {
+ } else {
  toast.error(t('common.error'));
  }
  };
 
- const handleDownload = () => {
+ const handleDownload = async () => {
  if (!script) return;
- const blob = new Blob([script], { type: 'text/plain;charset=utf-8' });
- const url = URL.createObjectURL(blob);
- const a = document.createElement('a');
- a.href = url;
- a.download = filename;
- document.body.appendChild(a);
- a.click();
- document.body.removeChild(a);
- URL.revokeObjectURL(url);
+ if (!(await saveText(script, filename, 'text/plain;charset=utf-8'))) toast.error(t('common.error'));
  };
 
+ const copyLabel = copied ? t('common.copied') || 'Copied' : t('common.copy') || 'Copy';
+
  return (
- <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
- <div
- className="bg-bg-primary rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-xl"
- onClick={(e) => e.stopPropagation()}
- >
- {/* Header */}
- <div className="flex items-center justify-between px-5 py-3 flex-shrink-0">
- <div>
- <h3 className="text-sm font-semibold text-text-primary">
- {t('discovery.deployScript.title') || 'Generate deploy script'}
- </h3>
- <p className="text-xs text-text-muted mt-0.5">
+ <Modal
+ open
+ onClose={onClose}
+ size="2xl"
+ className="bg-bg-primary"
+ title={<>
+ <span className="block truncate">{t('discovery.deployScript.title') || 'Generate deploy script'}</span>
+ <span className="block truncate text-xs font-normal text-text-muted mt-0.5">
  {t('discovery.deployScript.subtitle', { count: hosts.length }) ||
  `${hosts.length} host(s) selected`}
- </p>
- </div>
- <button onClick={onClose} className="p-1 text-text-muted hover:text-text-primary rounded">
- <X className="w-4 h-4" />
+ </span>
+ </>}
+ bodyClassName="p-5 space-y-4"
+ // Touch: Copy / Download live in a sticky footer with 40px buttons
+ // (the inline 22px pair sits at the very bottom of a long form).
+ footer={coarse ? <>
+ <button
+ onClick={handleCopy}
+ disabled={!script}
+ className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 min-h-10 px-4 text-sm font-medium bg-bg-secondary rounded-lg text-text-primary disabled:opacity-40 transition-colors"
+ >
+ {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+ {copyLabel}
  </button>
- </div>
-
- {/* Body */}
- <div className="flex-1 overflow-y-auto p-5 space-y-4">
+ <button
+ onClick={handleDownload}
+ disabled={!script}
+ className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 min-h-10 px-4 text-sm font-medium bg-accent text-white rounded-lg disabled:opacity-40 transition-colors"
+ >
+ <Download className="w-4 h-4" />
+ {t('common.download') || 'Download'}
+ </button>
+ </> : undefined}
+ footerClassName="px-5"
+ >
  {/* Target OS selector — chooses remote protocol */}
  <div>
  <label className="block text-xs font-medium text-text-muted mb-1.5">
@@ -138,14 +151,15 @@ export function GenerateDeployScriptModal({ hosts, onClose }: Props) {
  <button
  key={os}
  onClick={() => setTargetOs(os)}
+ aria-pressed={targetOs === os}
  className={clsx(
- 'px-3 py-2 text-xs font-medium rounded-lg border transition-colors text-left',
+ 'px-3 py-2 text-xs font-medium rounded-lg border transition-colors text-left coarse:min-h-11',
  targetOs === os
  ? 'bg-accent/15 text-text-primary border-accent'
  : 'bg-bg-secondary text-text-muted border-transparent hover:text-text-primary',
  )}
  >
- <div className="flex items-center justify-between">
+ <div className="flex items-center justify-between gap-2">
  <span>
  {os === 'linux'
  ? (t('discovery.deployScript.targetLinux') || 'Linux / macOS')
@@ -170,14 +184,15 @@ export function GenerateDeployScriptModal({ hosts, onClose }: Props) {
  <button
  key={fmt}
  onClick={() => setScriptFormat(fmt)}
+ aria-pressed={scriptFormat === fmt}
  className={clsx(
- 'px-3 py-2 text-xs font-medium rounded-lg border transition-colors text-left',
+ 'px-3 py-2 text-xs font-medium rounded-lg border transition-colors text-left coarse:min-h-11',
  scriptFormat === fmt
  ? 'bg-accent/15 text-text-primary border-accent'
  : 'bg-bg-secondary text-text-muted border-transparent hover:text-text-primary',
  )}
  >
- <div className="flex items-center justify-between">
+ <div className="flex items-center justify-between gap-2">
  <span>{fmt === 'sh' ? 'Shell (.sh)' : 'PowerShell (.ps1)'}</span>
  <span className="text-[10px] text-text-muted/70 font-mono">
  {fmt === 'sh' ? 'bash' : 'pwsh'}
@@ -207,10 +222,11 @@ export function GenerateDeployScriptModal({ hosts, onClose }: Props) {
  placeholder={
  t('discovery.deployScript.searchKey') || 'Search by name, group or key...'
  }
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
  className="w-full pl-8 pr-3 py-1.5 text-xs bg-bg-secondary rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent"
  />
  </div>
- <div className="max-h-40 overflow-y-auto rounded-lg divide-y divide-border/50">
+ <div className="max-h-40 coarse:max-h-56 overflow-y-auto overscroll-contain rounded-lg divide-y divide-border/50">
  {filteredKeys.length === 0 ? (
  <p className="text-xs text-text-muted py-3 text-center">
  {t('discovery.deployScript.noKeys') || 'No API keys match'}
@@ -220,16 +236,18 @@ export function GenerateDeployScriptModal({ hosts, onClose }: Props) {
  <button
  key={k.id}
  onClick={() => setSelectedKeyId(k.id)}
+ aria-pressed={selectedKeyId === k.id}
  className={clsx(
- 'w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors',
+ // Below sm: name on its own line, group + fingerprint under it.
+ 'w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors max-sm:flex-wrap max-sm:gap-y-1 coarse:min-h-11',
  selectedKeyId === k.id
  ? 'bg-accent/15 text-text-primary'
  : 'text-text-muted hover:bg-bg-secondary hover:text-text-primary',
  )}
  >
- <span className="flex-1 truncate">{k.name || `#${k.id}`}</span>
+ <span className="flex-1 truncate max-sm:basis-full">{k.name || `#${k.id}`}</span>
  {k.defaultGroupName && (
- <span className="text-[10px] px-1.5 rounded bg-accent/10 text-accent flex-shrink-0">
+ <span className="text-[10px] px-1.5 rounded bg-accent/10 text-accent flex-shrink-0 max-sm:max-w-[60%] max-sm:truncate">
  {k.defaultGroupName}
  </span>
  )}
@@ -257,6 +275,7 @@ export function GenerateDeployScriptModal({ hosts, onClose }: Props) {
  onChange={(e) => setUsersInput(e.target.value)}
  rows={3}
  placeholder={t('discovery.deployScript.usersPlaceholder') || 'e.g. root, admin'}
+ autoCapitalize="off" autoCorrect="off" spellCheck={false} autoComplete="off"
  className="w-full px-3 py-2 text-xs font-mono bg-bg-secondary rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent resize-none"
  />
  {users.length === 0 && (
@@ -272,7 +291,7 @@ export function GenerateDeployScriptModal({ hosts, onClose }: Props) {
  <label className="block text-xs font-medium text-text-muted mb-1.5">
  {t('discovery.deployScript.targets') || 'Target hosts'} ({hostRows.length})
  </label>
- <div className="max-h-24 overflow-y-auto p-2 bg-bg-secondary rounded-lg text-xs font-mono text-text-muted">
+ <div className="max-h-24 overflow-y-auto overscroll-contain p-2 bg-bg-secondary rounded-lg text-xs font-mono text-text-muted break-all">
  {hostRows.map((h, i) => (
  <div key={i}>
  {h.ip}
@@ -293,11 +312,12 @@ export function GenerateDeployScriptModal({ hosts, onClose }: Props) {
 
  {/* Script preview */}
  <div>
- <div className="flex items-center justify-between mb-1.5">
+ <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
  <label className="block text-xs font-medium text-text-muted">
  {t('discovery.deployScript.preview') || 'Generated script'}{' '}
  <span className="text-text-muted/60 font-normal">({filename})</span>
  </label>
+ {!coarse && (
  <div className="flex items-center gap-1.5">
  <button
  onClick={handleCopy}
@@ -305,7 +325,7 @@ export function GenerateDeployScriptModal({ hosts, onClose }: Props) {
  className="flex items-center gap-1 px-2 py-1 text-[11px] font-medium bg-bg-secondary rounded text-text-muted hover:text-text-primary disabled:opacity-40 transition-colors"
  >
  {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
- {copied ? t('common.copied') || 'Copied' : t('common.copy') || 'Copy'}
+ {copyLabel}
  </button>
  <button
  onClick={handleDownload}
@@ -316,14 +336,15 @@ export function GenerateDeployScriptModal({ hosts, onClose }: Props) {
  {t('common.download') || 'Download'}
  </button>
  </div>
+ )}
  </div>
- <pre className="p-3 bg-bg-secondary rounded-lg text-[11px] font-mono text-text-primary whitespace-pre overflow-x-auto max-h-[40vh]">
+ {/* Touch: wrap long lines — a nested horizontal + vertical scroller
+ is nearly impossible to select text in with a finger. */}
+ <pre className="p-3 bg-bg-secondary rounded-lg text-[11px] font-mono text-text-primary whitespace-pre overflow-x-auto max-h-[40dvh] supports-[not(height:100dvh)]:max-h-[40vh] coarse:whitespace-pre-wrap coarse:break-all overscroll-contain">
 {script || `# ${t('discovery.deployScript.pickKey') || 'Pick an API key and fill in users to generate the script.'}`}
  </pre>
  </div>
- </div>
- </div>
- </div>
+ </Modal>
  );
 }
 

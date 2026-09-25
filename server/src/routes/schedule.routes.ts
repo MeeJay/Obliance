@@ -2,9 +2,47 @@ import { Router } from 'express';
 import { db } from '../db';
 import { logger } from '../utils/logger';
 import { requireTenantCapability } from '../middleware/rbac';
+import { AppError } from '../middleware/errorHandler';
+import { permissionService } from '../services/permission.service';
+import { scriptService } from '../services/script.service';
+import { scheduleService } from '../services/schedule.service';
 import { isMasterTenant } from '@obliance/shared';
 
 const router = Router();
+
+/**
+ * A schedule is deferred script execution, so it gets the same gates as
+ * POST /api/scripts/:id/execute:
+ *   - the script must be visible to the caller's tenant (own, system, or
+ *     fanned out by the master) — otherwise another tenant's script could be
+ *     run, and its content copied into the execution snapshot, by id;
+ *   - non-admins need the team 'execute' capability on EVERY device the
+ *     schedule targets (an empty target list means every approved device of
+ *     the tenant — see scheduleService.resolveTargetDeviceIdsForAuthz).
+ * The tenant capability `scripts.manage` (route guard) only says WHAT the
+ * user may do; team scopes say WHERE.
+ */
+async function assertMayScheduleScript(
+  req: any,
+  target: { scriptId: unknown; targetType: string | null | undefined; targetIds: unknown },
+): Promise<void> {
+  const scriptId = Number(target.scriptId);
+  if (!Number.isInteger(scriptId) || scriptId <= 0) throw new AppError(400, 'scriptId is required');
+  const script = await scriptService.getScriptById(scriptId, req.tenantId!);
+  if (!script) throw new AppError(404, 'Script not found');
+  if (req.session.role === 'admin') return;
+  const deviceIds = await scheduleService.resolveTargetDeviceIdsForAuthz(req.tenantId!, target.targetType, target.targetIds);
+  const lacking = await permissionService.devicesLackingCapability(req.session.userId!, deviceIds, 'execute');
+  if (lacking.length) {
+    throw new AppError(403, `Capability 'execute' not permitted for your team on device #${lacking[0]} targeted by this schedule`);
+  }
+}
+
+/** PATCH fields that change what runs, where or when. */
+const SCHEDULE_EXECUTION_FIELDS = [
+  'scriptId', 'targetType', 'targetIds', 'enabled', 'cronExpression', 'fireOnceAt', 'timezone',
+  'bypassPrivacyMode', 'catchupEnabled', 'timeoutSeconds', 'onFailureScenarioId',
+] as const;
 
 function rowToSchedule(row: any) {
   return {
@@ -117,6 +155,34 @@ router.get('/', async (req, res, next) => {
 
 router.post('/', requireTenantCapability('scripts.manage'), async (req, res, next) => {
   try {
+    await assertMayScheduleScript(req, {
+      scriptId: req.body.scriptId,
+      targetType: req.body.targetType || 'device',
+      targetIds: req.body.targetIds || [],
+    });
+
+    // Privacy-mode bypass is restriction-gated on create exactly like the
+    // PATCH false→true transition below (it used to be accepted as-is here).
+    //   - none / sensitive: applyRestriction (TOTP step-up when sensitive);
+    //   - restricted: the schedule is created WITHOUT the bypass and a
+    //     setting_change approval is filed for it once it has an id.
+    let bypassPrivacy = req.body.bypassPrivacyMode === true;
+    let bypassNeedsApproval = false;
+    if (bypassPrivacy) {
+      const { restrictionService, applyRestriction } = await import('../services/restriction.service');
+      const level = await restrictionService.getLevelFor({ tenantId: req.tenantId!, actionKey: 'schedule.bypass_privacy_mode' });
+      if (level === 'restricted') {
+        bypassPrivacy = false;
+        bypassNeedsApproval = true;
+      } else {
+        // No approvalRequestType: if the level turned 'restricted' in the
+        // meantime this refuses (403) rather than filing an approval that
+        // points at no schedule.
+        const ok = await applyRestriction(res, { req, actionKey: 'schedule.bypass_privacy_mode' });
+        if (!ok) return;
+      }
+    }
+
     // Compute next_run_at: for one-time = fire_once_at, for cron = parse
     // the expression to get the actual next fire time.
     let nextRunAt: Date | null = null;
@@ -158,7 +224,7 @@ router.post('/', requireTenantCapability('scripts.manage'), async (req, res, nex
       run_conditions: JSON.stringify(req.body.runConditions || []),
       assert_pass: req.body.assertPass ?? false,
       notify_once: req.body.notifyOnce ?? false,
-      bypass_privacy_mode: req.body.bypassPrivacyMode === true,
+      bypass_privacy_mode: bypassPrivacy,
       notification_channels: JSON.stringify(req.body.notificationChannels ?? []),
       timeout_seconds: req.body.timeoutSeconds ?? null,
       skip_if_in_flight: req.body.skipIfInFlight !== false,
@@ -174,23 +240,64 @@ router.post('/', requireTenantCapability('scripts.manage'), async (req, res, nex
         details: { name: row.name, scriptId: row.script_id, cronExpression: row.cron_expression },
       });
     } catch {}
-    res.status(201).json({ data: rowToSchedule(row) });
+
+    // Restricted bypass: file the approval now that the schedule has an id.
+    // The schedule itself is created (without the bypass) either way.
+    let bypassPrivacyApproval: { approvalId: unknown; status: 'pending_approval' } | undefined;
+    if (bypassNeedsApproval) {
+      const { restrictionService } = await import('../services/restriction.service');
+      const outcome = await restrictionService.enforce({
+        req,
+        actionKey: 'schedule.bypass_privacy_mode',
+        approvalRequestType: 'setting_change',
+        approvalDescription: `Enable privacy-mode bypass on schedule "${row.name}"`,
+        approvalPayload: { entityType: 'schedule', entityId: Number(row.id), field: 'bypassPrivacyMode', value: true },
+      });
+      if (outcome.ok) {
+        // Level relaxed in the meantime — apply directly.
+        await db('script_schedules').where({ id: row.id, tenant_id: req.tenantId! }).update({ bypass_privacy_mode: true });
+        row.bypass_privacy_mode = true;
+      } else if ('approval' in outcome) {
+        bypassPrivacyApproval = { approvalId: outcome.approval?.id, status: 'pending_approval' };
+      }
+    }
+    res.status(201).json({ data: rowToSchedule(row), ...(bypassPrivacyApproval ? { bypassPrivacyApproval } : {}) });
   } catch (err) {
-    logger.error({ err, body: req.body }, 'schedule create failed');
+    if (!(err instanceof AppError)) logger.error({ err, body: req.body }, 'schedule create failed');
     next(err);
   }
 });
 
 router.patch('/:id', requireTenantCapability('scripts.manage'), async (req, res, next) => {
   try {
+    // Writes are strictly tenant-scoped (a master fan-out schedule is
+    // read-only for the child tenant; the master edits only its own).
+    const current = await db('script_schedules').where({ id: req.params.id, tenant_id: req.tenantId! }).first();
+    if (!current) return res.status(404).json({ error: 'Schedule not found' });
+
+    // Same gates as create, on the schedule as it will be AFTER this patch —
+    // whenever the patch changes what runs, where or when (and the schedule
+    // stays enabled; re-enabling is itself such a change). A new scriptId is
+    // always checked.
+    const body = req.body ?? {};
+    const touchesExecution = SCHEDULE_EXECUTION_FIELDS.some((f) => body[f] !== undefined);
+    const enabledAfter = body.enabled !== undefined ? !!body.enabled : current.enabled !== false;
+    if (body.scriptId !== undefined || (touchesExecution && enabledAfter)) {
+      await assertMayScheduleScript(req, {
+        scriptId: body.scriptId !== undefined ? body.scriptId : current.script_id,
+        targetType: body.targetType !== undefined ? body.targetType : current.target_type,
+        targetIds: body.targetIds !== undefined
+          ? body.targetIds
+          : (typeof current.target_ids === 'string' ? JSON.parse(current.target_ids || '[]') : (current.target_ids ?? [])),
+      });
+    }
+
     // Restriction gate on the false→true bypass-privacy transition. Same
     // pattern as scenario PUT: only fires on the rising edge, queues a
     // setting_change approval when restricted, and strips the flip from
     // the update so the rest of the form still saves.
     if (req.body && req.body.bypassPrivacyMode === true) {
-      const current = await db('script_schedules').where({ id: req.params.id, tenant_id: req.tenantId! })
-        .first('bypass_privacy_mode', 'name');
-      if (current && !current.bypass_privacy_mode) {
+      if (!current.bypass_privacy_mode) {
         const { applyRestriction } = await import('../services/restriction.service');
         const approved = await applyRestriction(res, {
           req,
@@ -239,14 +346,14 @@ router.patch('/:id', requireTenantCapability('scripts.manage'), async (req, res,
     if (req.body.cronExpression !== undefined && req.body.cronExpression) {
       try {
         const { default: cronParser } = await import('cron-parser');
-        const tz = req.body.timezone || (await db('script_schedules').where({ id: req.params.id }).first())?.timezone || undefined;
+        const tz = req.body.timezone || current.timezone || undefined;
         const it = cronParser.parseExpression(req.body.cronExpression, { currentDate: new Date(), tz });
         updates.next_run_at = it.next().toDate();
       } catch {}
     }
 
     await db('script_schedules').where({ id: req.params.id, tenant_id: req.tenantId! }).update(updates);
-    const row = await db('script_schedules').where({ id: req.params.id }).first();
+    const row = await db('script_schedules').where({ id: req.params.id, tenant_id: req.tenantId! }).first();
     try {
       const { auditService } = await import('../services/audit.service');
       const action = req.body.enabled === true ? 'schedule.enabled'
@@ -259,7 +366,7 @@ router.patch('/:id', requireTenantCapability('scripts.manage'), async (req, res,
     } catch {}
     res.json({ data: rowToSchedule(row) });
   } catch (err) {
-    logger.error({ err, id: req.params.id, body: req.body }, 'schedule update failed');
+    if (!(err instanceof AppError)) logger.error({ err, id: req.params.id, body: req.body }, 'schedule update failed');
     next(err);
   }
 });

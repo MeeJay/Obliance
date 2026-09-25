@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { User, Save, KeyRound, Bell, CheckCircle2, AlertTriangle, QrCode, Mail, Palette, Monitor, Camera, Trash2, MessageCircle, X } from 'lucide-react';
 import { profileApi } from '@/api/profile.api';
@@ -163,10 +163,15 @@ export function ProfilePage() {
  const [preferredCodec, setPreferredCodec] = useState<string>(sessionUser?.preferences?.preferredCodec || 'h264');
  const [quickReplies, setQuickReplies] = useState<string[]>(sessionUser?.preferences?.quickReplies || []);
  const [newReply, setNewReply] = useState('');
+ // Latest list, read by the (touch) undo toast — its closure would
+ // otherwise hold the list as it was when that removal happened.
+ const quickRepliesRef = useRef(quickReplies);
+ quickRepliesRef.current = quickReplies;
 
  const handleAddReply = async () => {
  if (!newReply.trim() || quickReplies.length >= 50) return;
  const updated = [...quickReplies, newReply.trim()];
+ quickRepliesRef.current = updated;
  setQuickReplies(updated);
  setNewReply('');
  try { await profileApi.update({ preferences: { quickReplies: updated } }); } catch {}
@@ -174,8 +179,8 @@ export function ProfilePage() {
 
  const handleRemoveReply = async (idx: number) => {
  const removed = quickReplies[idx];
- const before = quickReplies;
  const updated = quickReplies.filter((_, i) => i !== idx);
+ quickRepliesRef.current = updated;
  setQuickReplies(updated);
  try { await profileApi.update({ preferences: { quickReplies: updated } }); } catch {}
  // Touch: removal is one tap away from an accidental tap — offer an undo.
@@ -188,8 +193,13 @@ export function ProfilePage() {
  className="rounded px-3 py-2 text-sm font-medium text-accent hover:bg-accent/10"
  onClick={async () => {
  toast.dismiss(tt.id);
- setQuickReplies(before);
- try { await profileApi.update({ preferences: { quickReplies: before } }); } catch {}
+ // Re-insert only this reply into the CURRENT list (other
+ // removals / additions made since then are kept).
+ const restored = [...quickRepliesRef.current];
+ restored.splice(Math.min(idx, restored.length), 0, removed);
+ quickRepliesRef.current = restored;
+ setQuickReplies(restored);
+ try { await profileApi.update({ preferences: { quickReplies: restored } }); } catch {}
  }}
  >
  {t('profile.quickReplies.undo', 'Undo')}

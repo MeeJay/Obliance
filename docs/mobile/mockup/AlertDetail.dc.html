@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Incident : SRV-AD2 hors ligne</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Rajdhani:wght@600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+body{margin:0;font-family:Inter,system-ui,sans-serif;background:#0b0d1a;color:#f0f4fc;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+a{color:inherit;text-decoration:none}a:hover{color:inherit}
+::placeholder{color:#828caf;opacity:1}
+@keyframes obliPulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes obliSpin{to{transform:rotate(360deg)}}
+@keyframes obliSkeleton{0%,100%{opacity:.55}50%{opacity:1}}
+</style>
+</helmet>
+<div style="position:relative;width:390px;height:844px;box-sizing:border-box;display:flex;flex-direction:column;background:#0B0D1A;overflow:hidden">
+<header style="flex:none;display:flex;align-items:center;gap:4px;height:64px;padding:0 4px;background:#0F1220">
+  <a href="Main.dc.html" aria-label="Retour à À traiter" style="display:flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:24px;color:#F0F4FC"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg></a>
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <span style="font:600 24px/28px Rajdhani,Inter,sans-serif;letter-spacing:.025em;color:#F0F4FC;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">SRV-AD2</span>
+    <span style="font:400 12px/16px Inter,system-ui,sans-serif;color:#828CAF;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">BASH · Siège › Serveurs</span>
+  </div>
+  <div style="flex:none;display:flex;flex-direction:column"><sc-if value="{{watching}}" hint-placeholder-val="{{ true }}"><button type="button" aria-pressed="true" aria-label="Surveillance active — arrêter de surveiller SRV-AD2" onClick="{{ toggleWatch }}" style="display:flex;align-items:center;justify-content:center;width:48px;height:48px;padding:0;border:0;border-radius:24px;background:transparent;color:#B4BCD7;cursor:pointer;color:#60A5FA"><svg width="22" height="22" viewBox="0 0 24 24" fill="#60A5FA" stroke="#60A5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></button></sc-if><sc-if value="{{notWatching}}" hint-placeholder-val="{{ false }}"><button type="button" aria-pressed="false" aria-label="Surveiller SRV-AD2" onClick="{{ toggleWatch }}" style="display:flex;align-items:center;justify-content:center;width:48px;height:48px;padding:0;border:0;border-radius:24px;background:transparent;color:#B4BCD7;cursor:pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></button></sc-if></div>
+  <button type="button" aria-label="Plus d'options" style="display:flex;align-items:center;justify-content:center;width:48px;height:48px;padding:0;border:0;border-radius:24px;background:transparent;color:#B4BCD7;cursor:pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg></button>
+</header>
+<main style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;background:#0B0D1A">
+  <section aria-label="Alerte en cours" style="position:relative;display:flex;flex-direction:column;gap:4px;padding:12px 16px 12px 19px;background:linear-gradient(90deg,rgba(220,38,38,.12) 0%,rgba(220,38,38,.04) 100%),#0B0D1A">
+    <span style="position:absolute;left:0;top:0;bottom:0;width:3px;background:#DC2626"></span>
+    <span style="display:flex;align-items:center;gap:6px;font:400 11px/14px 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:#828CAF;white-space:nowrap;overflow:hidden"><span style="flex:none;display:inline-flex;align-items:center;gap:4px;color:#F87171"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><circle cx="12" cy="12" r="10"></circle><line x1="12" x2="12" y1="8" y2="12"></line><line x1="12" x2="12.01" y1="16" y2="16"></line></svg>Critique</span>· Alerte 03:12 · Hors ligne</span>
+    <span style="font:600 16px/22px Inter,system-ui,sans-serif;color:#F0F4FC">SRV-AD2: Hors ligne</span>
+    <span style="font:400 14px/20px Inter,system-ui,sans-serif;color:#B4BCD7">Aucun push reçu depuis 4&#8239;min.</span>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button type="button" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;height:48px;padding:0 20px;box-sizing:border-box;border:0;border-radius:8px;white-space:nowrap;cursor:pointer;font:500 14px/20px Inter,system-ui,sans-serif;height:44px;padding:0 14px;background:#1D2238;color:#F0F4FC"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B4BCD7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="M18 6 7 17l-5-5"></path><path d="m22 10-7.5 7.5L13 16"></path></svg>Marquer lu</button>
+      <button type="button" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;height:48px;padding:0 20px;box-sizing:border-box;border:0;border-radius:8px;white-space:nowrap;cursor:pointer;font:500 14px/20px Inter,system-ui,sans-serif;height:44px;padding:0 14px;background:transparent;color:#B4BCD7"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path><line x1="2" x2="22" y1="2" y2="22"></line></svg>Masquer</button>
+    </div>
+  </section>
+  <div style="display:flex;flex-direction:column;gap:14px;padding:12px 16px 0">
+    <div style="display:flex;flex-direction:column;padding:12px 14px 4px;border-radius:8px;background:#181C30">
+      <span style="font:400 11px/14px 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:#828CAF;margin-bottom:2px">Contexte</span>
+      <a href="DeviceList.dc.html" aria-label="4 autres appareils de Siège › Serveurs hors ligne depuis 03:07 — voir les 5" style="display:flex;align-items:flex-start;gap:12px;min-height:44px;padding:8px 0 4px">
+        <span style="flex:none;margin-top:2px;color:#B4BCD7"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><rect x="16" y="16" width="6" height="6" rx="1"></rect><rect x="2" y="16" width="6" height="6" rx="1"></rect><rect x="9" y="2" width="6" height="6" rx="1"></rect><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"></path><path d="M12 12V8"></path></svg></span>
+        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font:400 14px/20px Inter,system-ui,sans-serif;color:#F0F4FC">4 autres appareils de Siège › Serveurs hors ligne depuis 03:07</span><span style="display:inline-flex;align-items:center;gap:2px;min-height:28px;font:500 14px/20px Inter,system-ui,sans-serif;color:#60A5FA;white-space:nowrap">Voir les 5<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="m9 18 6-6-6-6"></path></svg></span></span>
+      </a>
+      <a href="Activity.dc.html" style="display:flex;align-items:center;gap:12px;min-height:44px;padding:4px 0">
+        <span style="flex:none;color:#B4BCD7"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"></path><path d="M16 2v4"></path><path d="M8 2v4"></path><path d="M3 10h5"></path><path d="M17.5 17.5 16 16.3V14"></path><circle cx="16" cy="16" r="6"></circle></svg></span>
+        <span style="flex:1;min-width:0;font:400 14px/20px Inter,system-ui,sans-serif;color:#F0F4FC">Planification «&nbsp;Vérif sauvegarde&nbsp;» en échec à 02:00 (code&nbsp;1)</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#828CAF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="m9 18 6-6-6-6"></path></svg>
+      </a>
+      <button type="button" style="display:flex;align-items:center;gap:12px;width:100%;min-height:44px;padding:0;border:0;background:transparent;text-align:left;cursor:pointer">
+        <span style="flex:none;color:#828CAF"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg></span>
+        <span style="flex:1;min-width:0;font:400 14px/20px Inter,system-ui,sans-serif;color:#828CAF">Aucune maintenance en cours</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#828CAF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="m9 18 6-6-6-6"></path></svg>
+      </button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="flex:none;display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px 0 8px;border-radius:999px;background:rgba(156,163,175,.12);color:#9CA3AF;font:500 12px/16px Inter,system-ui,sans-serif;white-space:nowrap"><span style="flex:none;width:8px;height:8px;border-radius:50%;background:#9CA3AF"></span>Hors ligne</span>
+        <span style="flex:none;display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 10px 0 8px;border-radius:999px;background:rgba(250,204,21,.12);color:#FACC15;font:500 12px/16px Inter,system-ui,sans-serif;white-space:nowrap"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>Vu il y a 14&#8239;min</span>
+        <sc-if value="{{watching}}" hint-placeholder-val="{{ true }}"><span style="flex:none;display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 10px 0 8px;border-radius:999px;background:rgba(96,165,250,.12);color:#60A5FA;font:500 12px/16px Inter,system-ui,sans-serif;white-space:nowrap"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="1"></circle></svg>Surveillé</span></sc-if>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <span style="font:400 14px/20px Inter,system-ui,sans-serif;color:#F0F4FC">Windows Server 2022 Standard (build 20348)</span>
+        <span style="font:400 12px/16px 'JetBrains Mono',ui-monospace,monospace;color:#828CAF;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">10.0.0.12 · agent 4.5.79 · ObliReach 1.8.2</span>
+        <span style="display:flex;align-items:center;gap:6px;font:400 12px/16px Inter,system-ui,sans-serif;color:#828CAF"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>Groupe «&nbsp;Toujours actif&nbsp;» : toute coupure est critique</span>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px">
+    <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px"><span style="font:400 11px/14px 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:#828CAF">CPU</span><span style="font:600 14px/20px Inter,system-ui,sans-serif;color:#828CAF">3&#8239;%</span></div>
+  <div style="height:6px;border-radius:3px;background:rgba(255,255,255,.06);overflow:hidden"><div style="width:3%;height:100%;border-radius:3px;background:#4B5273"></div></div>
+</div>
+    <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px"><span style="font:400 11px/14px 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:#828CAF">RAM</span><span style="font:600 14px/20px Inter,system-ui,sans-serif;color:#828CAF">41&#8239;%</span></div>
+  <div style="height:6px;border-radius:3px;background:rgba(255,255,255,.06);overflow:hidden"><div style="width:41%;height:100%;border-radius:3px;background:#4B5273"></div></div>
+</div>
+    <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px"><span style="font:400 11px/14px 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:#828CAF">C:</span><span style="font:600 14px/20px Inter,system-ui,sans-serif;color:#828CAF">58&#8239;%</span></div>
+  <div style="height:6px;border-radius:3px;background:rgba(255,255,255,.06);overflow:hidden"><div style="width:58%;height:100%;border-radius:3px;background:#4B5273"></div></div>
+</div>
+  </div>
+  <span style="font:400 12px/16px 'JetBrains Mono',ui-monospace,monospace;color:#828CAF">Valeurs au 25/09 03:08</span>
+</div>
+    <button type="button" aria-label="Ouvrir SRV-AD2 dans Obliview pour vérifier le lien WAN du site" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;height:48px;padding:0 20px;box-sizing:border-box;border:0;border-radius:8px;white-space:nowrap;cursor:pointer;font:500 14px/20px Inter,system-ui,sans-serif;width:100%;justify-content:flex-start;gap:12px;padding:0 14px;background:#1D2238;color:#F0F4FC">
+      <span style="flex:none;width:8px;height:8px;border-radius:50%;background:#2BC4BD"></span>
+      <span style="flex:1;min-width:0;text-align:left">Ouvrir dans Obliview</span>
+      <span style="font:400 12px/16px 'JetBrains Mono',ui-monospace,monospace;color:#828CAF;font-size:11px">lien WAN du site</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#828CAF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="M15 3h6v6"></path><path d="M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg>
+    </button>
+  </div>
+  <div role="tablist" aria-label="Sections de l'appareil" style="position:sticky;top:0;z-index:2;display:flex;height:48px;margin-top:10px;padding:0 4px;overflow-x:auto;scrollbar-width:none;background:#0B0D1A">
+    <a href="AlertDetail.dc.html" role="tab" aria-selected="true" style="position:relative;flex:none;display:flex;align-items:center;gap:6px;height:48px;padding:0 12px;color:#F0F4FC;font:600 14px/20px Inter,system-ui,sans-serif;white-space:nowrap">Aperçu<span style="position:absolute;left:12px;right:12px;bottom:0;height:3px;border-radius:3px 3px 0 0;background:#FF6868"></span></a><a href="AlertDetail.dc.html" role="tab" aria-selected="false" style="position:relative;flex:none;display:flex;align-items:center;gap:6px;height:48px;padding:0 12px;color:#828CAF;font:500 14px/20px Inter,system-ui,sans-serif;white-space:nowrap">Services</a><a href="AlertDetail.dc.html" role="tab" aria-selected="false" style="position:relative;flex:none;display:flex;align-items:center;gap:6px;height:48px;padding:0 12px;color:#828CAF;font:500 14px/20px Inter,system-ui,sans-serif;white-space:nowrap">Processus</a><a href="AlertDetail.dc.html" role="tab" aria-selected="false" style="position:relative;flex:none;display:flex;align-items:center;gap:6px;height:48px;padding:0 12px;color:#828CAF;font:500 14px/20px Inter,system-ui,sans-serif;white-space:nowrap">Scripts</a><a href="AlertDetail.dc.html" role="tab" aria-selected="false" style="position:relative;flex:none;display:flex;align-items:center;gap:6px;height:48px;padding:0 12px;color:#828CAF;font:500 14px/20px Inter,system-ui,sans-serif;white-space:nowrap">Distant</a><a href="AlertDetail.dc.html" role="tab" aria-selected="false" style="position:relative;flex:none;display:flex;align-items:center;gap:6px;height:48px;padding:0 12px;color:#828CAF;font:500 14px/20px Inter,system-ui,sans-serif;white-space:nowrap">Tâches</a><a href="AlertDetail.dc.html" role="tab" aria-selected="false" style="position:relative;flex:none;display:flex;align-items:center;gap:6px;height:48px;padding:0 12px;color:#828CAF;font:500 14px/20px Inter,system-ui,sans-serif;white-space:nowrap">Inventaire</a>
+  </div>
+  <div role="tabpanel" aria-label="Aperçu" style="display:flex;flex-direction:column;gap:12px;padding:8px 16px 24px">
+    <section style="display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:12px;background:#131728;box-shadow:0 6px 24px -8px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.03)">
+      <div style="display:flex;flex-direction:column;gap:2px"><span style="font:400 11px/14px 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:#828CAF">Chronologie</span><h3 style="margin:0;font:600 16px/24px Inter,system-ui,sans-serif;color:#F0F4FC">Nuit du 25 septembre</h3></div>
+      <ol style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column">
+        <li style="display:flex;gap:12px">
+          <span style="flex:none;width:40px;padding-top:2px;font:400 12px/16px 'JetBrains Mono',ui-monospace,monospace;color:#828CAF">03:14</span>
+          <span style="flex:none;display:flex;flex-direction:column;align-items:center;width:12px"><span style="width:10px;height:10px;margin-top:5px;border-radius:50%;background:#60A5FA"></span><span style="flex:1;width:2px;margin:4px 0;background:#222740"></span></span>
+          <span style="flex:1;min-width:0;padding-bottom:14px;font:400 14px/20px Inter,system-ui,sans-serif;color:#F0F4FC">Surveillance activée par vous</span>
+        </li>
+        <li style="display:flex;gap:12px">
+          <span style="flex:none;width:40px;padding-top:2px;font:400 12px/16px 'JetBrains Mono',ui-monospace,monospace;color:#828CAF">03:12</span>
+          <span style="flex:none;display:flex;flex-direction:column;align-items:center;width:12px"><span style="width:10px;height:10px;margin-top:5px;border-radius:50%;background:#F87171"></span><span style="flex:1;width:2px;margin:4px 0;background:#222740"></span></span>
+          <span style="flex:1;min-width:0;padding-bottom:14px;font:400 14px/20px Inter,system-ui,sans-serif;color:#F0F4FC">Alerte «&nbsp;SRV-AD2: Hors ligne&nbsp;» <span style="display:inline-flex;align-items:center;gap:4px;vertical-align:-2px;font:400 12px/16px 'JetBrains Mono',ui-monospace,monospace;color:#828CAF;font-size:11px;color:#F87171"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><circle cx="12" cy="12" r="10"></circle><line x1="12" x2="12" y1="8" y2="12"></line><line x1="12" x2="12.01" y1="16" y2="16"></line></svg>critique</span></span>
+        </li>
+        <li style="display:flex;gap:12px">
+          <span style="flex:none;width:40px;padding-top:2px;font:400 12px/16px 'JetBrains Mono',ui-monospace,monospace;color:#828CAF">03:08</span>
+          <span style="flex:none;display:flex;flex-direction:column;align-items:center;width:12px"><span style="width:10px;height:10px;margin-top:5px;border-radius:50%;background:#9CA3AF"></span><span style="flex:1;width:2px;margin:4px 0;background:#222740"></span></span>
+          <span style="flex:1;min-width:0;padding-bottom:14px;font:400 14px/20px Inter,system-ui,sans-serif;color:#F0F4FC">Dernier push reçu de SRV-AD2</span>
+        </li>
+        <li style="display:flex;gap:12px">
+          <span style="flex:none;width:40px;padding-top:2px;font:400 12px/16px 'JetBrains Mono',ui-monospace,monospace;color:#828CAF">03:07</span>
+          <span style="flex:none;display:flex;flex-direction:column;align-items:center;width:12px"><span style="width:10px;height:10px;margin-top:5px;border-radius:50%;background:#9CA3AF"></span><span style="flex:1;width:2px;margin:4px 0;background:#222740"></span></span>
+          <span style="flex:1;min-width:0;padding-bottom:14px;font:400 14px/20px Inter,system-ui,sans-serif;color:#F0F4FC">Premiers serveurs de Siège › Serveurs sans réponse (5 entre 03:07 et 03:09)</span>
+        </li>
+        <li style="display:flex;gap:12px">
+          <span style="flex:none;width:40px;padding-top:2px;font:400 12px/16px 'JetBrains Mono',ui-monospace,monospace;color:#828CAF">02:00</span>
+          <span style="flex:none;display:flex;flex-direction:column;align-items:center;width:12px"><span style="width:10px;height:10px;margin-top:5px;border-radius:50%;background:#FB923C"></span></span>
+          <span style="flex:1;min-width:0;font:400 14px/20px Inter,system-ui,sans-serif;color:#F0F4FC">«&nbsp;Vérif sauvegarde&nbsp;» en échec (code&nbsp;1)</span>
+        </li>
+      </ol>
+    </section>
+  </div>
+</main>
+<nav aria-label="Actions sur SRV-AD2" style="flex:none;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:center;gap:4px;height:64px;padding:0 8px;box-sizing:border-box;background:#0F1220;border-top:1px solid #2A3048">
+  <div style="display:flex;flex-direction:column;min-width:0">
+    <sc-if value="{{watching}}" hint-placeholder-val="{{ true }}"><button type="button" aria-pressed="true" aria-label="Surveillance active — arrêter de surveiller SRV-AD2" onClick="{{ toggleWatch }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:100%;height:52px;padding:0;border:0;border-radius:12px;background:#222740;color:#60A5FA;cursor:pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="1"></circle></svg><span style="font:600 12px/16px Inter,system-ui,sans-serif;white-space:nowrap;color:#F0F4FC">Surveillé</span></button></sc-if>
+    <sc-if value="{{notWatching}}" hint-placeholder-val="{{ false }}"><button type="button" aria-pressed="false" aria-label="Surveiller SRV-AD2" onClick="{{ toggleWatch }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:100%;height:52px;padding:0;border:0;border-radius:12px;background:transparent;color:#B4BCD7;cursor:pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="1"></circle></svg><span style="font:500 12px/16px Inter,system-ui,sans-serif;white-space:nowrap">Surveiller</span></button></sc-if>
+  </div>
+  <button type="button" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:100%;height:52px;padding:0;border:0;border-radius:12px;background:transparent;color:#B4BCD7;cursor:pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M12 7v5l4 2"></path></svg><span style="font:500 12px/16px Inter,system-ui,sans-serif;white-space:nowrap">Historique</span></button>
+  <button type="button" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:100%;height:52px;padding:0;border:0;border-radius:12px;background:transparent;color:#B4BCD7;cursor:pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="m3 17 2 2 4-4"></path><path d="m3 7 2 2 4-4"></path><path d="M13 6h8"></path><path d="M13 12h8"></path><path d="M13 18h8"></path></svg><span style="font:500 12px/16px Inter,system-ui,sans-serif;white-space:nowrap">Tâches</span></button>
+  <a href="ActionSheet.dc.html" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;height:52px;border-radius:12px;background:rgba(255,104,104,.12);color:#FF6868"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg><span style="font:600 12px/16px Inter,system-ui,sans-serif;white-space:nowrap">Agir</span></a>
+</nav>
+<sc-if value="{{showSnack}}" hint-placeholder-val="{{ false }}"><div style="position:absolute;left:16px;right:16px;bottom:80px">
+  <div role="status" style="display:flex;align-items:center;gap:12px;min-height:48px;padding:4px 4px 4px 14px;box-sizing:border-box;border-radius:8px;background:#222740;box-shadow:0 -8px 32px -8px rgba(0,0,0,.55),0 8px 24px -8px rgba(0,0,0,.5)">
+    <span style="flex:none;color:#60A5FA"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="1"></circle></svg></span>
+    <span style="flex:1;min-width:0;font:400 14px/20px Inter,system-ui,sans-serif;color:#F0F4FC">{{snackText}}</span>
+    <button type="button" onClick="{{ undoWatch }}" style="flex:none;height:44px;padding:0 12px;border:0;border-radius:6px;background:transparent;color:#FF6868;font:600 14px/20px Inter,system-ui,sans-serif;cursor:pointer">Annuler</button>
+  </div>
+</div></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state || {};
+    const watching = s.watching === undefined ? true : !!s.watching;
+    return {
+      watching: watching,
+      notWatching: !watching,
+      showSnack: !!s.snack,
+      snackText: watching ? "Surveillance activée : vous serez averti au retour de SRV-AD2" : "Surveillance de SRV-AD2 arrêtée",
+      toggleWatch: () => this.setState({ watching: !watching, snack: true }),
+      undoWatch: () => this.setState({ watching: !watching, snack: false })
+    };
+  }
+}
+</script>
+</body>
+</html>

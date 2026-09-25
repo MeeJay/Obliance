@@ -1,0 +1,388 @@
+{
+ "area": "automations",
+ "filesReviewed": [
+  "D:\\Obliance\\client\\src\\pages\\SchedulesPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\ScriptSchedulesPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\ScenariosPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\ScriptLibraryPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\ScriptRunPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\ScriptHistoryPage.tsx",
+  "D:\\Obliance\\client\\src\\components\\scenarios\\ScenarioGraphEditor.tsx",
+  "D:\\Obliance\\client\\src\\components\\scenarios\\scenarioNodeRegistry.ts",
+  "D:\\Obliance\\client\\src\\components\\automation\\NotificationChannelBindings.tsx",
+  "D:\\Obliance\\client\\src\\components\\common\\ToggleSwitch.tsx (context)",
+  "D:\\Obliance\\client\\src\\components\\common\\DeviceMultiSelect.tsx (context)",
+  "D:\\Obliance\\client\\src\\components\\layout\\AppLayout.tsx (context: main is overflow-y-auto, header is 52px)",
+  "D:\\Obliance\\client\\src\\hooks\\useNativeTopOffset.ts (context)",
+  "D:\\Obliance\\server\\src\\routes\\schedule.routes.ts:371-415 (context: CSV export is Content-Disposition attachment)"
+ ],
+ "globalFindings": [
+  {
+   "problem": "How the @xyflow/react v12 editor responds to touch (ScenarioGraphEditor). WORKS: one-finger pan on an empty pane (panOnDrag), pinch zoom (zoomOnPinch), double-tap zoom, dragging a node (XYDrag/d3-drag), tapping a node or edge (click -> onNodeClick/onEdgeClick; edge interactionWidth is 20px), dragging from a handle to connect (XYHandle handles touchstart/move/end and snaps within connectionRadius=20), and tap-source-handle-then-tap-target-handle, because connectOnClick defaults to true. Adding a node from the palette already works on touch: it is click-to-add at the viewport centre (PaletteItem/addNode, 194-207 and 946-970), with no HTML5 drag and drop. The MiniMap was deliberately removed (1150-1155). NEEDS AN ALTERNATIVE: (a) Everything in onNodeContextMenu/onPaneContextMenu (1116-1135). Android Chromium only fires contextmenu on a long-press nobody knows about, and iOS never fires it. (b) The Ctrl+D/C/V and Delete/Backspace shortcuts (782-872), with deleteKeyCode={null}. (c) Box and multi-select (Shift/Meta), which is not needed today. (d) The 12px handles (148-151), which are too small for a finger. The tip text (1532) only mentions dragging and never says tap-to-connect exists. (e) nodeDragThreshold (default 1px) and nodeClickDistance/paneClickDistance (default 0): finger jitter turns a tap into a drag or pan, so onNodeClick and onPaneClick often do not fire.",
+   "fix": "In ScenarioGraphEditor, add `const coarse = matchMedia('(pointer: coarse)').matches` and, when it is true, pass nodeDragThreshold={6} nodeClickDistance={6} paneClickDistance={6} connectionRadius={40}. Add CSS `@media (pointer:coarse){.react-flow__handle{width:24px!important;height:24px!important}.react-flow__handle::after{content:'';position:absolute;inset:-12px}}`. Keep connectOnClick and say so in the tip (\"tap the right dot, then the left dot of the target\"). Add a per-node action bar at the top of NodeConfigForm (Run from here, Run only this node, Duplicate, Copy, Delete, Show output), a toolbar 'Paste' button when clipboardNode is set, and a 'Connect to... [select node]' control plus a list of outgoing edges (edit condition / delete) in NodeConfigForm, so graphs can be wired without gestures. Drive selection from onSelectionChange, not onNodeClick.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\scenarios\\ScenarioGraphEditor.tsx"
+   ]
+  },
+  {
+   "problem": "There is no shared Modal. Every dialog in this area is hand-rolled `fixed inset-0` with a different sizing strategy: fixed width (RunPickerModal w-[480px]), no side padding (template modal), w-1/2 split bodies (ScenarioHistoryModal), 16-24px close buttons, and max-h in vh. None uses dvh or safe-area insets, none pushes a history entry (so the Android back gesture leaves the page), and none has a sticky footer.",
+   "fix": "Create components/common/Modal.tsx. It should render a full-screen sheet below sm and a centred dialog at sm and up, with max-h-[calc(100dvh-2rem)], padding for env(safe-area-inset-*), a 44px close button, a scrollable body, a sticky footer, and a history.pushState on open with popstate closing it. Migrate ScenariosPage (template, trigger, history, import-conflict), ScriptHistoryPage (fullscreen output) and ScenarioGraphEditor (RunPickerModal, InlineScriptEditor). Also add `interactive-widget=resizes-content` to the viewport meta in client/index.html so the soft keyboard shrinks dvh instead of covering footers.",
+   "files": [
+    "D:\\Obliance\\client\\src\\pages\\ScenariosPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\ScriptHistoryPage.tsx",
+    "D:\\Obliance\\client\\src\\components\\scenarios\\ScenarioGraphEditor.tsx"
+   ]
+  },
+  {
+   "problem": "Master/detail split panes use fixed widths with no breakpoint: ScriptLibraryPage has a w-72 list plus a flex-1 detail/form, the graph editor has a w-72 sidebar, and ScenarioHistoryModal and ScriptHistoryPage use w-1/2 + w-1/2. On a phone the detail side is 24-160px wide. On a tablet in portrait the list and the canvas are cramped.",
+   "fix": "Create components/common/MasterDetail.tsx (or a useIsCompact() hook built on matchMedia('(max-width: 1023px)')). At lg and up, show the panes side by side. Below lg, show only the list; selecting an item swaps to the detail pane, which gets a Back button and a history entry. For the graph editor, the w-72 sidebar becomes a bottom sheet or slide-over drawer below lg (see the per-issue entry).",
+   "files": [
+    "D:\\Obliance\\client\\src\\pages\\ScriptLibraryPage.tsx",
+    "D:\\Obliance\\client\\src\\components\\scenarios\\ScenarioGraphEditor.tsx",
+    "D:\\Obliance\\client\\src\\pages\\ScenariosPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\ScriptHistoryPage.tsx"
+   ]
+  },
+  {
+   "problem": "Row actions are rows of icon-only buttons whose only label is title= (hover tooltip), with 20-28px targets 8px apart. Scenario rows have up to 8 (Play, Stop, Toggle, History, GitBranch, Edit, Export, Delete) and schedule rows have 3. On touch, nobody can tell 'Edit graph' (GitBranch) from 'Edit metadata' (Edit). The reason a button is disabled (\"Géré par le tenant Default — lecture seule\") is also only in title=.",
+   "fix": "Create components/common/RowActions.tsx taking [{icon, label, onClick, danger, disabled, disabledReason}]. At md and up with a fine pointer, render inline icons (min 36px) with tooltips. Below md or on a coarse pointer, render one 40px '⋯' button that opens a bottom action sheet with icon + text label + disabledReason shown inline. Use it in ScenariosPage 1324-1411 and ScriptSchedulesPage 858-881.",
+   "files": [
+    "D:\\Obliance\\client\\src\\pages\\ScenariosPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\ScriptSchedulesPage.tsx"
+   ]
+  },
+  {
+   "problem": "Explanations that only exist in title= are invisible on touch: the ToggleSwitch title hints in the schedule form (including 'Bypass privacy mode'), the graph node ⚠ warning, the per-device vs summary notification mode hints, the palette hint (truncated, with the full text in title) and the read-only reason.",
+   "fix": "ToggleSwitch already supports a `description` prop that renders inline text, so use it instead of `title` for these hints. For the rest, add components/common/InfoTip.tsx: an (i) button that opens a popover on tap or click and shows a tooltip on hover.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\common\\ToggleSwitch.tsx",
+    "D:\\Obliance\\client\\src\\pages\\ScriptSchedulesPage.tsx",
+    "D:\\Obliance\\client\\src\\components\\scenarios\\ScenarioGraphEditor.tsx",
+    "D:\\Obliance\\client\\src\\components\\automation\\NotificationChannelBindings.tsx"
+   ]
+  },
+  {
+   "problem": "The group tree multi-select is copy-pasted three times (RunGroupTree, and GroupTreeMultiSelect twice). Each copy has a 16px expand chevron (p-0.5 + w-3 icon) and a 16px checkbox button, so expanding and collapsing groups is very hard by finger.",
+   "fix": "Extract a single components/common/GroupTreeMultiSelect.tsx and make the whole row the toggle target, with min-h 40px on coarse pointers. Give the chevron a 32-40px square hit area (p-2 plus a -m-2 visual offset), and make the checkbox a visual indicator inside the row button.",
+   "files": [
+    "D:\\Obliance\\client\\src\\pages\\ScriptRunPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\ScriptSchedulesPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\ScenariosPage.tsx"
+   ]
+  },
+  {
+   "problem": "File I/O breaks inside an Android WebView. JSON export and template download use a blob: URL, a.download and a synchronous URL.revokeObjectURL (ScenariosPage 9-17); DownloadManager cannot fetch blob: URLs, and the URL is revoked before a JS bridge could read it. The CSV export is a plain <a href=/api/...> that relies on a DownloadListener forwarding the session cookie (ScriptSchedulesPage 183-190). Import is a hidden <input type=file>.click() (ScenariosPage 216, 1606-1612), which needs WebChromeClient.onShowFileChooser.",
+   "fix": "Add utils/download.ts with saveFile(filename, data: Blob | string, mime). If a native bridge is present (e.g. window.OblianceNative?.saveFile(name, base64, mime)), send it the base64. Otherwise use the anchor, and revoke after setTimeout(…, 30000). Route the CSV export through fetch() -> blob -> saveFile instead of navigating. The Android shell must also implement a DownloadListener (with CookieManager cookies) and onShowFileChooser. Record these requirements in the Android base project so the other Obli apps inherit them.",
+   "files": [
+    "D:\\Obliance\\client\\src\\pages\\ScenariosPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\ScriptSchedulesPage.tsx"
+   ]
+  },
+  {
+   "problem": "Destructive confirmations use window.confirm() in four places. In an Android WebView these silently return false unless the host installs a WebChromeClient; when one is installed they show an unstyled native dialog. The prompt strings are also hard-coded English.",
+   "fix": "Add a shared useConfirm() hook with a ConfirmDialog built on the new Modal (i18n-ready, danger styling) and replace ScriptSchedulesPage.tsx:417, ScriptLibraryPage.tsx:198 and ScenariosPage.tsx:485 and 1343.",
+   "files": [
+    "D:\\Obliance\\client\\src\\pages\\ScriptSchedulesPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\ScriptLibraryPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\ScenariosPage.tsx"
+   ]
+  },
+  {
+   "problem": "Outside-click dismissal is written three times as document 'mousedown' listeners (CategoryCombobox, ScriptPicker, ContextMenu). This works on Android only through compatibility mouse events, and the NodeOutputPanel resize handle uses mousedown/mousemove only. The client has no pointer-type adaptation at all: no (pointer: coarse) or (hover: none) query anywhere, and Tailwind hover styles stay stuck after a tap.",
+   "fix": "Add hooks/useClickOutside.ts that listens to 'pointerdown', and use Pointer Events (onPointerDown + setPointerCapture) for resize handles. In tailwind.config.ts set `future: { hoverOnlyWhenSupported: true }`. Add a global `@media (pointer: coarse)` block in index.css for minimum control heights (40px) and the xyflow handle sizes.",
+   "files": [
+    "D:\\Obliance\\client\\src\\pages\\ScriptLibraryPage.tsx",
+    "D:\\Obliance\\client\\src\\components\\scenarios\\ScenarioGraphEditor.tsx"
+   ]
+  },
+  {
+   "problem": "Code and identifier fields are plain <textarea>/<input> with Android keyboard autocapitalize, autocorrect and spellcheck left on, and often font-size below 16px (iOS zoom). This covers script content, the inline script editor, cron expressions, variable keys and values, template variables and label fields.",
+   "fix": "Add components/common/CodeField.tsx (input and textarea variants) that sets autoCapitalize='off' autoCorrect='off' spellCheck={false} autoComplete='off', uses font-mono, sets text-base on coarse pointers, and sets enterKeyHint appropriately. Use it for ScriptLibraryPage 629-635, ScenarioGraphEditor 2956 and 1625-1629, ScriptSchedulesPage 586-591 and ScenariosPage 1074-1085.",
+   "files": [
+    "D:\\Obliance\\client\\src\\pages\\ScriptLibraryPage.tsx",
+    "D:\\Obliance\\client\\src\\components\\scenarios\\ScenarioGraphEditor.tsx",
+    "D:\\Obliance\\client\\src\\pages\\ScriptSchedulesPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\ScenariosPage.tsx"
+   ]
+  },
+  {
+   "problem": "The inline create/edit forms (schedule, scenario metadata, script) open at the top of a long list, and their Save/Cancel buttons exist only in the form header. On a phone, tapping Edit on the 10th row seems to do nothing because the form is off-screen, and after filling the bottom of the form (notification channels) Save is off-screen too.",
+   "fix": "Create components/common/InlineFormPanel.tsx that calls scrollIntoView({block:'start'}) when it opens and renders a sticky bottom action bar (Cancel/Save, 44px, safe-area padding) below md. Alternatively, render these forms in the new Modal as a full-screen sheet on phones.",
+   "files": [
+    "D:\\Obliance\\client\\src\\pages\\ScriptSchedulesPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\ScenariosPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\ScriptLibraryPage.tsx"
+   ]
+  },
+  {
+   "problem": "The navigation state in this area lives only in React state: the Automations tabs are read from ?tab once and never written back, and the graph editor, run history and trigger modals are all state. The Android back gesture therefore leaves /schedules entirely and discards an unsaved graph without a prompt. The editor's X button (ScenarioGraphEditor 1243-1246) has no dirty guard either.",
+   "fix": "Sync the tab to the URL (setSearchParams). Give the graph editor its own route (e.g. /schedules/scenarios/:id/graph) or push a history entry when it opens. Add a dirty guard (a useBlocker-style confirm plus beforeunload) to the editor's close path.",
+   "files": [
+    "D:\\Obliance\\client\\src\\pages\\SchedulesPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\ScenariosPage.tsx",
+    "D:\\Obliance\\client\\src\\components\\scenarios\\ScenarioGraphEditor.tsx"
+   ]
+  }
+ ],
+ "issues": [
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\scenarios\\ScenarioGraphEditor.tsx",
+   "loc": "1116-1135, 1294-1418, 782-872",
+   "severity": "blocker",
+   "problem": "Several node and pane actions have no button anywhere: 'Run from this node', 'Run only this node', 'Cancel runs on this node', 'Duplicate', 'Copy', 'Paste node here' and 'Add node at this position'. They are only reachable through onNodeContextMenu/onPaneContextMenu (right-click) or Ctrl+D/C/V. On an Android WebView a long-press may happen to dispatch contextmenu, but nothing hints at it, it competes with node drag, and it never works on iOS. The test-run-from-node workflow is effectively unreachable on a tablet.",
+   "fix": "Put these actions in visible UI. Add an action row at the top of NodeConfigForm (1503-1510) with 40px buttons: Run from here, Run only this node, Duplicate, Copy, Show output, Delete. Show a 'Paste' toolbar button when clipboardNode != null. Keep the context menus as a desktop shortcut only."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\scenarios\\ScenarioGraphEditor.tsx",
+   "loc": "1169-1249 (Delete button 1172-1176), 1501",
+   "severity": "blocker",
+   "problem": "The top-right Panel toolbar is one non-wrapping row: Delete, run counter, History, 'Run on device(s)', status, 'Save graph', X. That is roughly 480px with nothing selected and roughly 590px with a selection. It sits inside a canvas that is viewport minus the 288px sidebar (w-72): 480px on a 768px portrait tablet, 512px on an 800px one. `.react-flow` has overflow:hidden, so the leftmost buttons are clipped, and the Delete button that appears on selection is the first one lost. It also overlaps the top-left 'saved · N nodes' Panel. With deleteKeyCode={null}, and Delete otherwise reachable only by keyboard or right-click, nodes and edges cannot be deleted by touch.",
+   "fix": "Let the toolbar wrap (flex-wrap justify-end, max-w-full), or below lg collapse it to icon-only 40px buttons plus a '⋯' overflow menu. Move node/edge deletion into the NodeConfigForm/edge panel as a red 'Delete node' / 'Delete edge' button so it never depends on toolbar width."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\ScenariosPage.tsx",
+   "loc": "9-17 (downloadJson), 264-272, 681-688 & 727-734",
+   "severity": "blocker",
+   "problem": "Scenario export (lean and with scripts) and the 'Empty template' download build a blob: URL, click a detached <a download> and call URL.revokeObjectURL synchronously. An Android WebView cannot hand blob: URLs to DownloadManager, and the synchronous revoke kills even a JS-bridge workaround, so export and template download do nothing inside the app.",
+   "fix": "Replace downloadJson with the shared utils/download.ts saveFile() (native bridge first, then the anchor), and revoke the URL after a delay. Also offer 'Copy JSON to clipboard' (navigator.clipboard.writeText) as a no-file fallback, which also suits the LLM-brief use case."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\ScenariosPage.tsx",
+   "loc": "32-43 (ExportMenu popover), 1280",
+   "severity": "major",
+   "problem": "The ExportMenu dropdown is `absolute top-full` inside the scenario card, which is `overflow-hidden` (line 1280). While the card is collapsed, only a few pixels of the popover show under the row, so 'Export (lean)' and 'Export with scripts' are only reachable after expanding the card. This affects every device, and it is worse on touch because the row is already cramped.",
+   "fix": "Portal the popover to document.body with fixed positioning computed from the button rect, or remove overflow-hidden from the card and round the children instead. On coarse pointers, show the two options in the RowActions action sheet."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\scenarios\\ScenarioGraphEditor.tsx",
+   "loc": "1087-1093, 1501-1536",
+   "severity": "major",
+   "problem": "The editor layout is a flex-1 canvas next to a fixed w-72 shrink-0 sidebar that cannot collapse. On a 360-430px phone the canvas is 72-142px wide, and in phone landscape the output panel (38% of the height) leaves about 150px of canvas height. The editor cannot be used on a phone, and on a portrait tablet the sidebar permanently takes 37% of the width.",
+   "fix": "Below lg, render the sidebar as a slide-over drawer (right) or bottom sheet (max-h 60dvh). It opens automatically when a node or edge is selected, and a toolbar 'Add node' button opens it in palette mode. Collapse it by default on phones so the canvas is full width. At lg and up, keep the current layout but add a collapse chevron."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\scenarios\\ScenarioGraphEditor.tsx",
+   "loc": "1110-1111, 1172, 1503",
+   "severity": "major",
+   "problem": "selectedNode is only set in onNodeClick. Dragging a node selects it inside React Flow (selectNodesOnDrag, ring painted by CustomNode) but does not fire onNodeClick, and on touch a tap with a few px of jitter becomes a drag (nodeDragThreshold=1). The sidebar keeps editing the previously tapped node, and the toolbar Delete button deletes that stale node, not the one with the selection ring. This can delete the wrong node.",
+   "fix": "Drive selectedNode and selectedEdge from onSelectionChange({nodes, edges}), or derive them from nodes.find(n => n.selected). On coarse pointers, also raise nodeDragThreshold and nodeClickDistance to about 6px."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\scenarios\\ScenarioGraphEditor.tsx",
+   "loc": "1586-1720 (<label> wrapper around every field), 1691-1716",
+   "severity": "major",
+   "problem": "Each config field is wrapped in a <label> that also contains composite widgets. A tap on non-interactive text inside a label is forwarded to the label's first labelable descendant. For 'channels' fields, tapping any channel name or the header toggles the FIRST channel's Bind button. For 'targetDevices' fields, tapping a chip's text, the 'Showing first 100' line or list padding clicks the 'Trigger target' button, which resets targetMode and wipes the selected device list. For 'script' fields, tapping the inspector preview toggles the picker. Finger taps land on text constantly, so settings get silently corrupted.",
+   "fix": "Use <div> + <span id> + aria-labelledby for the channels, targetDevices and script kinds (or for all kinds), and keep <label> only for plain input, select and textarea."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\scenarios\\ScenarioGraphEditor.tsx",
+   "loc": "148-151, 163, 185, 1530-1533",
+   "severity": "major",
+   "problem": "Connection handles are 12×12px. Dragging from them works on touch in xyflow v12, and so does tap-source-then-tap-target (connectOnClick default), but a 12px target is very hard to hit with a finger. The only help text says 'drag from a node's right port…'.",
+   "fix": "Under (pointer: coarse), render 24px handles with an ::after hit area of inset -12px, and set connectionRadius={40}. Change the tip to mention tap-to-connect. Add a non-gesture 'Connect to → [select node]' control plus an outgoing-edges list in NodeConfigForm."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\scenarios\\ScenarioGraphEditor.tsx",
+   "loc": "169-173",
+   "severity": "major",
+   "problem": "Node validation warnings ('Unreachable: no incoming edge', 'No script selected', …) only exist in title= on a 12px ⚠ icon. Touch users see the icon but can never read the reason. The comment at 874-877 says the sidebar lists them, but it does not.",
+   "fix": "Show the node's warning as an amber banner at the top of NodeConfigForm, and add a tappable 'N warnings' chip in the top-left Panel that lists them and focuses the node (rf.fitView({nodes:[n]}) + select)."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\scenarios\\ScenarioGraphEditor.tsx",
+   "loc": "322, 1485-1497, 2367-2388, 2526-2535",
+   "severity": "major",
+   "problem": "The output panel is open by default (showOutputPanel=true), anchored `absolute left-3 right-[300px] bottom-3 z-20` with a height of 0.38 × the innerHeight at mount. It covers the xyflow <Controls/> (bottom-left), which hold zoom and fit view; on touch, fit view is otherwise only in the right-click pane menu. On a phone it is 48px wide (360-12-300). Resizing is onMouseDown/mousemove only, so it does not work by touch. The height is not recomputed when the soft keyboard shrinks the viewport, so focusing 'Filter agents…' can bury the canvas.",
+   "fix": "Start the panel closed or minimised when there is no run history. Move <Controls position='top-left'> or offset them above the panel. Base the panel width on the sidebar or drawer state instead of right-[300px], and make it full width with a bottom-sheet layout below lg. Use Pointer Events with setPointerCapture for the resize handle, and give the grip a 24px touch height. Clamp the height to a percentage of the visual viewport on resize."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\scenarios\\ScenarioGraphEditor.tsx",
+   "loc": "1421-1422",
+   "severity": "major",
+   "problem": "The recent-runs drawer is `absolute top-3 right-[300px] w-[340px]`. On a phone its left edge is at 360-300-340 = -280px, so most of it, including the per-run cancel buttons, is off-screen. On a tablet it also covers the toolbar.",
+   "fix": "Below sm, render it as a full-width sheet (left-2 right-2, max-h 70dvh). Otherwise position it with `right: sidebarWidth + 12px`, capped at max-w-[calc(100vw-1rem)]."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\scenarios\\ScenarioGraphEditor.tsx",
+   "loc": "2149-2160, 2252-2265",
+   "severity": "major",
+   "problem": "RunPickerModal has a fixed w-[480px]. On a 360-414px phone it overflows 33-60px on each side, so the header close X and the right side of the 'Run on N devices' button fall off-screen. The close X also has no padding (16px target).",
+   "fix": "Use `w-full max-w-[480px] mx-2` (or the shared Modal), make the footer buttons full width on phones, and give the close button a p-2.5 hit area."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\scenarios\\ScenarioGraphEditor.tsx",
+   "loc": "2273-2300, 1390-1416",
+   "severity": "major",
+   "problem": "ContextMenu has no max-height or scroll (it is overflow-hidden). The pane menu lists all 23 node types plus 4 category labels, Paste and Fit view, about 820px tall, and the clamp assumes 360px (top = innerHeight-360). On a tablet the last items ('Paste node here', 'Fit view', terminators) are cut off. Items are about 28px tall.",
+   "fix": "Add max-h-[calc(100dvh-16px)] overflow-y-auto and clamp using the measured menu height. On coarse pointers, render the menus as a bottom action sheet with 44px rows (and make them reachable from buttons; see the blocker above)."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\scenarios\\ScenarioGraphEditor.tsx",
+   "loc": "1864-1890 (chip remove), 1897-1926 (device rows), 1829-1854",
+   "severity": "major",
+   "problem": "TargetDevicePicker: the chip remove X is 10px (w-2.5 h-2.5) with no padding. Device rows are py-1 text-[11px] (about 22px tall) with a 12px pseudo-checkbox, and the mode toggle buttons are about 24px tall. Picking or removing specific devices by finger is error-prone.",
+   "fix": "On coarse pointers, make rows min-h 40px with text-sm, give the chip X a p-1.5 hit area, and make the mode toggle min-h 36px. Better: reuse the shared DeviceMultiSelect."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\scenarios\\ScenarioGraphEditor.tsx",
+   "loc": "1519-1535",
+   "severity": "minor",
+   "problem": "The palette ('Add node') only renders when nothing is selected. To add a node after tapping one, the user must tap empty pane (which may pan instead because paneClickDistance=0). Palette hints are truncated and the full text is only in title= (202, 205).",
+   "fix": "Add an 'Add node' button to the toolbar that opens the palette drawer regardless of selection, and let hints wrap (line-clamp-2) instead of relying on title."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\scenarios\\ScenarioGraphEditor.tsx",
+   "loc": "1149, 1161-1168",
+   "severity": "minor",
+   "problem": "The default <Controls/> buttons are about 26px, and they include the 'interactive' lock toggle, which is easy to hit by accident and then silently disables drag and connect. The top-left status Panel and the top-right toolbar overlap on canvases under about 600px.",
+   "fix": "Use <Controls showInteractive={false}/> and scale the buttons up under pointer:coarse (CSS var --xy-controls-button-...). Hide the node/edge counters below sm."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\scenarios\\ScenarioGraphEditor.tsx",
+   "loc": "2562-2567, 1857-1863, 2018-2020, 2956-2957",
+   "severity": "minor",
+   "problem": "Inputs use text-[11px]/text-xs (the 'Filter agents' input is also a fixed w-[150px]), which triggers iOS focus zoom and is small on Android. The inline script content textarea has resize-none and text-xs, with autocorrect and autocapitalize on.",
+   "fix": "Use text-base on coarse pointers and flex-1 min-w-0 instead of w-[150px], and use the shared CodeField for the script content."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\ScenariosPage.tsx",
+   "loc": "1584-1602",
+   "severity": "major",
+   "problem": "The graph editor is a portal with a hardcoded `top: 52`. It ignores useNativeTopOffset(), DesktopUpdateBanner and any Android shell inset (Android 15 edge-to-edge, status bar). It is not a route and pushes no history, so the Android back gesture exits Automations and drops unsaved graph edits without warning.",
+   "fix": "Compute top from the header's bounding rect, a CSS var set by AppLayout, or 52 + useNativeTopOffset(), plus env(safe-area-inset-top). Route it (e.g. /schedules/scenarios/:id/graph) or pushState on open, with a dirty-guard confirm."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\ScenariosPage.tsx",
+   "loc": "1281-1411",
+   "severity": "major",
+   "problem": "The scenario row is `flex items-center gap-4` with a shrink-0 cluster of up to 8 icon buttons (about 236-284px). On a phone the content width is about 280px (p-6 + px-4), so the name column collapses to 0px (the name overlaps the icons) and the card's overflow-hidden clips Delete and Export when the Stop badge is present. All actions are icons labelled only by title= (Play, Stop, Toggle, History, GitBranch, Edit, Export, Delete), and the Toggle button has no padding (20px target).",
+   "fix": "Below md, stack the row: name and badges on the first line, and a '⋯' RowActions sheet (or a wrap row of labelled buttons) on the second. Keep inline icons at md and up, each at least 36px. Show the read-only reason inline instead of in title."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\ScenariosPage.tsx",
+   "loc": "1752-1823",
+   "severity": "major",
+   "problem": "ScenarioHistoryModal splits its body into two w-1/2 columns (run list | step output) with no breakpoint. On a phone each column is about 160px, and 11px monospace stdout wraps into an unreadable strip. The close button is p-1 + 16px icon (24px).",
+   "fix": "Below md, show the run list; tapping a run swaps to the detail view with a Back button (the MasterDetail pattern). Use the shared Modal with a 44px close button."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\ScenariosPage.tsx",
+   "loc": "370-412, 844-863",
+   "severity": "major",
+   "problem": "'Edit metadata' fetches the scenario and shows the form panel at the top of the list, but nothing scrolls to it. On a phone, tapping Edit on a lower row looks like a no-op. Save and Cancel exist only in the form header.",
+   "fix": "Call scrollIntoView on the form when it opens and add a sticky bottom action bar below md (shared InlineFormPanel), or open the form as a full-screen sheet on phones."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\ScenariosPage.tsx",
+   "loc": "216, 1606-1612",
+   "severity": "major",
+   "problem": "'Import JSON' programmatically clicks a hidden <input type=file>. Inside an Android WebView nothing happens unless the host implements WebChromeClient.onShowFileChooser, so JSON import is unreachable in the app.",
+   "fix": "Make onShowFileChooser a hard requirement of the Android shell. Also add a 'Paste JSON' textarea option in the import flow, which works without the file system and suits LLM-generated scenarios."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\ScenariosPage.tsx",
+   "loc": "746-751, 1618-1680",
+   "severity": "minor",
+   "problem": "The template modal container has no padding (the w-full dialog touches the screen edges on a phone), and its close button is p-1. The import-conflict modal's footer buttons are text-xs py-1.5 (about 28px). All modals use max-h-[80vh], which ignores the soft keyboard.",
+   "fix": "Migrate to the shared Modal (p-4 outer, dvh, 44px buttons)."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\ScenariosPage.tsx",
+   "loc": "1104-1119, 1073-1092, 2046-2063",
+   "severity": "minor",
+   "problem": "The Structure row keeps the paragraph and the 'Open graph editor' button side by side with no wrap (the text is squeezed on a phone). The variable-row remove X is p-1.5 + 14px (about 26px). The group tree chevron and checkbox are 16px.",
+   "fix": "Use flex-col sm:flex-row for the Structure row, give the remove button 40px on coarse pointers, and use the shared GroupTreeMultiSelect."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\ScriptLibraryPage.tsx",
+   "loc": "289-291, 457-747",
+   "severity": "major",
+   "problem": "The library is a two-pane layout with a fixed `w-72 shrink-0` list and a flex-1 detail/form pane. With the page padding, the right pane is about 24px wide on a phone, so the script viewer and the create/edit form are unusable, and selecting a script shows nothing visible. On a 768px portrait tablet with the app sidebar open, the right pane is about 200-250px.",
+   "fix": "Use the MasterDetail pattern: below lg, show either the list or the detail/form, with a Back button. Use w-72 only at lg and up (lg:w-72 w-full). Make 'New script' and 'Edit' push to the detail view."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\ScriptLibraryPage.tsx",
+   "loc": "629-635",
+   "severity": "major",
+   "problem": "The script content <textarea> (font-mono) leaves Android keyboard autocapitalize, autocorrect and suggestions on. Gboard capitalises the first letter of lines and 'corrects' tokens (cmdlets, flags, paths), which silently corrupts PowerShell and bash on a tablet. The resize-y handle is also tiny on touch.",
+   "fix": "Use the shared CodeField (autoCapitalize='off' autoCorrect='off' spellCheck={false} autoComplete='off'). Size it with rows or min-h in dvh rather than relying on resize-y."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\ScriptLibraryPage.tsx",
+   "loc": "295-305, 661-696, 773-780",
+   "severity": "minor",
+   "problem": "Refresh (p-1.5 + 14px, about 26px) and the icon-only '+' (about 28px, no title or label) are small targets. The Edit/Clone/Delete header does not wrap next to long names. CategoryCombobox closes on a document 'mousedown'.",
+   "fix": "Use 40px icon buttons with an aria-label/visible label on coarse pointers, flex-wrap the header actions, and use the shared useClickOutside (pointerdown)."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\ScriptSchedulesPage.tsx",
+   "loc": "677-731",
+   "severity": "major",
+   "problem": "The meaning of every schedule toggle (Enabled, Skip if still running, Enable catchup, Assert pass, Notify once, and the security-sensitive 'Bypass privacy mode') is only in ToggleSwitch title=, which never shows on touch. The old inline text was removed on purpose (comment 669-676).",
+   "fix": "Pass the hint through ToggleSwitch's existing `description` prop, shown under the label, or use a tap InfoTip. On phones, lay the toggles out as a vertical list (flex-col sm:flex-row sm:flex-wrap)."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\ScriptSchedulesPage.tsx",
+   "loc": "331-356, 477-496",
+   "severity": "major",
+   "problem": "Same inline-form problem as the scenarios page: 'Edit' opens the form at the top of the page with no scroll, and Save/Cancel exist only in the header of a long form (grid, toggles, notification channels).",
+   "fix": "Use the shared InlineFormPanel (scrollIntoView plus a sticky action bar below md) or a full-screen sheet on phones."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\ScriptSchedulesPage.tsx",
+   "loc": "183-190",
+   "severity": "major",
+   "problem": "'Export CSV' is a plain <a href='/api/schedules/:id/history/:batch/export'> (Content-Disposition: attachment). In an Android WebView, nothing happens unless the host registers a DownloadListener that forwards the session cookie to DownloadManager. The link is also a small (about 24px) text-[11px] target.",
+   "fix": "Fetch the CSV with axios (credentials), pass the blob to saveFile(), and make the button min-h 40px on coarse pointers."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\ScriptSchedulesPage.tsx",
+   "loc": "733-744, 652-667",
+   "severity": "minor",
+   "problem": "Two rows use whitespace-nowrap labels next to unconstrained controls with no wrap. 'On failure, trigger scenario:' plus a select sized to the longest scenario name overflows horizontally on a phone. The 'Timeout override:' row (label + w-28 input + long hint) overflows by about 15px on a 360px phone.",
+   "fix": "Use flex-col sm:flex-row gap-1, give the select w-full sm:w-auto min-w-0, and move the hint to its own line."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\ScriptSchedulesPage.tsx",
+   "loc": "858-881, 210-217, 142-177, 1034-1052",
+   "severity": "minor",
+   "problem": "Small tap targets: the row toggle button has no padding (20px), Edit and Delete are 28px and 8px apart, the 'Open device' link in history rows is about 18px, and the tree chevron and checkbox are 16px. The HistoryBatchRow summary line (date + badge + name + exit + duration, text-xs) overflows about 20px on a phone and is clipped by overflow-hidden.",
+   "fix": "Use RowActions (40px) on coarse pointers, pad the icon links (p-2), let the history summary wrap (flex-wrap, date on its own line below sm), and use the shared GroupTreeMultiSelect."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\ScriptHistoryPage.tsx",
+   "loc": "207-249",
+   "severity": "major",
+   "problem": "The expanded batch splits into a w-1/2 device list and a w-1/2 stdout/stderr panel whenever a device is selected, with no breakpoint. On a phone each side is about 150px, and the output pre (text-xs) is unreadable.",
+   "fix": "Below md, render the output under the tapped device row (accordion, as ScriptSchedulesPage HistoryBatchRow already does) or push a detail view. Use the side-by-side split only at md and up."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\ScriptHistoryPage.tsx",
+   "loc": "232-238, 259-261, 270-272, 304-306",
+   "severity": "minor",
+   "problem": "The Stop control is a <span onClick> nested inside the row <button> (invalid interactive nesting, about 22px target, labelled only by title). The Fullscreen buttons are p-0.5 + 12px icon (about 16px), and the fullscreen modal close is p-1 (24px).",
+   "fix": "Move Stop out of the row button as a sibling 40px button with a text label on coarse pointers, and enlarge the Fullscreen and close buttons to at least 36-44px."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\SchedulesPage.tsx",
+   "loc": "30-46",
+   "severity": "major",
+   "problem": "The Automations tab bar has 5 flex-1 buttons (px-4, 16px icon, label) with no wrap or scroll. Their minimum content width is about 560px (more in FR/DE), so on a phone (about 312px available) and on a 768px portrait tablet with the sidebar open the bar overflows, and main scrolls horizontally with 'History' off-screen. The page uses fixed p-6 gutters.",
+   "fix": "Use `overflow-x-auto snap-x` with `flex-none` tabs below md, or show icons only below sm with the label under them in text-[10px]. Use p-4 sm:p-6. Sync the tab to ?tab= with setSearchParams so the Android back button behaves."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\ScriptRunPage.tsx",
+   "loc": "181-203",
+   "severity": "minor",
+   "problem": "RunGroupTree has a 16px expand chevron (p-0.5 + w-3) and a 16px checkbox button, with rows about 30px tall. Expanding nested groups by finger is hard. This is a copy of the GroupTreeMultiSelect in the schedule and scenario forms.",
+   "fix": "Replace it with the shared components/common/GroupTreeMultiSelect using 40px rows and chevron hit area."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\automation\\NotificationChannelBindings.tsx",
+   "loc": "108-121, 127-143",
+   "severity": "minor",
+   "problem": "The Bind/Unbind pill is px-2.5 py-1 text-[11px] (about 24px tall) and the mode pills are py-0.5 (about 20px). What 'By device' vs 'Summary' means is only in title=. Inside the graph editor this widget also triggers the label-forwarding bug reported in ScenarioGraphEditor.tsx:1586.",
+   "fix": "Make the pills min-h 32-36px on coarse pointers and render the active mode's hint as a one-line caption under the pills instead of in title."
+  }
+ ]
+}

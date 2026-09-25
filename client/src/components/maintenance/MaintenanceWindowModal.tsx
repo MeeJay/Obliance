@@ -11,6 +11,8 @@ import type {
 import { cn } from '@/utils/cn';
 import { maintenanceApi } from '@/api/maintenance.api';
 import { ScopeSelector } from './ScopeSelector';
+import { IconButton } from '@/components/common/IconButton';
+import { useNativeBack } from '@/hooks/useNativeBack';
 import type { ScopeTarget } from './ScopeSelector';
 
 /**
@@ -261,27 +263,37 @@ export function MaintenanceWindowModal({
  }
  }
 
+ // Android back closes the dialog (instead of navigating the page away).
+ useNativeBack(() => { onClose(); }, open);
+
  if (!open) return null;
 
+ // Phone (< sm): full-screen sheet with safe areas; sm+: the original centred
+ // card. dvh keeps the footer above mobile browser chrome / the soft keyboard
+ // (each dvh class has a vh twin for WebViews without dvh support).
  return (
- <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
- <div className="w-full max-w-2xl rounded-xl bg-bg-secondary shadow-2xl flex flex-col max-h-[90vh]">
+ <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 max-sm:p-0 max-sm:items-stretch">
+ <div className="w-full max-w-2xl rounded-xl bg-bg-secondary shadow-2xl flex flex-col sm:max-h-[90dvh] sm:supports-[not(height:100dvh)]:max-h-[90vh] max-sm:h-dvh max-sm:supports-[not(height:100dvh)]:h-screen max-sm:rounded-none max-sm:pt-safe max-sm:pb-safe">
 
  {/* Header */}
- <div className="flex items-center justify-between px-5 py-4 shrink-0">
- <div className="flex items-center gap-2">
- <CalendarClock size={18} className="text-accent" />
- <h2 className="text-base font-semibold text-text-primary">
+ <div className="flex items-center justify-between px-5 py-4 shrink-0 max-sm:px-4 max-sm:py-3">
+ <div className="flex items-center gap-2 min-w-0">
+ <CalendarClock size={18} className="text-accent shrink-0" />
+ <h2 className="text-base font-semibold text-text-primary truncate">
  {isEdit ? t('maintenance.editTitle') : t('maintenance.newTitle')}
  </h2>
  </div>
- <button onClick={onClose} className="text-text-muted hover:text-text-primary transition-colors">
- <X size={18} />
- </button>
+ <IconButton
+ onClick={onClose}
+ label={t('common.close')}
+ variant="plain"
+ className="p-0 rounded-none coarse:rounded-lg"
+ icon={<X size={18} />}
+ />
  </div>
 
  {/* Body — scrollable */}
- <form onSubmit={handleSubmit} className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
+ <form onSubmit={handleSubmit} className="overflow-y-auto overscroll-contain flex-1 min-h-0 px-5 py-4 space-y-4 max-sm:px-4">
 
  {/* Name */}
  <div>
@@ -295,13 +307,13 @@ export function MaintenanceWindowModal({
 
  {isEdit ? (
  /* Edit mode: simple dropdowns (scope already set, allow changing) */
- <div className={cn('gap-3', editScopeType === 'global' ? 'flex' : 'grid grid-cols-2')}>
- <div className={editScopeType === 'global' ? 'w-1/2' : undefined}>
+ <div className={cn('gap-3', editScopeType === 'global' ? 'flex' : 'grid grid-cols-1 sm:grid-cols-2')}>
+ <div className={editScopeType === 'global' ? 'w-1/2 max-sm:w-full' : undefined}>
  <Select
  value={editScopeType}
  onChange={(e) => { setEditScopeType(e.target.value as MaintenanceScopeType); setEditScopeId(''); }}
  >
- <option value="device">{t('common.device')}</option>
+ <option value="device">{t('common.device', 'Device')}</option>
  <option value="group">{t('common.group')}</option>
  <option value="global">{t('maintenance.scopeGlobal')}</option>
  </Select>
@@ -337,7 +349,7 @@ export function MaintenanceWindowModal({
  type="button"
  onClick={() => setScheduleType(st)}
  className={cn(
- 'flex-1 py-1.5 text-sm font-medium transition-colors',
+ 'flex-1 py-1.5 text-sm font-medium transition-colors coarse:min-h-10',
  scheduleType === st
  ? 'bg-accent text-white'
  : 'bg-bg-tertiary text-text-secondary hover:bg-bg-hover',
@@ -351,7 +363,7 @@ export function MaintenanceWindowModal({
 
  {/* One-time fields */}
  {scheduleType === 'one_time' && (
- <div className="grid grid-cols-2 gap-3">
+ <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
  <div>
  <Label>{t('maintenance.fieldStart')}</Label>
  <Input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} />
@@ -366,7 +378,7 @@ export function MaintenanceWindowModal({
  {/* Recurring fields */}
  {scheduleType === 'recurring' && (
  <>
- <div className="grid grid-cols-2 gap-3">
+ <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
  <div>
  <Label>{t('maintenance.fieldRecurrence')}</Label>
  <Select
@@ -395,7 +407,7 @@ export function MaintenanceWindowModal({
  type="button"
  onClick={() => toggleDay(i)}
  className={cn(
- 'px-2.5 py-1 rounded text-xs font-semibold border transition-colors',
+ 'px-2.5 py-1 rounded text-xs font-semibold border transition-colors coarse:min-h-10 coarse:min-w-10',
  daysOfWeek.includes(i)
  ? 'bg-accent border-accent text-white'
  : 'bg-bg-tertiary border-transparent text-text-secondary hover:border-accent',
@@ -408,7 +420,7 @@ export function MaintenanceWindowModal({
  </div>
  )}
 
- <div className="grid grid-cols-2 gap-3">
+ <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
  <div>
  <Label>{t('maintenance.fieldStartTime')}</Label>
  <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
@@ -430,7 +442,7 @@ export function MaintenanceWindowModal({
  </p>
  <div className="space-y-1.5 max-h-32 overflow-y-auto">
  {channelOptions.map((ch) => (
- <label key={ch.id} className="flex items-center gap-2 cursor-pointer">
+ <label key={ch.id} className="flex items-center gap-2 cursor-pointer coarse:min-h-10">
  <input
  type="checkbox"
  checked={notifyChannelIds.includes(ch.id)}
@@ -446,7 +458,7 @@ export function MaintenanceWindowModal({
  )}
 
  {/* Active toggle */}
- <label className="flex items-center gap-2.5 cursor-pointer">
+ <label className="flex items-center gap-2.5 cursor-pointer coarse:min-h-10">
  <input
  type="checkbox"
  checked={active}
@@ -460,7 +472,7 @@ export function MaintenanceWindowModal({
  </form>
 
  {/* Footer */}
- <div className="flex items-center justify-between gap-2 px-5 py-4 shrink-0">
+ <div className="flex items-center justify-between gap-2 px-5 py-4 shrink-0 max-sm:flex-wrap max-sm:px-4 max-sm:py-3">
  {/* Selection summary (create mode only) */}
  {!isEdit && scopeTargets.length > 0 && (
  <p className="text-xs text-text-muted">
@@ -474,7 +486,7 @@ export function MaintenanceWindowModal({
  )}
  {(!(!isEdit && scopeTargets.length > 0)) && <div />}
 
- <div className="flex gap-2">
+ <div className="flex gap-2 max-sm:ml-auto">
  <button
  type="button"
  onClick={onClose}

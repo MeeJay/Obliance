@@ -1,10 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
-import { X, Search, Monitor, Folder, FolderOpen, Check, Wifi, CornerLeftUp } from 'lucide-react';
+import { Search, Monitor, Folder, FolderOpen, Check, Wifi, CornerLeftUp } from 'lucide-react';
 import { deviceApi } from '@/api/device.api';
 import type { Device } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import { useTranslation } from 'react-i18next';
+import { Modal } from '@/components/common/Modal';
+import { useIsCoarsePointer } from '@/hooks/useMediaQuery';
+import { useNativeBack } from '@/hooks/useNativeBack';
 
 interface Props {
  onClose: () => void;
@@ -29,6 +32,7 @@ const PAGE_SIZE = 10000;
 
 export function ScanTargetPickerModal({ onClose, onDispatch }: Props) {
  const { t } = useTranslation();
+ const coarse = useIsCoarsePointer();
 
  const [loading, setLoading] = useState(true);
  const [devices, setDevices] = useState<Device[]>([]);
@@ -37,6 +41,9 @@ export function ScanTargetPickerModal({ onClose, onDispatch }: Props) {
  const [dispatching, setDispatching] = useState(false);
  /** null = browsing the group list; otherwise the group being opened. */
  const [openKey, setOpenKey] = useState<GroupKey | null>(null);
+ // Android back inside an opened group goes up to the group list first
+ // (registered after the Modal's own handler, so it runs before it).
+ useNativeBack(() => setOpenKey(null), openKey !== null && !query.trim());
 
  useEffect(() => {
  deviceApi.listPaginated({ status: 'online', page: 1, pageSize: PAGE_SIZE })
@@ -125,8 +132,9 @@ export function ScanTargetPickerModal({ onClose, onDispatch }: Props) {
  <button
  key={d.id}
  onClick={() => toggle(d.id)}
+ aria-pressed={checked}
  className={clsx(
- 'w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left rounded transition-colors',
+ 'w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left rounded transition-colors coarse:min-h-11 coarse:text-sm',
  checked ? 'bg-accent/15 text-text-primary' : 'text-text-muted hover:bg-bg-secondary hover:text-text-primary',
  )}
  >
@@ -139,15 +147,23 @@ export function ScanTargetPickerModal({ onClose, onDispatch }: Props) {
  {checked && <Check className="w-2.5 h-2.5 text-white" />}
  </span>
  <Monitor className="w-3.5 h-3.5 flex-shrink-0" />
- <span className="flex-1 truncate">{d.displayName || d.hostname || `#${d.id}`}</span>
+ {/* Below sm: name on the first line, group + IP muted under it (the
+ name used to get ~20px next to the shrink-0 group and IP). */}
+ <span className="flex-1 min-w-0 flex items-center gap-2 max-sm:flex-col max-sm:items-start max-sm:gap-0">
+ <span className="flex-1 truncate max-sm:w-full">{d.displayName || d.hostname || `#${d.id}`}</span>
+ {(showGroup || d.ipLocal) && (
+ <span className="contents max-sm:flex max-sm:items-center max-sm:gap-2 max-sm:w-full max-sm:min-w-0">
  {showGroup && (
- <span className="text-[10px] text-text-muted/70 flex-shrink-0 truncate max-w-[8rem]">
+ <span className="text-[10px] text-text-muted/70 flex-shrink-0 truncate max-w-[8rem] max-sm:max-w-none max-sm:flex-shrink max-sm:min-w-0">
  {d.groupName || (t('discovery.picker.ungrouped') || 'Ungrouped')}
  </span>
  )}
  {d.ipLocal && (
  <span className="text-[10px] text-text-muted/70 font-mono flex-shrink-0">{d.ipLocal}</span>
  )}
+ </span>
+ )}
+ </span>
  </button>
  );
  };
@@ -159,13 +175,17 @@ export function ScanTargetPickerModal({ onClose, onDispatch }: Props) {
  return (
  <div
  key={b.key}
- className="w-full flex items-center gap-2 px-2 py-2 rounded hover:bg-bg-secondary transition-colors group"
+ className="w-full flex items-center gap-2 px-2 py-2 rounded hover:bg-bg-secondary transition-colors group coarse:min-h-11"
  >
- {/* Whole-group checkbox — select a site without opening it */}
+ {/* Whole-group checkbox — select a site without opening it. Touch: an
+ invisible 40×40 hit area, kept clear of the "open folder" button. */}
  <button
  onClick={(e) => { e.stopPropagation(); toggleGroup(b); }}
+ aria-pressed={allInGroup}
+ aria-label={`${t('discovery.picker.toggleGroup') || 'Select the whole group'} — ${b.groupName}`}
  className={clsx(
  'w-3.5 h-3.5 rounded-sm border flex-shrink-0 flex items-center justify-center',
+ "relative coarse:after:absolute coarse:after:-inset-3 coarse:after:content-[''] coarse:mx-1.5",
  allInGroup ? 'bg-accent border-accent'
  : selectedInGroup > 0 ? 'bg-accent/30 border-accent'
  : 'border-text-muted/40',
@@ -175,9 +195,9 @@ export function ScanTargetPickerModal({ onClose, onDispatch }: Props) {
  {allInGroup && <Check className="w-2.5 h-2.5 text-white" />}
  </button>
  {/* Open the folder */}
- <button onClick={() => setOpenKey(b.key)} className="flex-1 flex items-center gap-2 min-w-0 text-left">
+ <button onClick={() => setOpenKey(b.key)} className="flex-1 flex items-center gap-2 min-w-0 text-left coarse:min-h-10">
  <Folder className="w-4 h-4 text-accent flex-shrink-0" />
- <span className="flex-1 truncate text-xs font-medium text-text-primary">{b.groupName}</span>
+ <span className="flex-1 truncate text-xs font-medium text-text-primary coarse:text-sm">{b.groupName}</span>
  {selectedInGroup > 0 && (
  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent/15 text-accent flex-shrink-0">
  {selectedInGroup}
@@ -192,44 +212,64 @@ export function ScanTargetPickerModal({ onClose, onDispatch }: Props) {
  };
 
  return (
- <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
- <div
- className="bg-bg-primary rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-xl"
- onClick={(e) => e.stopPropagation()}
- >
- {/* Header */}
- <div className="flex items-center justify-between px-5 py-3 flex-shrink-0">
- <div>
- <h3 className="text-sm font-semibold text-text-primary">
- {t('discovery.picker.title') || 'Select agents to run the scan'}
- </h3>
- <p className="text-xs text-text-muted mt-0.5">
+ <Modal
+ open
+ onClose={onClose}
+ size="lg"
+ className="bg-bg-primary"
+ title={<>
+ <span className="block truncate">{t('discovery.picker.title') || 'Select agents to run the scan'}</span>
+ <span className="block text-xs font-normal text-text-muted mt-0.5 whitespace-normal">
  {t('discovery.picker.subtitle') ||
  'Each selected agent scans its own local subnet. Pick one agent per site.'}
- </p>
- </div>
- <button onClick={onClose} className="p-1 text-text-muted hover:text-text-primary rounded">
- <X className="w-4 h-4" />
+ </span>
+ </>}
+ bodyClassName="p-0"
+ footerClassName="px-5"
+ footer={<>
+ <span className="mr-auto text-xs text-text-muted max-sm:basis-full">
+ {selectedIds.size > 0
+ ? (t('discovery.picker.selectedCount', { count: selectedIds.size }) ||
+ `${selectedIds.size} selected`)
+ : (t('discovery.picker.selectHint') || 'Select one or more agents.')}
+ </span>
+ <button
+ onClick={onClose}
+ className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary transition-colors coarse:min-h-10 max-sm:flex-1"
+ >
+ {t('common.cancel') || 'Cancel'}
  </button>
- </div>
-
- {/* Search */}
- <div className="flex items-center gap-2 px-5 py-3 flex-shrink-0">
+ <button
+ onClick={handleDispatch}
+ disabled={selectedIds.size === 0 || dispatching}
+ className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-accent text-white rounded-lg hover:bg-accent/80 disabled:opacity-50 transition-colors coarse:min-h-10 max-sm:flex-[2]"
+ >
+ <Wifi className={clsx('w-3.5 h-3.5', dispatching && 'animate-pulse')} />
+ {t('discovery.picker.launch', { count: selectedIds.size }) ||
+ `Launch scan on ${selectedIds.size} agent(s)`}
+ </button>
+ </>}
+ >
+ {/* Search — stays pinned above the scrolling list. */}
+ <div className="sticky top-0 z-10 bg-bg-primary flex items-center gap-2 px-5 py-3">
  <div className="relative flex-1">
  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted" />
  <input
- autoFocus
+ // Browse-first picker: on touch, don't pop the keyboard over half the list.
+ autoFocus={!coarse}
  type="text"
  value={query}
  onChange={(e) => setQuery(e.target.value)}
  placeholder={t('discovery.picker.searchPlaceholder') || 'Type to filter by agent or group...'}
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
+ enterKeyHint="search"
  className="w-full pl-8 pr-3 py-1.5 text-xs bg-bg-secondary rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent"
  />
  </div>
  {selectedIds.size > 0 && (
  <button
  onClick={clearAll}
- className="px-2.5 py-1.5 text-xs font-medium bg-bg-secondary rounded-lg text-text-muted hover:text-accent hover:border-accent transition-colors"
+ className="px-2.5 py-1.5 text-xs font-medium bg-bg-secondary rounded-lg text-text-muted hover:text-accent hover:border-accent transition-colors coarse:min-h-10"
  >
  {t('discovery.picker.clearAll') || 'Clear'}
  </button>
@@ -237,7 +277,7 @@ export function ScanTargetPickerModal({ onClose, onDispatch }: Props) {
  </div>
 
  {/* Body */}
- <div className="flex-1 overflow-y-auto px-3 py-2">
+ <div className="px-3 py-2">
  {loading ? (
  <p className="text-xs text-text-muted py-6 text-center">{t('common.loading') || 'Loading...'}</p>
  ) : devices.length === 0 ? (
@@ -262,25 +302,29 @@ export function ScanTargetPickerModal({ onClose, onDispatch }: Props) {
  ) : openBucket ? (
  /* ── Inside a group ── */
  <div className="space-y-0.5">
+ {/* Back and "Select all" are two sibling buttons (the select-all
+ used to be a tiny span nested inside the back button). */}
+ <div className="flex items-center gap-1">
  <button
  onClick={() => setOpenKey(null)}
- className="w-full flex items-center gap-2 px-2 py-2 rounded hover:bg-bg-secondary transition-colors text-left"
+ className="flex-1 min-w-0 flex items-center gap-2 px-2 py-2 rounded hover:bg-bg-secondary transition-colors text-left coarse:min-h-11"
  title={t('discovery.picker.back') || 'Back to all groups'}
+ aria-label={t('discovery.picker.back') || 'Back to all groups'}
  >
  <CornerLeftUp className="w-4 h-4 text-text-muted flex-shrink-0" />
  <span className="text-xs font-medium text-text-muted">...</span>
  <FolderOpen className="w-4 h-4 text-accent flex-shrink-0 ml-1" />
  <span className="text-xs font-semibold text-text-primary truncate">{openBucket.groupName}</span>
- <span className="flex-1" />
- <span
- onClick={(e) => { e.stopPropagation(); toggleGroup(openBucket); }}
- className="text-[10px] text-accent hover:underline flex-shrink-0"
+ </button>
+ <button
+ onClick={() => toggleGroup(openBucket)}
+ className="text-[10px] text-accent hover:underline flex-shrink-0 px-2 py-2 rounded coarse:min-h-10 coarse:px-3 coarse:text-xs coarse:bg-bg-secondary"
  >
  {openBucket.devices.every((d) => selectedIds.has(d.id))
  ? (t('discovery.picker.unselectGroup') || 'Unselect all')
  : (t('discovery.picker.selectGroup') || 'Select all')}
- </span>
  </button>
+ </div>
  {openBucket.devices.map((d) => renderDeviceRow(d))}
  </div>
  ) : (
@@ -294,34 +338,6 @@ export function ScanTargetPickerModal({ onClose, onDispatch }: Props) {
  </div>
  )}
  </div>
-
- {/* Footer */}
- <div className="flex items-center justify-between px-5 py-3 flex-shrink-0">
- <span className="text-xs text-text-muted">
- {selectedIds.size > 0
- ? (t('discovery.picker.selectedCount', { count: selectedIds.size }) ||
- `${selectedIds.size} selected`)
- : (t('discovery.picker.selectHint') || 'Select one or more agents.')}
- </span>
- <div className="flex items-center gap-2">
- <button
- onClick={onClose}
- className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary transition-colors"
- >
- {t('common.cancel') || 'Cancel'}
- </button>
- <button
- onClick={handleDispatch}
- disabled={selectedIds.size === 0 || dispatching}
- className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-accent text-white rounded-lg hover:bg-accent/80 disabled:opacity-50 transition-colors"
- >
- <Wifi className={clsx('w-3.5 h-3.5', dispatching && 'animate-pulse')} />
- {t('discovery.picker.launch', { count: selectedIds.size }) ||
- `Launch scan on ${selectedIds.size} agent(s)`}
- </button>
- </div>
- </div>
- </div>
- </div>
+ </Modal>
  );
 }

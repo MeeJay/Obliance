@@ -18,6 +18,7 @@
   "deviceMultiSelect.noMatch": "Aucun appareil ne correspond",
   "groupPicker.placeholder": "Sélectionner un groupe",
   "groupPicker.clearSearch": "Effacer la recherche",
+  "groupPicker.title": "Sélectionner un groupe",
   "thresholds.title": "Seuils métriques",
   "thresholds.helpDevice": "Laisser vide pour hériter du groupe (puis du défaut système).",
   "thresholds.helpGroup": "Laisser vide pour hériter du défaut système.",

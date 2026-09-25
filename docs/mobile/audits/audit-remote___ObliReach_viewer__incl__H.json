@@ -1,0 +1,419 @@
+{
+ "area": "remote — ObliReach viewer (incl. Hyper-V interactive console, which reuses it), terminals (GlobalShellPanel, VirtualKeyPanel, SshTerminalModal), file explorer, process viewer, Hyper-V read-only console, Remote Sessions / Supervision / History pages. What a tablet user can and cannot do today: they can start a Reach session, left-click by tapping, and use the Ctrl+Alt+Del and System keys buttons. They cannot type into Reach (no soft keyboard), right-click, scroll, zoom, drag reliably, or sync the clipboard. On a phone or in tablet portrait, Disconnect and Fullscreen are clipped off the Reach toolbar. In shells a tablet user can type (xterm brings up the soft keyboard) and send the preset keys, but cannot use split view or broadcast, and has no paste button or sticky Ctrl/Alt. In the file explorer, opening a folder takes a hidden double-tap or long-press. In WebView, download and upload do not work until the Android shell adds native support.",
+ "filesReviewed": [
+  "D:\\Obliance\\client\\src\\components\\ObliReachViewer.tsx",
+  "D:\\Obliance\\client\\src\\components\\VirtualKeyPanel.tsx",
+  "D:\\Obliance\\client\\src\\components\\SshTerminalModal.tsx",
+  "D:\\Obliance\\client\\src\\components\\layout\\GlobalShellPanel.tsx",
+  "D:\\Obliance\\client\\src\\components\\layout\\GlobalChatPanel.tsx",
+  "D:\\Obliance\\client\\src\\components\\layout\\SshBastionButton.tsx",
+  "D:\\Obliance\\client\\src\\components\\layout\\AppLayout.tsx",
+  "D:\\Obliance\\client\\src\\components\\layout\\LiveAlerts.tsx",
+  "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx",
+  "D:\\Obliance\\client\\src\\components\\hyperv\\HyperVConsole.tsx",
+  "D:\\Obliance\\client\\src\\components\\hyperv\\HyperVVmTable.tsx",
+  "D:\\Obliance\\client\\src\\pages\\RemoteSessionsPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\SupervisionPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\HistoryPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\DeviceDetailPage.tsx",
+  "D:\\Obliance\\client\\src\\store\\remoteShellStore.ts",
+  "D:\\Obliance\\client\\src\\hooks\\useNativeTopOffset.ts",
+  "D:\\Obliance\\client\\src\\components\\common\\Button.tsx",
+  "D:\\Obliance\\client\\tailwind.config.ts",
+  "D:\\Obliance\\client\\index.html",
+  "D:\\Obliance\\client\\package.json",
+  "D:\\Obliance\\server\\src\\services\\remote.service.ts",
+  "D:\\Oblireach\\agent\\stream.go",
+  "D:\\Oblireach\\agent\\input_windows.go"
+ ],
+ "globalFindings": [
+  {
+   "problem": "Touch-to-mouse translation does not exist. ObliReachViewer forwards raw pointer events. The Hyper-V interactive console (DeviceDetailPage.tsx:4019-4027) reuses the same viewer and has the same gaps. Every future Obli mobile viewer will need this same layer.",
+   "fix": "Create client/src/components/remote/useRemotePointer.ts, a hook that returns the canvas handlers and sets touch-action:none. It should: (1) handle only the primary pointer as the mouse; (2) apply an 8px tap slop; (3) treat a 500ms long-press as button 2; (4) treat a two-finger pan as a `move` to the centroid followed by `{type:'mouse',action:'scroll',delta:±1}` every ~40px (the agent's send_mouse_scroll ignores x/y); (5) snap a double-tap to the first tap's coordinates; (6) handle pinch-zoom and pan with a CSS transform (toAgentCoords already uses getBoundingClientRect, so the coordinate mapping stays correct); (7) send 'up' on pointercancel; (8) offer an optional trackpad (relative) mode for phones. The agent needs no changes: send_mouse_button already handles 0/1/2.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\ObliReachViewer.tsx",
+    "D:\\Obliance\\client\\src\\pages\\DeviceDetailPage.tsx"
+   ]
+  },
+  {
+   "problem": "The on-screen keys are split and specific to terminals. VirtualKeyPanel emits xterm escape sequences only. ObliReach has only a CAD button and a popover of system chords. Neither has sticky modifiers or a soft-keyboard bridge, and VirtualKeyPanel's buttons steal focus from the input.",
+   "fix": "Generalize VirtualKeyPanel.tsx into components/remote/RemoteKeyBar.tsx. It should emit abstract key descriptors {code,key} plus latched modifiers (Ctrl/Alt/Shift/Win), and prevent default on pointerdown so focus is kept. Add two adapters: toTerminal(seq), which respects DECCKM and broadcast by going through xterm's data path, and toObliReach(), which emits JSON key down/up messages. Add components/remote/SoftKeyboardBridge.tsx: a hidden textarea at 16px with autocapitalize/autocorrect/spellcheck off. It listens to `beforeinput` and `compositionend` and sends each character as `{type:'key',key:ch,code:''}`; the agent's inputVKFromKey maps it by layout. Backspace, Enter and Tab map to codes. Characters the remote layout cannot type fall back to clipboard_set + Ctrl+V.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\VirtualKeyPanel.tsx",
+    "D:\\Obliance\\client\\src\\components\\ObliReachViewer.tsx",
+    "D:\\Obliance\\client\\src\\components\\layout\\GlobalShellPanel.tsx"
+   ]
+  },
+  {
+   "problem": "Every full-screen remote overlay hand-rolls `fixed inset-x-0 bottom-0 top:nativeTop`. None of them handles safe-area insets (index.html:5 has no viewport-fit=cover), the soft keyboard (visualViewport), the Android Back button, fullscreen-state sync (only GlobalShellPanel listens to fullscreenchange), hiding the floating pills while open, or a toolbar that fits on narrow screens. HyperVConsoleModal ignores nativeTop entirely.",
+   "fix": "Create components/remote/FullscreenOverlay.tsx and use it in ObliReachViewer, GlobalShellPanel, HyperVConsoleModal and the file editor sheet. It should provide: nativeTop plus env(safe-area-inset-*) padding (add viewport-fit=cover to index.html); height from visualViewport; pushState on open and close on popstate, calling onClose so the server session is ended; fullscreenchange sync; a flag in a store that hides the chat FAB, the shell pill and LiveAlerts; and a toolbar slot with pinned primary actions plus a '⋯' overflow sheet below lg.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\ObliReachViewer.tsx",
+    "D:\\Obliance\\client\\src\\components\\layout\\GlobalShellPanel.tsx",
+    "D:\\Obliance\\client\\src\\components\\SshTerminalModal.tsx",
+    "D:\\Obliance\\client\\src\\components\\hyperv\\HyperVConsole.tsx",
+    "D:\\Obliance\\client\\src\\hooks\\useNativeTopOffset.ts",
+    "D:\\Obliance\\client\\index.html"
+   ]
+  },
+  {
+   "problem": "Downloads through a blob URL plus a.download (32 call sites in 16 files, including FileExplorerTab:373-381 and ObliReachViewer:712-724/740-748, with revokeObjectURL called immediately) cannot work in an Android WebView, because DownloadListener cannot fetch blob: URLs. Uploading through a detached <input type=file>.click() needs onShowFileChooser. requestFullscreen needs onShowCustomView. The clipboard read/write calls (ObliReachViewer:496,624; GlobalShellPanel:343) are unreliable in WebView.",
+   "fix": "Create client/src/utils/native.ts with isAndroidApp, downloadBlob(blob, name), readClipboard(), writeClipboard(), requestImmersive() and lockLandscape(). Under Android these go through a JS bridge (for example window.ObliNative.saveFile(base64, name, mime)); otherwise they use the current web behavior with a delayed revoke. Replace every blob/a.download site with downloadBlob. The Android shell (the common base for all Obli apps) must implement DownloadListener, onShowFileChooser, onJsAlert/onJsConfirm/onJsPrompt, onShowCustomView, onPermissionRequest, and windowSoftInputMode=adjustResize.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx",
+    "D:\\Obliance\\client\\src\\components\\ObliReachViewer.tsx",
+    "D:\\Obliance\\client\\src\\pages\\ReportsPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\DeviceDetailPage.tsx"
+   ]
+  },
+  {
+   "problem": "There are 54 native confirm()/prompt() calls. In my area: RemoteSessionsPage:148 (End session), DeviceDetailPage:4738 (Kill process), 3948/3951 (VM delete / checkpoint name), FileExplorerTab:489/499. In a WebView without a WebChromeClient these silently return false/null, so the action becomes impossible. They are also hard-coded English and not touch-sized.",
+   "fix": "Add components/common/ConfirmDialog.tsx with useConfirm() and usePrompt() hooks (promise-based, i18n, 44px buttons, bottom sheet on phones), and replace the calls. Also implement onJsConfirm/onJsPrompt in the Android shell as a safety net.",
+   "files": [
+    "D:\\Obliance\\client\\src\\pages\\RemoteSessionsPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\DeviceDetailPage.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx"
+   ]
+  },
+  {
+   "problem": "Actions are revealed only on hover with `opacity-0 group-hover:opacity-100` (22 sites in 7 files; in my area FileExplorerTab.tsx:930 and DeviceDetailPage.tsx:4910 Kill). On touch the buttons are invisible and still tappable. They only appear through Chrome's sticky-hover emulation after a tap. tailwind.config.ts has no hover or pointer media variants.",
+   "fix": "In tailwind.config.ts add theme.extend.screens `{'can-hover': {raw:'(hover: hover)'}, coarse: {raw:'(pointer: coarse)'}}`. Convert the pattern to `can-hover:opacity-0 group-hover:opacity-100`, so the buttons are always visible on touch, or move the actions into a per-row ⋮ menu. Do NOT enable future.hoverOnlyWhenSupported before converting: it would leave these buttons permanently invisible yet still clickable.",
+   "files": [
+    "D:\\Obliance\\client\\tailwind.config.ts",
+    "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx",
+    "D:\\Obliance\\client\\src\\pages\\DeviceDetailPage.tsx"
+   ]
+  },
+  {
+   "problem": "Tap targets of 18-28px are hand-rolled everywhere in the remote tools: `p-0.5` tab close/reconnect, `p-1.5` icon buttons, `px-2 py-1 text-[11px]` key chips, `p-1` file row actions, and bare 16px X icons in the WTS pickers. components/common/Button.tsx is not used by any of them.",
+   "fix": "Add components/common/IconButton.tsx with an aria-label that is also the title, and a minimum hit area of 40x40 on coarse pointers (`coarse:min-h-10 coarse:min-w-10`, or an invisible ::before hit area when the visual size must stay small). Use it in ObliReachViewer, GlobalShellPanel, VirtualKeyPanel, FileExplorerTab, HyperVConsole and the DeviceDetailPage remote pickers.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\common\\Button.tsx",
+    "D:\\Obliance\\client\\src\\components\\ObliReachViewer.tsx",
+    "D:\\Obliance\\client\\src\\components\\layout\\GlobalShellPanel.tsx",
+    "D:\\Obliance\\client\\src\\components\\VirtualKeyPanel.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx"
+   ]
+  },
+  {
+   "problem": "Tables sit in `overflow-hidden` wrappers, and `hidden md:table-cell` / `hidden lg:table-cell` removes data with no alternative. Affected: HistoryPage events and scenario runs, the RemoteSessionsPage history, the ProcessesTab and the file table. Columns get clipped on phones, and tablet portrait loses Started, Duration, User and Device.",
+   "fix": "Create a shared ResponsiveTable pattern or component (components/common/ResponsiveTable.tsx). At minimum it wraps tables in overflow-x-auto. Below md it renders stacked cards (primary label plus a status badge on line 1, secondary fields on line 2). A row tap opens a detail sheet that shows every hidden column.",
+   "files": [
+    "D:\\Obliance\\client\\src\\pages\\HistoryPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\RemoteSessionsPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\DeviceDetailPage.tsx",
+    "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx"
+   ]
+  },
+  {
+   "problem": "The floating widgets collide in the bottom-right corner: the GlobalShellPanel pill (bottom-4 right-4 z-50), the GlobalChatPanel FAB (bottom-6 right-6 z-[60]) and LiveAlerts (bottom-4 right-4 z-50 w-80). They all render after <Outlet/> in AppLayout.tsx:195-203, so they sit on top of the ObliReach canvas (also z-50) and swallow taps on the remote taskbar and tray. GlobalChatPanel is `width:400` fixed (477-478), which is wider than a 360-392px phone.",
+   "fix": "Add a single FloatingDock stack in AppLayout that lays these out vertically with safe-area bottom padding, hides them while a FullscreenOverlay is open (showing one small badge instead), and sizes the chat at `min(400px, 100vw - 2rem)`, or a full-screen sheet below sm.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\layout\\AppLayout.tsx",
+    "D:\\Obliance\\client\\src\\components\\layout\\GlobalChatPanel.tsx",
+    "D:\\Obliance\\client\\src\\components\\layout\\GlobalShellPanel.tsx",
+    "D:\\Obliance\\client\\src\\components\\layout\\LiveAlerts.tsx"
+   ]
+  },
+  {
+   "problem": "Most UI strings in the remote area are hard-coded English, which breaks the CLAUDE.md i18n rule. This covers ObliReachViewer (status labels, titles, overlays), VirtualKeyPanel, GlobalShellPanel, RemoteSessionsPage, HistoryPage, SshTerminalModal and the FileExplorerTab context menu (1035-1076). The mobile rework will add more labels, such as the overflow menu, key bar and gesture hints.",
+   "fix": "While building the shared remote components, write every new or moved label as t('remote.xxx') || 'fallback', and add the en and fr keys. Treat the existing strings in these files as part of the same pass.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\ObliReachViewer.tsx",
+    "D:\\Obliance\\client\\src\\components\\VirtualKeyPanel.tsx",
+    "D:\\Obliance\\client\\src\\components\\layout\\GlobalShellPanel.tsx",
+    "D:\\Obliance\\client\\src\\pages\\RemoteSessionsPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\HistoryPage.tsx"
+   ]
+  }
+ ],
+ "issues": [
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\ObliReachViewer.tsx",
+   "severity": "blocker",
+   "loc": "772-778 (root onKeyDown/onKeyUp, tabIndex=-1); 620-640 handleKeyDown/handleKeyUp",
+   "problem": "Typing is impossible on a touch device. Keyboard input exists only as keydown/keyup on a non-editable div, so Android never shows the soft keyboard and there is no button to summon it. Even with an editable element, Gboard sends keydown with key='Unidentified' (keyCode 229) and code=''. The agent drops that event: stream.go:794 takes the single-rune `key` path only, then codeToVK('') returns 0. A tablet user cannot type a Windows password after CAD, a URL or a search. Only a Bluetooth keyboard works.",
+   "fix": "Add a 'Keyboard' toolbar button that focuses a hidden textarea (SoftKeyboardBridge, see global findings). Map `beforeinput`/`compositionend` text to per-character `{type:'key',action:'down'/'up',key:ch,code:''}`. The agent's inputVKFromKey already maps characters by the remote layout and adds Shift. Map deleteContentBackward to code 'Backspace' and insertLineBreak to 'Enter', then clear the textarea. In handleKeyDown, skip events with key==='Unidentified' || keyCode===229 so hardware keyboards keep working."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\ObliReachViewer.tsx",
+   "severity": "blocker",
+   "loc": "583-618 pointer/wheel handlers; 1036-1045 canvas",
+   "problem": "The touch input model is broken in four ways: (a) touch always sends button 0 and there is no long-press, so right-click at a point is unreachable (the 'Menu' chord only targets keyboard focus); (b) scrolling works only through onWheel, so remote windows cannot be scrolled; (c) every finger sends its own 'down' with no isPrimary check, so a reflexive two-finger pinch becomes a left-drag on the remote that can move or drop files; (d) the canvas has no touch-action:none and there is no onPointerCancel, so when the browser claims a pan the 'up' is never sent and the remote left button stays stuck down. Also, 1 CSS px ≈ 5 remote px on a phone, so two taps rarely land inside Windows' 4px double-click rectangle, and finger jitter between down and up becomes a micro-drag.",
+   "fix": "Set style touchAction:'none' on the canvas. Add onPointerCancel and onLostPointerCapture that send 'up'. Ignore non-primary pointers. For pointerType==='touch': require 8px slop before any moves are sent while the finger is down; long-press (500ms, no move) sends button 2 down/up; two-finger vertical pan sends a `move` to the centroid, then `scroll` delta ±1 every ~40px (the agent's scroll ignores x/y); snap the second tap of a double-tap (<400ms, <12 CSS px) to the first tap's coordinates. Put this in the shared useRemotePointer hook."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\ObliReachViewer.tsx",
+   "severity": "blocker",
+   "loc": "780-1023 toolbar (right cluster 803 `shrink-0`; Disconnect 1014, Fullscreen 1006, System keys 960)",
+   "problem": "The toolbar is one non-wrapping `justify-between` row, and its right cluster is `shrink-0` with up to 12 controls: codec select, Block, Chat, chat sound, audio, screenshot, record, CAD, System keys, fullscreen, Disconnect, and a 100px monitor map when there is more than one monitor. Estimated minimum width is ~550px below sm (labels hidden) and ~900px at sm and up, where the labels 'Ctrl+Alt+Del', 'System keys', 'Disconnect' etc. return. The overlay is position:fixed with no horizontal scroll, so on phones (360-430) and tablet portrait (768) the rightmost controls (Disconnect, Fullscreen, System keys, sometimes CAD) are clipped off-screen and unreachable. Please confirm in DevTools at 768 and 390px with a session opened from the DeviceDetailPage header (chat and audio present).",
+   "fix": "Pin only Disconnect, Keyboard, CAD and a '⋯' button. Move codec, monitor map, record, screenshot, audio, chat sound, Block input and fullscreen into a labelled bottom sheet below lg. As an interim fix, add `overflow-x-auto min-w-0` to the right cluster, put Disconnect first, and switch the label breakpoints from `sm:` to `lg:`."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\ObliReachViewer.tsx",
+   "severity": "blocker",
+   "loc": "622-631 (Ctrl+V / Ctrl+C interception), 493-498 clipboard_content",
+   "problem": "Clipboard sync between the local device and the remote can only be reached through the Ctrl+V / Ctrl+C keyboard shortcuts. There is no toolbar control, so on a tablet without a hardware keyboard the feature does not exist. In addition, clipboard_content calls navigator.clipboard.writeText from a WebSocket callback, outside any user gesture, which fails silently in Chrome/WebView.",
+   "fix": "Add 'Paste to remote' and 'Copy from remote' actions (in the key bar or the ⋯ sheet). Paste: read the clipboard through utils/native readClipboard(), or fall back to a textarea dialog; send clipboard_set, then sendKeyChord(['ControlLeft','KeyV']). Copy: sendKeyChord Ctrl+C, then clipboard_get; when clipboard_content arrives, show a small sheet with the text and a Copy button, so the write happens inside a user gesture."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\ObliReachViewer.tsx",
+   "severity": "blocker",
+   "loc": "30-48 SYSTEM_KEY_CHORDS; 949-1004 CAD + System keys popover",
+   "problem": "On-screen keys cover only Win/Alt chords, Esc, PrtSc, Menu and Pause. A touch user cannot send Tab, the arrow keys, Delete, Home/End, PgUp/PgDn, F1-F12 (F2 rename, F5 refresh) or any Ctrl/Shift/Alt modifier combination (Ctrl+C/Z/A/S, Shift+Tab, Ctrl-click). The soft keyboard lacks all of these. The CAD button also uses the `Keyboard` icon (955), which will be confusing once a keyboard-summon button exists. The popover chips are about 22px tall (992).",
+   "fix": "Render the shared RemoteKeyBar (ObliReach adapter) docked above the soft keyboard, with sticky Ctrl/Alt/Shift/Win that apply to the next key from the bar, the soft keyboard or a tap (for modifier-click, send the key down around the mouse down/up). Give CAD its own icon (e.g. ShieldAlert) and label. Use chips of at least 40px."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\ObliReachViewer.tsx",
+   "severity": "major",
+   "loc": "1031-1045 canvas `max-w-full max-h-full`",
+   "problem": "The remote screen cannot be zoomed or panned. The canvas is always fit to the container: a 1920x1080 desktop renders at about 390x219 on a phone (0.2 scale, unreadable, tap precision ~5 remote px) and about 0.55 scale on a 10\" tablet. Page pinch-zoom is off by default in WebView, and in a browser it would zoom the toolbar too. On a phone this is effectively unusable.",
+   "fix": "Pinch (two fingers) sets a CSS transform scale of 1-4x on the canvas wrapper, and two-finger drag pans while zoomed. toAgentCoords (583-589) uses getBoundingClientRect, so clicks map correctly under the transform with no math change. Add fit and 1:1 buttons. Auto-pan to the tap point when the soft keyboard opens. Offer an optional trackpad (relative cursor) mode for phones."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\ObliReachViewer.tsx",
+   "severity": "major",
+   "loc": "798-800 errorMsg `hidden sm:block`; 499-505 inactivity_warning",
+   "problem": "While streaming, the only place errorMsg appears is the toolbar, and that span is hidden below sm. On phones the 'Session will disconnect in 30s due to inactivity' warning and the reconnect or relay messages are never shown. The user is simply disconnected.",
+   "fix": "Show inactivity and error messages as a banner or toast inside the content area (absolute, top-center) at every breakpoint, with a 'Stay connected' action that sends a no-op mouse move."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\ObliReachViewer.tsx",
+   "severity": "major",
+   "loc": "772-778 root overlay; 689-697 handleClose",
+   "problem": "The overlay has no Android Back or lifecycle handling and no soft-keyboard or safe-area layout. Back navigates the route underneath the fixed overlay, which unmounts the viewer without calling onClose, so remoteApi.endSession is never called and any recording in progress is lost. The overlay's height ignores visualViewport, so the keyboard either squeezes the canvas into a strip (adjustResize) or hides the bottom of the remote screen (adjustPan). With Android 15 edge-to-edge, the toolbar can end up under the status bar.",
+   "fix": "Use the shared FullscreenOverlay: pushState on open and call handleClose on popstate, size from visualViewport, pad with env(safe-area-inset-*), and hide the floating pills."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\ObliReachViewer.tsx",
+   "severity": "major",
+   "loc": "712-724 screenshot; 740-748 recording download; 680-687 fullscreen",
+   "problem": "Screenshot and recording save through a blob URL plus a.download, with URL.revokeObjectURL called immediately. The Android WebView DownloadListener cannot fetch blob: URLs, so nothing is saved. requestFullscreen does nothing in WebView without onShowCustomView, yet isFullscreen is flipped anyway (there is no fullscreenchange listener), so the icon and title fall out of sync. There is no orientation lock, so a phone in portrait shows the remote at 0.2 scale.",
+   "fix": "Save through utils/native downloadBlob(). Mirror GlobalShellPanel's fullscreenchange listener (GlobalShellPanel.tsx:101-105). In the Android app, call requestImmersive() and lockLandscape() through the bridge, or call screen.orientation.lock('landscape') after entering fullscreen."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\ObliReachViewer.tsx",
+   "severity": "minor",
+   "loc": "345-361 AudioContext creation",
+   "problem": "The AudioContext is created lazily when the first audio frame arrives, outside any user gesture. In Android WebView (mediaPlaybackRequiresUserGesture=true by default) it is likely to stay 'suspended', so there is no remote audio.",
+   "fix": "Create or resume() the AudioContext in the audio toggle's click handler and on the first canvas tap, or set mediaPlaybackRequiresUserGesture(false) in the Android shell."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\ObliReachViewer.tsx",
+   "severity": "minor",
+   "loc": "805-840 monitor map; 896-930 icon buttons; 862-1020 title-only labels",
+   "problem": "Tap targets are 28px (`p-1.5` + 16px icon) or ~24px (`px-2 py-1 text-xs`). Monitor cells are 33-50 x 19-28px with 8px text. Below sm, the buttons are icon-only and their meaning exists only in title=, which a touch user cannot see.",
+   "fix": "Use the shared IconButton (40px on coarse pointers). The labelled ⋯ sheet covers discoverability. Make the monitor picker a list inside the sheet on touch."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\VirtualKeyPanel.tsx",
+   "severity": "major",
+   "loc": "68-76 key buttons (also 93-104, 107-113)",
+   "problem": "Tapping a key moves focus from xterm's hidden textarea to the <button>. Android hides the soft keyboard, the terminal refits (and a resize is sent to the agent), and then sendRawToActive/sendRawToShell calls term.focus(), which brings the keyboard back. Every virtual key press causes two keyboard animations and two terminal reflows.",
+   "fix": "Add onPointerDown={e => e.preventDefault()} (and onMouseDown) plus tabIndex={-1} to every panel button and to the toolbar Keyboard toggle, so focus stays in the terminal."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\VirtualKeyPanel.tsx",
+   "severity": "major",
+   "loc": "43-53 CTRL_COMBOS; 62-63 state; 73, 98, 109 sizes",
+   "problem": "There are no sticky modifiers, only 9 preset Ctrl combos. On touch, Ctrl+O and Ctrl+X (nano), Ctrl+B (tmux), Ctrl+V/Ctrl+F (vim/less) and any Alt combination cannot be sent. The section defaults to 'fn', so on a phone Esc, Tab, arrows and Ctrl sit behind a tab switch. Keys are ~24px tall, the section tabs ~18px (text-[10px] py-0.5) and the collapse button ~18px.",
+   "fix": "Add latched Ctrl/Alt buttons that transform the next term.onData character (Ctrl: code & 0x1f; Alt: '\\x1b'+ch). On coarse pointers, show one horizontally scrollable row of 40px keys (Esc Tab Ctrl Alt ↑ ↓ ← → Home End PgUp PgDn | ~ / -) with the F-keys on demand, and default to 'nav'."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\VirtualKeyPanel.tsx",
+   "severity": "minor",
+   "loc": "28-41 CONTROL_KEYS; onKey raw send",
+   "problem": "Arrow/Home/End sequences are hard-coded in normal cursor mode and sent raw to the WebSocket, bypassing xterm. Application cursor mode (DECCKM, used by vim/less) is ignored, and so is GlobalShellPanel's broadcast fan-out. The labels are not i18n.",
+   "fix": "Send the keys through xterm's data path so onData handles mode and broadcast: in xterm 5.3 use `term._core.coreService.triggerDataEvent(seq, true)`, or `term.input()` on a newer @xterm/xterm. Translate the labels."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\layout\\GlobalShellPanel.tsx",
+   "severity": "blocker",
+   "loc": "505-533 draggable tabs; 544-558 title + Ctrl/Meta+Click; 634-650 Broadcast",
+   "problem": "Split view, and with it Broadcast, cannot be reached on touch. A tab joins the split only by HTML5 drag-and-drop onto another tab or by Ctrl/Meta+Click, and both instructions exist only in title=. HTML5 DnD does not fire from touch in Android WebView, and there is no Ctrl key, so a tablet user can never tile terminals or enable Broadcast (the button appears only in group mode).",
+   "fix": "Add an explicit per-tab 'Split' toggle (for example a Columns icon), or a long-press / ⋮ tab menu with Add to split / Remove from split / Reconnect / Close. Keep drag-and-drop for mouse users."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\layout\\GlobalShellPanel.tsx",
+   "severity": "major",
+   "loc": "313-320 sendRawToActive vs 158-177 onData broadcast",
+   "problem": "Virtual keys ignore Broadcast. Typed input fans out to every grouped WebSocket, but VirtualKeyPanel keys (^C, Tab, arrows) go only to the active session. On touch the key panel is the main source of these keys, so with Broadcast ON a ^C interrupts one host while the others keep running.",
+   "fix": "Extract a sendToTargets(encoded, sourceId) helper that both onData and sendRawToActive call, or route panel keys through xterm's data path as described for VirtualKeyPanel."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\layout\\GlobalShellPanel.tsx",
+   "severity": "major",
+   "loc": "705-717 grid cols; 743-774 tile header buttons",
+   "problem": "Grid mode uses cols = ceil(sqrt(n)), so 2-4 sessions give 2 columns. On a phone that is ~170px tiles at 16px font, about 18 terminal columns, which is unusable. Each tile header packs up to 3 `p-0.5` icon buttons (~18px).",
+   "fix": "Below md force cols=1 with stacked tiles of min-height ~50vh that scroll, or fall back to tabs below sm. Use larger tile header buttons on coarse pointers."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\layout\\GlobalShellPanel.tsx",
+   "severity": "major",
+   "loc": "566-581 tab Reconnect/Close buttons",
+   "problem": "The tab close and reconnect buttons are `p-0.5` with a 14px icon (~18px), side by side inside a draggable tab. It is easy to close the wrong live session with a finger, and there is no confirmation.",
+   "fix": "Use 40px hit areas on coarse pointers (IconButton), or move them into the tab ⋮ menu. Ask for confirmation before closing a connected session."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\layout\\GlobalShellPanel.tsx",
+   "severity": "major",
+   "loc": "322-348 copyTerminal; 621-629 Copy button (no Paste)",
+   "problem": "xterm selection is mouse-drag only, so on touch Copy always dumps the whole buffer. There is no Paste button. The only ways to paste are Gboard's clipboard chip (which works through the IME) or a hardware shortcut.",
+   "fix": "Add a Paste button (readClipboard() with a textarea 'Send text' dialog fallback; use bracketed paste when the application enables it). Optionally add 'Copy last N lines'."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\layout\\GlobalShellPanel.tsx",
+   "severity": "minor",
+   "loc": "132 fontSize 16; 67 showKeys=false; 662-671 keys toggle",
+   "problem": "The font size is fixed at 16 with no pinch or A-/A+ control; on a 360px phone that is about 36-40 columns, so most CLI output wraps. The key panel is hidden by default, and its toggle is an unlabelled icon with title only.",
+   "fix": "Add a persisted font-size control, and apply pinch on the terminal container to term.options.fontSize followed by fit(). Default showKeys to true when (pointer: coarse)."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\layout\\GlobalShellPanel.tsx",
+   "severity": "minor",
+   "loc": "196-270 attach effect (deps include `sessions`), 263-266 term.focus()",
+   "problem": "The attach effect runs again on every sessions change, including any status update of any tab, and calls term.focus() each time. On Android this is likely to pop the soft keyboard back up after the user dismissed it to read output.",
+   "fix": "Focus only when activeId changes or after an explicit user action, not on every status change."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\layout\\GlobalShellPanel.tsx",
+   "severity": "minor",
+   "loc": "467-482 minimized pill; 816-907 device picker (autoFocus 837, protocol buttons 884-896); 106-112 fullscreen",
+   "problem": "The minimized pill (bottom-4 right-4 z-50) collides with the chat FAB and LiveAlerts, and floats over the ObliReach canvas. The picker's autoFocus search opens the phone keyboard over the device list immediately, and the protocol buttons are ~26px tall. The fullscreen button does nothing in WebView.",
+   "fix": "Use the shared FloatingDock. Skip autoFocus on coarse pointers and render the picker as a bottom sheet on phones with 40px protocol buttons. Hide the fullscreen button when it is unsupported, or use the native immersive bridge."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\SshTerminalModal.tsx",
+   "severity": "minor",
+   "loc": "whole file (no importers; see DeviceDetailPage.tsx:37-38)",
+   "problem": "This file is dead code that duplicates GlobalShellPanel with the same gaps: an isFullscreen toggle without a fullscreenchange listener (162-169), fontSize 14 (79), keys hidden by default (31) and the error hidden below sm (191-193). Any mobile work done here would be wasted.",
+   "fix": "Delete it, or leave it untouched. Do not port it."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx",
+   "severity": "blocker",
+   "loc": "808-824 row onClick/onDoubleClick/onContextMenu; 882-890 name span",
+   "problem": "Primary navigation has no tap affordance. A folder or file opens only on double-click (811-819) or from the right-click context menu (820-824). A single tap only toggles selection, and names are plain spans. On a tablet the menu appears only on long-press, and double-tap depends on Chrome synthesizing dblclick and on the user guessing it. The first tap selects the row and the second deselects it. There is no visible way to enter a folder, open the editor, or download.",
+   "fix": "On coarse pointers, a single tap on a directory navigates and a tap on a file opens an action sheet (Edit / Download / Rename / Delete). Move selection to a checkbox column. Add a visible ⋮ per row that opens the same menu as right-click. Add `select-none` on rows so long-press does not start Android text selection."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx",
+   "severity": "major",
+   "loc": "930 actions `opacity-0 group-hover:opacity-100`; 931-977 p-1 buttons",
+   "problem": "The Edit, Download, Rename and Delete row actions are invisible on touch. They appear only through Chrome's sticky-hover emulation after tapping the row. While invisible they are still tappable, so tapping the right edge of a row can arm Delete. Each button is ~22px with gap-0.5.",
+   "fix": "Use `can-hover:opacity-0 group-hover:opacity-100` so the actions are always visible on touch, or use the ⋮ menu. Give them 40px hit areas."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx",
+   "severity": "major",
+   "loc": "680-684 `flex gap-3`; 1084 editor `w-1/2 min-w-[400px]`; 1121-1132 textarea",
+   "problem": "The text editor opens as a side panel with a 400px minimum width. On phones this forces horizontal page overflow and collapses the file list to ~0px. On 768px portrait the list gets ~300px, with its table scrolling inside that. The textarea uses text-xs (12px), which is small on a phone and zooms on iOS.",
+   "fix": "Below lg, render the editor as a full-screen sheet (FullscreenOverlay) that replaces the list, with Save and Close in its header. Use `text-base` on coarse pointers. Keep the side-by-side layout at lg and up."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx",
+   "severity": "major",
+   "loc": "788 `max-h-[calc(100vh-320px)]`; 789-797 fixed column widths",
+   "problem": "The fixed columns (w-8 + w-28 + w-44 + w-28, 432px before the name column) force horizontal scrolling on phones, with the actions column off-screen. The list height of 100vh-320px is only ~40-80px in phone landscape (a viewport ~360-400px tall).",
+   "fix": "Below md, render list rows instead: icon, name, a 'size · modified' subline, and ⋮. Replace the calc max-height with a dvh-based value, or let the page scroll."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx",
+   "severity": "major",
+   "loc": "373-381 download blob; 633-648 upload input.click(); 584-631/757-767 drag-drop upload",
+   "problem": "Download uses a blob URL plus a.download with an immediate revoke, which does not work in Android WebView. Upload relies on a detached <input type=file>.click(), which does nothing unless the Android shell implements onShowFileChooser. Drag-and-drop upload has no touch equivalent. The Upload button is the fallback, but it is disabled at the drives root.",
+   "fix": "Use utils/native downloadBlob(). Make sure the Android shell implements onShowFileChooser (and DownloadListener). Keep the Upload button as the touch path."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\devices\\FileExplorerTab.tsx",
+   "severity": "minor",
+   "loc": "499 prompt(); 489 confirm(); 848-880 rename input w-64 + p-0.5 buttons; 1030-1076 context menu",
+   "problem": "prompt() and confirm() are silently null/false in a WebView without a WebChromeClient. The rename input is fixed at w-64 and overflows the narrow name cell, and its confirm and cancel buttons are ~18px. Context-menu items are ~28px tall and hard-coded English ('Open', 'Edit', 'Download', 'Rename', 'Delete'). So are 'Max 150 MB per file' (774), 'modified' (1093) and 'Ctrl+S to save' (1139).",
+   "fix": "Use useConfirm()/usePrompt(). Make the rename input `w-full`. Use 40px menu rows on coarse pointers. Translate these strings with t()."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\DeviceDetailPage.tsx",
+   "severity": "major",
+   "loc": "4906-4914 Kill `opacity-0 group-hover:opacity-100`; 4890 `<tr title={proc.command}>`",
+   "problem": "In the Processes tab, the Kill button is visible only on hover. On touch it is invisible yet tappable, and it appears only after a sticky-hover tap. The full command line exists only in the row's title=, so a touch user cannot see it.",
+   "fix": "Keep Kill always visible on coarse pointers, or make a row tap open a bottom sheet with details (command, user, PID, CPU/Mem) and a 40px Kill button. Replace confirm() at 4738 with useConfirm()."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\DeviceDetailPage.tsx",
+   "severity": "major",
+   "loc": "4796-4828 header; 4819-4825 filter w-48; 4845-4884 table; 4874/4903 User `hidden lg:table-cell`",
+   "problem": "In the Processes tab, the header is a non-wrapping `justify-between` row: the title with count and CPU/Mem totals on one side, a live dot and a fixed-width (w-48) filter on the other. It overflows or squeezes on phones. The table has 5-6 px-4 columns, so the Kill column sits off-screen in the scroller. The User column is hidden below lg, so tablet users (768-1023) cannot see who owns a process.",
+   "fix": "Make the header `flex-wrap` with a `w-full sm:w-48` filter. Below md, show Name with a 'CPU · Mem' subline and open the detail sheet on row tap. Show User in the sheet."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\DeviceDetailPage.tsx",
+   "severity": "minor",
+   "loc": "3549-3554 & 3590-3595 picker close icons; 3750-3805 session row buttons",
+   "problem": "In the Remote tab, the close buttons of the WTS session and shell-context pickers are bare 16px X icons, and the session-history View / Open / End / Cancel buttons are ~24px tall.",
+   "fix": "Use IconButton or 40px targets on coarse pointers."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\RemoteSessionsPage.tsx",
+   "severity": "blocker",
+   "loc": "15-23 PROTOCOL_CONFIG; 115-145 handleStartSession; 371-378 Connect button",
+   "problem": "This affects every device and matters most on a tablet, where this page (Supervision) is the main session launcher. RDP, SSH, CMD, PowerShell and VM Console are all offered, but only Oblireach opens a client. The others just show a 'waiting for agent' toast, because no shell is pushed into useRemoteShellStore (unlike DeviceDetailPage.tsx:3465-3501). The RDP 'Connect' button has no onClick. 'vmconsole' is started without the required vmId (server remote.service.ts:96-101 forwards vmId=undefined).",
+   "fix": "For ssh/cmd/powershell, reuse the startShellSession flow (addSession on REMOTE_TUNNEL_READY) so the GlobalShellPanel opens. Hide rdp (there is no web client) and vmconsole (it needs a VM) from this picker. Remove the Connect button or implement it."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\RemoteSessionsPage.tsx",
+   "severity": "major",
+   "loc": "329-399 active-session card `flex items-start gap-4`, actions `shrink-0`",
+   "problem": "The active-session cards do not stack. On a 360px phone (about 272px of content after Supervision's p-6 and the card's p-4), the icon and the View/End buttons leave the info column ~70px, so the device name, badges and 'Started …' wrap into a tall sliver.",
+   "fix": "Use `flex-col sm:flex-row`, with the action buttons in a full-width row below the info on phones, at least 40px tall."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\RemoteSessionsPage.tsx",
+   "severity": "major",
+   "loc": "414-423 thead; 442-452 cells `hidden md/lg:table-cell`",
+   "problem": "The history table hides Started and Duration below lg and User below md, and rows have no detail view. On tablet portrait, and landscape below 1024, a user cannot see when a session took place or how long it lasted.",
+   "fix": "Below lg, show 'start · duration' (and the user) as a subline under the device name, or expand the row on tap."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\RemoteSessionsPage.tsx",
+   "severity": "minor",
+   "loc": "148 confirm(); 473 deviceName; 170 `p-6`; strings throughout",
+   "problem": "End session uses a native confirm() (a silent no-op in a WebView without WebChromeClient). The viewer title shows 'Device #id' instead of the name. The page uses p-6 on phones, and all strings are hard-coded English.",
+   "fix": "Use useConfirm(). Pass the device name through (session.device.displayName). Use `p-4 md:p-6`. Translate with t()."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\HistoryPage.tsx",
+   "severity": "major",
+   "loc": "377 `overflow-hidden`; 381-387 thead; 401-444 cells (Action `max-w-0` at 414, Device hidden <md at 384/424)",
+   "problem": "The events table is clipped on phones. Below md the visible columns are Date (nowrap, ~125px), Type, Action (max-w-0 truncate) and Status, each with px-4, about 400px total inside a ~312px `overflow-hidden` box. Status is clipped and Action, the most important field, is truncated to about 0px. Device and its link are hidden below md, so a phone user cannot tell which machine an event is about.",
+   "fix": "Below md, render stacked rows: Action and the status badge on line 1, 'device · date · kind' on line 2, with a device link. As a minimum, use an `overflow-x-auto` wrapper."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\HistoryPage.tsx",
+   "severity": "major",
+   "loc": "492 `overflow-hidden`; 496-502 thead (only Duration hidden); 561 step row `flex items-center gap-3`",
+   "problem": "The scenario-runs table has no responsive columns: Date, Scenario, Device, Trigger and Status are always shown, needing about 750px. It is clipped on phones and in tablet portrait with the sidebar docked, which hides the Status and the expand chevron. Expanded step rows do not wrap.",
+   "fix": "Use overflow-x-auto and hide Trigger and Device below md (show them in the expanded row). Add `flex-wrap` to the step rows."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\SupervisionPage.tsx",
+   "severity": "minor",
+   "loc": "56 `p-6`; 58-71 tabs `flex-1 px-4` with icon + label",
+   "problem": "The fixed p-6 plus the nested panel padding leaves about 272px of usable width on a 360px phone. The three flex-1 tabs with px-4 and an icon wrap longer FR/DE labels ('Sessions distantes') onto two lines.",
+   "fix": "Use `p-4 md:p-6`. Below sm, make the tabs icon-only with visible short labels, or let the tab row scroll horizontally."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\layout\\GlobalChatPanel.tsx",
+   "severity": "major",
+   "loc": "477-478 `style={{ width: 400 }}` right-4; 457 FAB bottom-6 right-6 z-[60]",
+   "problem": "The chat opened from the ObliReach toolbar's Chat button is fixed at 400px wide. On 360-392px phones its left edge (avatar and title) is off-screen. The minimized FAB (56px, z-60) sits over the bottom-right of the remote canvas, where the Windows tray and clock usually are, and swallows taps there.",
+   "fix": "Use `width: min(400px, calc(100vw - 2rem))`, or a full-screen sheet below sm. Hide or move the FAB while a remote viewer is open (shared FloatingDock)."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\hyperv\\HyperVConsole.tsx",
+   "severity": "minor",
+   "loc": "79 img fit; 102 preview; 120-138 HyperVConsoleModal `fixed inset-0`",
+   "problem": "The read-only console is fit-only with no pinch or zoom: a 1024x768 frame shows at about 360x270 on a phone. The full modal ignores useNativeTopOffset and safe areas, unlike the other viewers. The interactive VM console (DeviceDetailPage.tsx:4019-4027) reuses ObliReachViewer, so it inherits all of the viewer's touch gaps, and it has no onReconnect.",
+   "fix": "Wrap the modal in FullscreenOverlay and add the same pinch and pan transform as the viewer. The interactive console gets the fixes automatically through the shared hooks."
+  }
+ ]
+}

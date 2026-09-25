@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { GroupSidePanel } from './GroupSidePanel';
 import { DeviceTable } from './DeviceTable';
 import { Drawer } from '@/components/common/Drawer';
-import { useMediaQuery, MEDIA } from '@/hooks/useMediaQuery';
+import { useMediaQuery, useIsCoarsePointer, MEDIA } from '@/hooks/useMediaQuery';
 
 interface DevicesPageLayoutProps {
   mode: 'monitoring' | 'admin';
@@ -27,7 +27,14 @@ export function DevicesPageLayout({
   // Below lg (phones, tablets) the groups column would eat most of the
   // width next to the list: it becomes an off-canvas drawer opened from a
   // "Groups" button in the DeviceTable toolbar (docs/obli-mobile.md §4/§5.8).
-  const isDesktop = useMediaQuery(MEDIA.lg);
+  // Same on a touch screen below xl (landscape tablet 1024-1279px): the
+  // sidebar is pinned there (no hover to float it), so an inline 260px
+  // column would leave the device rows ~400-560px. Desktop with a mouse
+  // (any width >= lg) keeps the inline column.
+  const isLg = useMediaQuery(MEDIA.lg);
+  const isXl = useMediaQuery(MEDIA.xl);
+  const coarse = useIsCoarsePointer();
+  const inlineGroups = isLg && (isXl || !coarse);
   const [groupsOpen, setGroupsOpen] = useState(false);
 
   // Keep local state in sync when URL-provided initial groupId changes
@@ -36,10 +43,10 @@ export function DevicesPageLayout({
     setGroupId(initialGroupId);
   }, [initialGroupId]);
 
-  // Leaving the drawer layout (rotation / resize to ≥ lg) closes it.
+  // Leaving the drawer layout (rotation / resize) closes it.
   useEffect(() => {
-    if (isDesktop) setGroupsOpen(false);
-  }, [isDesktop]);
+    if (inlineGroups) setGroupsOpen(false);
+  }, [inlineGroups]);
 
   const handleGroupChange = (gid: number | null) => {
     setGroupId(gid);
@@ -64,7 +71,7 @@ export function DevicesPageLayout({
   // user complained about — sidebar scrolling away with the page).
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
-      {isDesktop && (
+      {inlineGroups && (
         <GroupSidePanel
           groupId={groupId}
           onGroupChange={handleGroupChange}
@@ -80,10 +87,10 @@ export function DevicesPageLayout({
           initialApprovalFilter={initialApprovalFilter}
           groupId={groupId}
           onGroupChange={handleGroupChange}
-          onOpenGroups={isDesktop ? undefined : () => setGroupsOpen(true)}
+          onOpenGroups={inlineGroups ? undefined : () => setGroupsOpen(true)}
         />
       </div>
-      {!isDesktop && (
+      {!inlineGroups && (
         <Drawer
           open={groupsOpen}
           onClose={() => setGroupsOpen(false)}

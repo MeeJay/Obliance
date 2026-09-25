@@ -107,7 +107,9 @@ function Row({ row, isMaster }: { row: AuditLogRow; isMaster: boolean }) {
  </tr>
  {open && hasDetails && (
  <tr className="bg-bg-primary/50 /30">
- <td colSpan={colSpan} className="px-8 py-2">
+ {/* Sticky-first-col (narrow): this cell spans the whole row, so it never
+     shifts — keep it transparent to show the row tint. */}
+ <td colSpan={colSpan} className="px-8 py-2 [--table-sticky-bg:transparent]">
  <pre className="text-[11px] text-text-secondary font-mono whitespace-pre-wrap break-all max-h-64 overflow-auto">
  {JSON.stringify(row.details, null, 2)}
  </pre>
@@ -366,7 +368,8 @@ export function AuditLogPage({ embedded = false }: { embedded?: boolean } = {}) 
  <table className="w-full border-collapse min-w-[640px]">
  <thead>
  <tr className=" bg-bg-primary/40">
- <th className="px-2 py-1.5 text-left text-[10px] uppercase text-text-muted font-medium">When</th>
+ {/* Pinned below lg: opaque card bg (sticky rule) + the row's 40% tint on top. */}
+ <th className="px-2 py-1.5 text-left text-[10px] uppercase text-text-muted font-medium max-lg:[background-image:linear-gradient(rgb(var(--c-bg-primary)/0.4),rgb(var(--c-bg-primary)/0.4))]">When</th>
  {isMaster && (
  <th className="px-2 py-1.5 text-left text-[10px] uppercase text-text-muted font-medium">Tenant</th>
  )}

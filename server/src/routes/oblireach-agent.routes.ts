@@ -5,6 +5,7 @@ import { agentAuth } from '../middleware/agentAuth';
 import { db } from '../db';
 import { logger } from '../utils/logger';
 import { oblireachHub } from '../services/oblireachHub.service';
+import { agentKeyMayActForDevice, isUuid } from '../services/remoteSessionSecurity';
 
 // ── Auto-update version check ─────────────────────────────────────────────────
 
@@ -84,6 +85,19 @@ router.post('/push', agentAuth, async (req, res, next) => {
     const flag = await db('app_config').where({ key: 'integrated_oblireach_enabled' }).first();
     if (flag && flag.value === 'false') {
       return res.status(403).json({ error: 'Integrated Oblireach is disabled on this server' });
+    }
+
+    // SECURITY: the reply hands over (and clears) pending_command, which may
+    // be an open_remote_tunnel carrying the relay + privacy unlock tokens.
+    // For an enrolled device, only the key that device is bound to may poll
+    // for it — same rule as the /api/oblireach/ws channel. A uuid with no
+    // devices row (standalone agent) keeps working: no session can target it.
+    if (isUuid(deviceUuid)) {
+      const device = await db('devices').where({ uuid: deviceUuid }).first('id', 'tenant_id', 'api_key_id');
+      if (device && !agentKeyMayActForDevice({ id: req.agentApiKeyId!, tenant_id: tenantId }, device)) {
+        logger.warn({ deviceId: device.id, apiKeyId: req.agentApiKeyId }, 'Oblireach push refused: device/API-key mismatch');
+        return res.status(403).json({ error: 'Device/API-key mismatch' });
+      }
     }
 
     // Upsert the device record

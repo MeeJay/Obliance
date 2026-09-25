@@ -12,9 +12,9 @@ import { GroupTreeMultiSelect } from '@/components/automation/GroupTreeMultiSele
 import { StickyFormActions, useRevealOnOpen } from '@/components/automation/FormActions';
 import { PageContainer } from '@/components/common/PageContainer';
 import { useNativeBack } from '@/hooks/useNativeBack';
-import { MEDIA, useMediaQuery, useCanHover } from '@/hooks/useMediaQuery';
+import { MEDIA, useMediaQuery, useCanHover, useIsCoarsePointer, useLayoutMode } from '@/hooks/useMediaQuery';
 import { saveJson } from '@/utils/download';
-import { copyText } from '@/utils/clipboard';
+import { copyTextDeferred } from '@/utils/clipboard';
 
 /** Per-row export button with a menu offering two flavours (+ copy).
  * Lean (default) exports the scenario alone — small file, points at
@@ -108,10 +108,9 @@ function useAppBodyTop(active: boolean): number {
 import { ScenarioGraphEditor } from '@/components/scenarios/ScenarioGraphEditor';
 import { scenarioApi } from '@/api/scenario.api';
 import { scriptApi } from '@/api/script.api';
-import { groupsApi } from '@/api/groups.api';
 import { useGroupStore } from '@/store/groupStore';
 import { getSocket } from '@/socket/socketClient';
-import type { Scenario, ScenarioTriggerType, ScenarioStatus, ScenarioRun, Script, ScriptSchedule, DeviceGroupTreeNode, AutomationNotificationBinding, Device } from '@obliance/shared';
+import type { Scenario, ScenarioTriggerType, ScenarioStatus, ScenarioRun, Script, ScriptSchedule, AutomationNotificationBinding, Device } from '@obliance/shared';
 import { deviceApi } from '@/api/device.api';
 // Notifications + on_success/on_failure toggles retired — moved to per-node
 // `Send notification` configuration in the v2 graph editor.
@@ -260,6 +259,11 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  const confirm = useConfirm();
  const prompt = usePrompt();
  const canHover = useCanHover();
+ const isCoarse = useIsCoarsePointer();
+ const layoutMode = useLayoutMode();
+ // Row actions: the historic inline icon cluster with a mouse from md up,
+ // one labelled "⋯" menu on a phone or a touch screen.
+ const compactRowActions = layoutMode === 'phone' || isCoarse;
  const readOnlyReason = t('automations.readOnlyMaster', 'Managed by the Default tenant — read-only');
 
  const handlePickImportFile = () => importFileInputRef.current?.click();
@@ -358,14 +362,21 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  };
 
  const handleCopyScenarioJson = async (scenario: Scenario) => {
- try {
- const data = await scenarioApi.exportScenario(scenario.id, { includeScripts: false });
- const ok = await copyText(JSON.stringify(data, null, 2));
+ // The export is fetched over the network, but WebKit (iOS / iPadOS
+ // browsers, macOS Safari) only allows a clipboard write that STARTS
+ // inside the click / tap gesture — copyTextDeferred() starts it
+ // synchronously with a promised ClipboardItem, then falls back to
+ // copyText() (async Clipboard API → execCommand → Android native bridge).
+ const textPromise = scenarioApi
+ .exportScenario(scenario.id, { includeScripts: false })
+ .then((data) => JSON.stringify(data, null, 2));
+ const ok = await copyTextDeferred(textPromise);
+ if (!ok && (await textPromise.then(() => false, () => true))) {
+ toast.error(t('scenarios.export.failed', 'Failed to export scenario'));
+ return;
+ }
  if (ok) toast.success(t('common.copied', 'Copied!'));
  else toast.error(t('common.error', 'Error'));
- } catch {
- toast.error(t('scenarios.export.failed', 'Failed to export scenario'));
- }
  };
  const [scenarios, setScenarios] = useState<Scenario[]>([]);
  const [scripts, setScripts] = useState<Script[]>([]);
@@ -580,11 +591,11 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  if (out && out.status === 'pending_approval') {
  toast.success(t('scenarios.privacyBypass.pendingApprovalToast') || 'Scenario saved — privacy-bypass toggle awaiting admin approval', { duration: 6000 });
  } else {
- toast.success(t('scenarios.savedToast') || 'Scenario updated');
+ toast.success(t('scenarios.savedToast', 'Scenario updated'));
  }
  } else {
  await scenarioApi.create(payload);
- toast.success(t('scenarios.createdToast') || 'Scenario created');
+ toast.success(t('scenarios.createdToast', 'Scenario created'));
  }
  setShowForm(false);
  setEditingScenario(null);
@@ -814,7 +825,7 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  className="hidden md:flex items-center gap-2 px-4 py-2 border border-transparent text-text-primary rounded-lg hover:bg-bg-secondary text-sm transition-colors"
  >
  <Download className="w-4 h-4" />
- Import from template
+ {t('scenarios.importFromTemplate', 'Import from template')}
  </button>
  {/* Embedded mode is what users see on /schedules → Scenarios
  tab, i.e. THE common entry point. The standalone /scenarios
@@ -825,19 +836,30 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  <button
  onClick={handlePickImportFile}
  disabled={importBusy}
- title="Import a scenario JSON file (with or without embedded scripts)"
+ title={t('scenarios.importJsonHint', 'Import a scenario JSON file (with or without embedded scripts)')}
  className="hidden md:flex items-center gap-2 px-4 py-2 border border-transparent text-text-primary rounded-lg hover:bg-bg-secondary text-sm transition-colors disabled:opacity-50"
  >
  <Upload className="w-4 h-4" />
- Import JSON
+ {t('scenarios.importJson', 'Import JSON')}
  </button>
+ {/* Touch tablets: no-file import path (the phone gets it in the menu below). */}
+ {isCoarse && (
+ <button
+ onClick={() => { void handlePasteImport(); }}
+ disabled={importBusy}
+ className="hidden md:flex items-center gap-2 px-4 py-2 border border-transparent text-text-primary rounded-lg hover:bg-bg-secondary text-sm transition-colors disabled:opacity-50"
+ >
+ <ClipboardPaste className="w-4 h-4" />
+ {t('scenarios.pasteJson', 'Paste JSON')}
+ </button>
+ )}
  <button
  onClick={handleDownloadTemplate}
- title="Download an empty scenario JSON to share with an AI / colleague"
+ title={t('scenarios.emptyTemplateHint', 'Download an empty scenario JSON to share with an AI / colleague')}
  className="hidden md:flex items-center gap-2 px-4 py-2 border border-transparent text-text-muted hover:text-text-primary rounded-lg hover:bg-bg-secondary text-sm transition-colors"
  >
  <FileText className="w-4 h-4" />
- Empty template
+ {t('scenarios.emptyTemplate', 'Empty template')}
  </button>
  <span className="md:hidden">
  <ActionMenu
@@ -907,13 +929,15 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  </div>
  )}
 
- {/* Template import modal */}
+ {/* Template import modal. Title size, backdrop (no blur), shadow and
+ the 80vh cap reproduce the former hand-rolled desktop dialog. */}
  <Modal
  open={showTemplateModal}
  onClose={() => setShowTemplateModal(false)}
- title={t('scenarios.importFromTemplate', 'Import from template')}
+ title={<span className="text-lg">{t('scenarios.importFromTemplate', 'Import from template')}</span>}
  size="lg"
- className="bg-bg-primary"
+ className="bg-bg-primary shadow-xl sm:max-h-[80dvh] sm:supports-[not(height:100dvh)]:max-h-[80vh]"
+ overlayClassName="bg-black/50 backdrop-blur-none"
  bodyClassName="p-4 sm:p-6 space-y-3"
  >
  {loadingTemplates ? (
@@ -921,7 +945,7 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  <RefreshCw className="w-5 h-5 animate-spin text-text-muted" />
  </div>
  ) : templates.length === 0 ? (
- <p className="text-sm text-text-muted text-center py-12">No templates available.</p>
+ <p className="text-sm text-text-muted text-center py-12">{t('scenarios.noTemplates', 'No templates available.')}</p>
  ) : selectedTemplate ? (
  <div className="space-y-4">
  <button
@@ -1183,7 +1207,7 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  <h3 className="text-sm font-semibold text-text-primary mb-3">
  {t('scenarios.privacyBypass.title') || 'Privacy mode'}
  </h3>
- <div className="flex items-start gap-3 px-3 py-3 rounded-lg bg-bg-tertiary">
+ <div className="flex items-start gap-3 max-sm:flex-col max-sm:gap-2 px-3 py-3 rounded-lg bg-bg-tertiary">
  <ToggleSwitch
  checked={form.bypassPrivacyMode}
  onChange={(v) => setForm({ ...form, bypassPrivacyMode: v })}
@@ -1450,23 +1474,88 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  const legacyStepCount = scenario.stepCount ?? scenario.steps?.length ?? 0;
  const itemCount = nodeCount && nodeCount > 0 ? nodeCount : legacyStepCount;
  const itemLabel = nodeCount && nodeCount > 0 ? 'node' : 'step';
+ const readOnly = isReadOnlyForCaller(scenario);
+ const canTrigger = (scenario.triggerCounts?.manual ?? 0) > 0 || scenario.triggerType === 'manual';
+ const activeRuns = scenario.activeRunCount ?? 0;
+ const stopLabel = t('scenarios.stopActiveRuns', {
+ count: activeRuns,
+ defaultValue: `Stop ${activeRuns} active run${activeRuns > 1 ? 's' : ''}`,
+ });
+ const toggleLabel = scenario.status === 'active' ? t('common.disable', 'Disable') : t('common.enable', 'Enable');
+ const stopBadge = activeRuns > 0 ? (
+ <button
+ onClick={() => { void handleStopRuns(scenario); }}
+ className="inline-flex items-center gap-1 px-1.5 py-0.5 coarse:min-h-10 coarse:px-2.5 rounded text-red-400 hover:bg-red-400/10 transition-colors"
+ title={stopLabel}
+ aria-label={stopLabel}
+ >
+ <StopCircle className="w-4 h-4" />
+ <span className="text-[11px] font-mono">{activeRuns}</span>
+ </button>
+ ) : null;
+ // Phone / touch: every action in one labelled "⋯" menu (8 bare
+ // icons told apart only by title= are unusable by finger).
+ const rowMenuItems: ActionMenuItem[] = [
+ { key: 'trigger', icon: <Play className="w-4 h-4" />, label: t('scenarios.triggerNow', 'Trigger now'), hidden: !canTrigger, onClick: () => { void handleTrigger(scenario); } },
+ { key: 'stop', icon: <StopCircle className="w-4 h-4" />, label: stopLabel, hidden: activeRuns === 0, danger: true, onClick: () => { void handleStopRuns(scenario); } },
+ {
+ key: 'toggle',
+ icon: scenario.status === 'active' ? <ToggleRight className="w-4 h-4 text-green-400" /> : <ToggleLeft className="w-4 h-4" />,
+ label: toggleLabel,
+ onClick: () => { void handleToggle(scenario); },
+ },
+ { key: 'history', icon: <History className="w-4 h-4" />, label: t('scenarios.runHistory', 'Run history'), onClick: () => setHistoryForScenario(scenario) },
+ {
+ key: 'graph',
+ icon: <GitBranch className="w-4 h-4" />,
+ label: t('scenarios.editGraph', 'Edit graph'),
+ description: readOnly ? readOnlyReason : undefined,
+ disabled: readOnly,
+ onClick: () => setGraphEditorScenarioId(scenario.id),
+ },
+ {
+ key: 'edit',
+ icon: <Edit className="w-4 h-4" />,
+ label: t('scenarios.editMetadata', 'Edit metadata'),
+ description: readOnly ? readOnlyReason : undefined,
+ disabled: readOnly,
+ onClick: () => { void handleOpenEdit(scenario); },
+ },
+ ...exportMenuItems(t, scenario, handleExportScenario, handleCopyScenarioJson).map((item, i) => ({ ...item, separator: i === 0 })),
+ {
+ key: 'delete',
+ icon: <Trash2 className="w-4 h-4" />,
+ label: t('common.delete', 'Delete'),
+ description: readOnly ? readOnlyReason : undefined,
+ disabled: readOnly,
+ danger: true,
+ separator: true,
+ onClick: () => { void handleDelete(scenario); },
+ },
+ ];
  return (
  <div key={scenario.id} className="bg-bg-secondary rounded-xl overflow-hidden">
- <div className="flex items-center gap-4 px-4 py-3">
- <button
+ <div className="flex items-center gap-2 md:gap-4 px-3 md:px-4 py-3">
+ <IconButton
+ label={expanded ? t('automations.collapse', 'Collapse') : t('automations.expand', 'Expand')}
+ aria-expanded={expanded}
  onClick={() => setExpandedId(expanded ? null : scenario.id)}
- className="text-text-muted hover:text-text-primary transition-colors"
- >
- {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
- </button>
+ variant="plain"
+ showTooltip={false}
+ className="p-0 shrink-0"
+ icon={expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+ />
  <div className="flex-1 min-w-0">
  <div className="flex items-center gap-2 flex-wrap">
- <span className="text-sm font-medium text-text-primary">{scenario.name}</span>
+ <span className="min-w-0 break-words text-sm font-medium text-text-primary">{scenario.name}</span>
  <ScenarioStatusBadge status={scenario.status} />
- {isReadOnlyForCaller(scenario) && (
+ {readOnly && (
+ // Tap on the badge explains why Edit / Delete are disabled.
+ <Tip content={readOnlyReason} disabled={canHover}>
  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] uppercase tracking-wider rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/30">
  🔒 Master
  </span>
+ </Tip>
  )}
  <TenantBadge tenantId={scenario.tenantId} />
  <FanOutChips targetTenantIds={scenario.targetTenantIds} />
@@ -1496,73 +1585,66 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  </div>
  </div>
  <div className="flex items-center gap-2 shrink-0">
+ {compactRowActions ? (
+ <>
+ {/* The active-run counter stays visible (it is
+ information as much as an action). */}
+ {stopBadge}
+ <ActionMenu
+ label={t('ui.moreActions', 'More actions')}
+ sheetTitle={scenario.name}
+ items={rowMenuItems}
+ />
+ </>
+ ) : (
+ <>
  {/* In v2, the Play icon shows whenever the scenario has
  a manual trigger in its graph (triggerCounts.manual > 0)
  OR the legacy triggerType is 'manual'. The legacy
  check covers freshly-created scenarios that haven't
  been migrated yet — it would otherwise be dropped
  and admins couldn't fire them from the list view. */}
- {((scenario.triggerCounts?.manual ?? 0) > 0 || scenario.triggerType === 'manual') && (
+ {canTrigger && (
  <button
  onClick={() => handleTrigger(scenario)}
  className="p-1.5 text-text-muted hover:text-accent hover:bg-accent/10 rounded transition-colors"
- title="Trigger now"
+ title={t('scenarios.triggerNow', 'Trigger now')}
+ aria-label={t('scenarios.triggerNow', 'Trigger now')}
  >
  <Play className="w-4 h-4" />
  </button>
  )}
- {(scenario.activeRunCount ?? 0) > 0 && (
- <button
- onClick={async () => {
- if (!confirm(`Stop ${scenario.activeRunCount} active run${scenario.activeRunCount! > 1 ? 's' : ''} of "${scenario.name}"?`)) return;
- try {
- const r = await scenarioApi.cancelAllRuns(scenario.id);
- toast.success(`Cancelled ${r.cancelled} run${r.cancelled !== 1 ? 's' : ''}`);
- await load();
- } catch (err) {
- // Surface the real server message instead
- // of swallowing it — past iterations of
- // "Failed to start run" / "Failed to stop"
- // hid the actual cause.
- const e = err as { response?: { data?: { error?: string } }; message?: string };
- const detail = e?.response?.data?.error || e?.message || 'Unknown error';
- console.error('cancelAllRuns failed', err);
- toast.error(`Failed to stop runs: ${detail}`);
- }
- }}
- className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-red-400 hover:bg-red-400/10 transition-colors"
- title={`Stop ${scenario.activeRunCount} active run${scenario.activeRunCount! > 1 ? 's' : ''}`}
- >
- <StopCircle className="w-4 h-4" />
- <span className="text-[11px] font-mono">{scenario.activeRunCount}</span>
- </button>
- )}
+ {stopBadge}
  <button
  onClick={() => handleToggle(scenario)}
  className="text-text-muted hover:text-accent transition-colors"
- title={scenario.status === 'active' ? 'Disable' : 'Enable'}
+ title={toggleLabel}
+ aria-label={toggleLabel}
  >
  {scenario.status === 'active' ? <ToggleRight className="w-5 h-5 text-green-400" /> : <ToggleLeft className="w-5 h-5" />}
  </button>
  <button
  onClick={() => setHistoryForScenario(scenario)}
  className="p-1.5 text-text-muted hover:text-accent hover:bg-accent/10 rounded transition-colors"
- title="Run history"
+ title={t('scenarios.runHistory', 'Run history')}
+ aria-label={t('scenarios.runHistory', 'Run history')}
  >
  <History className="w-4 h-4" />
  </button>
  <button
  onClick={() => setGraphEditorScenarioId(scenario.id)}
- disabled={isReadOnlyForCaller(scenario)}
- title={isReadOnlyForCaller(scenario) ? 'Géré par le tenant Default — lecture seule' : 'Edit graph'}
+ disabled={readOnly}
+ title={readOnly ? readOnlyReason : t('scenarios.editGraph', 'Edit graph')}
+ aria-label={t('scenarios.editGraph', 'Edit graph')}
  className="p-1.5 text-text-muted hover:text-accent hover:bg-accent/10 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
  >
  <GitBranch className="w-4 h-4" />
  </button>
  <button
  onClick={() => handleOpenEdit(scenario)}
- disabled={isReadOnlyForCaller(scenario)}
- title={isReadOnlyForCaller(scenario) ? 'Géré par le tenant Default — lecture seule' : 'Edit metadata'}
+ disabled={readOnly}
+ title={readOnly ? readOnlyReason : t('scenarios.editMetadata', 'Edit metadata')}
+ aria-label={t('scenarios.editMetadata', 'Edit metadata')}
  className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-tertiary rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
  >
  <Edit className="w-4 h-4" />
@@ -1573,15 +1655,18 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  tenant already has them). With scripts =
  portable; the importer asks the user how to
  handle uuid collisions. */}
- <ExportMenu scenario={scenario} onExport={handleExportScenario} />
+ <ExportMenu scenario={scenario} onExport={handleExportScenario} onCopy={handleCopyScenarioJson} />
  <button
  onClick={() => handleDelete(scenario)}
- disabled={isReadOnlyForCaller(scenario)}
- title={isReadOnlyForCaller(scenario) ? 'Géré par le tenant Default — lecture seule' : undefined}
+ disabled={readOnly}
+ title={readOnly ? readOnlyReason : undefined}
+ aria-label={t('common.delete', 'Delete')}
  className="p-1.5 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
  >
  <Trash2 className="w-4 h-4" />
  </button>
+ </>
+ )}
  </div>
  </div>
  {expanded && (
@@ -1621,7 +1706,7 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  <p className="text-xs text-text-muted uppercase font-medium mb-2">Steps</p>
  <div className="space-y-1">
  {scenario.steps!.sort((a, b) => a.sortOrder - b.sortOrder).map((step, i) => (
- <div key={step.id} className="flex items-center gap-3 px-3 py-2 bg-bg-secondary rounded-lg">
+ <div key={step.id} className="flex items-center gap-3 max-md:flex-wrap max-md:gap-y-1 px-3 py-2 bg-bg-secondary rounded-lg">
  <span className="text-xs font-mono text-text-muted w-5 text-center">{i + 1}</span>
  <span className="text-sm text-text-primary flex-1">{step.name}</span>
  {step.checkScript && (
@@ -1651,28 +1736,55 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  </div>
  )}
 
+ <Modal
+ open={triggerModalScenario != null}
+ onClose={() => { if (!isTriggering) setTriggerModalScenario(null); }}
+ dismissible={!isTriggering}
+ title={<>
+ <span className="block truncate text-lg">{t('scenarios.runScenario', 'Run scenario')}</span>
  {triggerModalScenario && (
- <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => !isTriggering && setTriggerModalScenario(null)}>
- <div className="bg-bg-secondary rounded-xl max-w-2xl w-full max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
- <div className="px-6 py-4 flex items-center justify-between">
- <div>
- <h2 className="text-lg font-semibold text-text-primary">Run scenario</h2>
- <p className="text-xs text-text-muted mt-0.5">{triggerModalScenario.name}</p>
- </div>
- <button onClick={() => !isTriggering && setTriggerModalScenario(null)} className="p-1 text-text-muted hover:text-text-primary">
- <X className="w-5 h-5" />
+ <span className="block whitespace-normal break-words text-xs font-normal text-text-muted mt-0.5">{triggerModalScenario.name}</span>
+ )}
+ </>}
+ size="lg"
+ className="shadow-none sm:max-h-[80dvh] sm:supports-[not(height:100dvh)]:max-h-[80vh]"
+ overlayClassName="backdrop-blur-none"
+ bodyClassName="px-4 sm:px-6 py-4 space-y-3"
+ footerClassName="px-4 sm:px-6 py-4"
+ footer={<>
+ <button
+ onClick={() => setTriggerModalScenario(null)}
+ disabled={isTriggering}
+ className="px-4 py-2 coarse:min-h-11 text-sm text-text-muted hover:text-text-primary rounded-lg transition-colors"
+ >
+ {t('common.cancel', 'Cancel')}
  </button>
- </div>
- <div className="px-6 py-4 space-y-3 overflow-y-auto flex-1">
- <label className="text-xs font-medium text-text-muted uppercase">Target devices</label>
+ <button
+ onClick={confirmTrigger}
+ disabled={isTriggering || triggerDeviceIds.length === 0}
+ className="px-4 py-2 coarse:min-h-11 text-sm bg-accent text-white rounded-lg hover:bg-accent/90 disabled:opacity-50 transition-colors flex items-center gap-2"
+ >
+ <Play className="w-4 h-4" />
+ {isTriggering ? t('scenarios.running', 'Running...') : t('scenarios.run', 'Run')}
+ </button>
+ </>}
+ >
+ {triggerModalScenario && (<>
+ <label className="block text-xs font-medium text-text-muted uppercase">{t('scenarios.targetDevices', 'Target devices')}</label>
  <input
  type="text"
  value={triggerSearch}
  onChange={(e) => setTriggerSearch(e.target.value)}
- placeholder="Search devices..."
+ placeholder={t('scenarios.searchDevices', 'Search devices...')}
+ autoCapitalize="off"
+ autoCorrect="off"
+ spellCheck={false}
+ enterKeyHint="search"
  className="w-full px-3 py-2 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent"
  />
- <div className="rounded-lg bg-bg-tertiary max-h-80 overflow-y-auto">
+ {/* Phone (full-screen sheet): the list flows in the body scroll
+ instead of a nested 320 px scroller. */}
+ <div className="rounded-lg bg-bg-tertiary max-h-80 max-sm:max-h-none overflow-y-auto">
  {(() => {
  if (triggerLoading) {
  return <p className="text-sm text-text-muted p-3">Loading devices…</p>;
@@ -1686,7 +1798,7 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  return (
  <>
  <div
- className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-bg-secondary"
+ className="flex items-center gap-2 px-3 py-2 coarse:min-h-11 cursor-pointer hover:bg-bg-secondary"
  onClick={() => {
  if (allSelected) setTriggerDeviceIds((prev) => prev.filter((id) => !devices.some((d) => d.id === id)));
  else setTriggerDeviceIds((prev) => Array.from(new Set([...prev, ...devices.map((d) => d.id)])));
@@ -1702,7 +1814,7 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  return (
  <div
  key={d.id}
- className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-bg-secondary"
+ className="flex items-center gap-2 px-3 py-2 coarse:min-h-11 cursor-pointer hover:bg-bg-secondary"
  onClick={() => {
  setTriggerDeviceIds((prev) => selected ? prev.filter((id) => id !== d.id) : [...prev, d.id]);
  }}
@@ -1719,28 +1831,11 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  );
  })()}
  </div>
- <p className="text-xs text-text-muted">{triggerDeviceIds.length} device(s) selected</p>
- </div>
- <div className="px-6 py-4 flex justify-end gap-2">
- <button
- onClick={() => setTriggerModalScenario(null)}
- disabled={isTriggering}
- className="px-4 py-2 text-sm text-text-muted hover:text-text-primary rounded-lg transition-colors"
- >
- Cancel
- </button>
- <button
- onClick={confirmTrigger}
- disabled={isTriggering || triggerDeviceIds.length === 0}
- className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent/90 disabled:opacity-50 transition-colors flex items-center gap-2"
- >
- <Play className="w-4 h-4" />
- {isTriggering ? 'Running...' : 'Run'}
- </button>
- </div>
- </div>
- </div>
- )}
+ <p className="text-xs text-text-muted">
+ {t('scenarios.devicesSelected', { count: triggerDeviceIds.length, defaultValue: '{{count}} device(s) selected' })}
+ </p>
+ </>)}
+ </Modal>
 
  {historyForScenario && (
  <ScenarioHistoryModal
@@ -1753,12 +1848,14 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  <body> so the modal escapes any ancestor stacking context
  (AppLayout, sidebar wrappers, etc.). Hardcoded z-index 200
  + inline style guarantees the modal sits above the floating
- sidebar (z-[51]) and the pinned sidebar (z-50). top: 52
- leaves the Obliance topbar visible, like before. */}
+ sidebar (z-[51]) and the pinned sidebar (z-50). `top` is
+ the measured bottom of the header (52 px on a plain
+ desktop; more with a native tab bar, a banner or a status
+ bar inset) so the Obliance topbar stays visible. */}
  {graphEditorScenarioId != null && createPortal(
  <div
- className="fixed left-0 right-0 bottom-0 bg-bg-primary"
- style={{ top: 52, zIndex: 200 }}
+ className="fixed left-0 right-0 bottom-0 bg-bg-primary pb-safe"
+ style={{ top: graphTop, zIndex: 200 }}
  >
  <ScenarioGraphEditor
  scenarioId={graphEditorScenarioId}
@@ -1788,19 +1885,51 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  {/* Conflict-resolution modal — shown only when the imported
  file embeds scripts whose uuid already exists in the target
  tenant. The user picks per-script: skip / overwrite / new. */}
- {importPreview && importPreview.conflicts.length > 0 && (
- <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
- <div className="bg-bg-secondary rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col">
- <div className="px-5 py-4 ">
- <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
- <Upload className="w-4 h-4 text-accent" />
- Resolve script conflicts
- </h3>
- <p className="text-xs text-text-muted mt-1">
- The import contains {importPreview.conflicts.length} script{importPreview.conflicts.length > 1 ? 's' : ''} whose UUID already exists. Choose what to do for each.
- </p>
- </div>
- <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3">
+ <Modal
+ open={!!importPreview && importPreview.conflicts.length > 0}
+ onClose={() => { if (!importBusy) { setImportPreview(null); setImportResolutions({}); } }}
+ dismissible={!importBusy}
+ closeOnBackdrop={false}
+ closeOnEscape={false}
+ // Mouse: no x, like the former dialog (Cancel is in the footer).
+ // Touch full-screen sheet: keep the x in reach at the top.
+ showCloseButton={canHover ? false : undefined}
+ title={<>
+ <span className="flex items-center gap-2">
+ <Upload className="w-4 h-4 shrink-0 text-accent" />
+ <span className="min-w-0 truncate">{t('scenarios.import.conflictsTitle', 'Resolve script conflicts')}</span>
+ </span>
+ {importPreview && (
+ <span className="block whitespace-normal text-xs font-normal text-text-muted mt-1">
+ {t('scenarios.import.conflictsHint', {
+ count: importPreview.conflicts.length,
+ defaultValue: `The import contains {{count}} script${importPreview.conflicts.length > 1 ? 's' : ''} whose UUID already exists. Choose what to do for each.`,
+ })}
+ </span>
+ )}
+ </>}
+ size="lg"
+ className="sm:max-h-[80dvh] sm:supports-[not(height:100dvh)]:max-h-[80vh]"
+ bodyClassName="px-5 py-3 space-y-3"
+ footerClassName="px-5 py-3"
+ footer={importPreview && <>
+ <button
+ onClick={() => { setImportPreview(null); setImportResolutions({}); }}
+ disabled={importBusy}
+ className="px-3 py-1.5 coarse:min-h-11 coarse:px-4 text-xs text-text-muted hover:text-text-primary disabled:opacity-50"
+ >
+ {t('common.cancel', 'Cancel')}
+ </button>
+ <button
+ onClick={() => commitImport(importPreview.payload, importResolutions)}
+ disabled={importBusy}
+ className="px-3 py-1.5 coarse:min-h-11 coarse:px-4 text-xs bg-accent text-white rounded hover:bg-accent/80 disabled:opacity-50"
+ >
+ {importBusy ? t('scenarios.import.importing', 'Importing…') : t('scenarios.import.confirm', 'Confirm import')}
+ </button>
+ </>}
+ >
+ {importPreview && (<>
  {importPreview.conflicts.map((c) => {
  const choice = importResolutions[c.scriptUuid] ?? 'skip';
  return (
@@ -1808,13 +1937,13 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  <div className="text-sm font-medium text-text-primary">{c.importedName}</div>
  <div className="text-[11px] text-text-muted font-mono mb-2">{c.scriptUuid}</div>
  <div className="text-[11px] text-text-muted mb-2">
- Existing script: <span className="text-text-primary">{c.existingName}</span> (#{c.existingScriptId})
+ {t('scenarios.import.existingScript', 'Existing script:')} <span className="text-text-primary">{c.existingName}</span> (#{c.existingScriptId})
  </div>
  <div className="flex gap-2 flex-wrap">
  {([
- { v: 'skip', label: 'Keep existing', desc: 'Don\'t touch the existing script. Imported nodes point at it.' },
- { v: 'overwrite', label: 'Overwrite', desc: 'Replace the existing script body with the imported one.' },
- { v: 'new', label: 'Create new copy', desc: 'Insert as a fresh script with " (imported)" suffix.' },
+ { v: 'skip', label: t('scenarios.import.keepExisting', 'Keep existing'), desc: t('scenarios.import.keepExistingDesc', 'Don\'t touch the existing script. Imported nodes point at it.') },
+ { v: 'overwrite', label: t('scenarios.import.overwrite', 'Overwrite'), desc: t('scenarios.import.overwriteDesc', 'Replace the existing script body with the imported one.') },
+ { v: 'new', label: t('scenarios.import.newCopy', 'Create new copy'), desc: t('scenarios.import.newCopyDesc', 'Insert as a fresh script with " (imported)" suffix.') },
  ] as Array<{ v: 'skip' | 'overwrite' | 'new'; label: string; desc: string }>).map((opt) => (
  <button
  key={opt.v}
@@ -1832,27 +1961,9 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  </div>
  );
  })}
- </div>
- <div className="flex items-center justify-end gap-2 px-5 py-3 ">
- <button
- onClick={() => { setImportPreview(null); setImportResolutions({}); }}
- disabled={importBusy}
- className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary disabled:opacity-50"
- >
- Cancel
- </button>
- <button
- onClick={() => commitImport(importPreview.payload, importResolutions)}
- disabled={importBusy}
- className="px-3 py-1.5 text-xs bg-accent text-white rounded hover:bg-accent/80 disabled:opacity-50"
- >
- {importBusy ? 'Importing…' : 'Confirm import'}
- </button>
- </div>
- </div>
- </div>
- )}
- </div>
+ </>)}
+ </Modal>
+ </PageContainer>
  );
 }
 
@@ -1865,6 +1976,11 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
 // refreshes live.
 
 function ScenarioHistoryModal({ scenario, onClose }: { scenario: Scenario; onClose: () => void }) {
+ const { t } = useTranslation();
+ // md+: run list | run detail side by side (historic layout). Below md:
+ // one pane at a time — tapping a run opens its detail with a back bar
+ // (two 50 % columns of 11 px monospace are unreadable on a phone).
+ const isMd = useMediaQuery(MEDIA.md);
  const [runs, setRuns] = useState<ScenarioRun[]>([]);
  const [loading, setLoading] = useState(true);
  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
@@ -1922,35 +2038,41 @@ function ScenarioHistoryModal({ scenario, onClose }: { scenario: Scenario; onClo
  }
  };
 
- return (
- <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
- <div
- className="bg-bg-primary rounded-xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-xl"
- onClick={(e) => e.stopPropagation()}
- >
- <div className="flex items-center justify-between px-5 py-3 flex-shrink-0">
- <div>
- <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
- <History className="w-4 h-4" />
- Run history — {scenario.name}
- </h3>
- <p className="text-xs text-text-muted mt-0.5">
- {loading ? 'Loading...' : `${runs.length} run${runs.length !== 1 ? 's' : ''}`}
- </p>
- </div>
- <button onClick={onClose} className="p-1 text-text-muted hover:text-text-primary rounded">
- <X className="w-4 h-4" />
- </button>
- </div>
+ // Narrow: Android back / Escape returns from a run's detail to the list
+ // (registered after the Modal's own handler, so it wins while active).
+ const showDetailOnly = !isMd && selectedRunId != null;
+ useNativeBack(() => setSelectedRunId(null), showDetailOnly, { escape: true });
 
- <div className="flex-1 overflow-hidden flex">
- {/* Left: run list */}
- <div className="w-1/2 overflow-y-auto">
+ return (
+ <Modal
+ open
+ onClose={onClose}
+ size="2xl"
+ className="bg-bg-primary shadow-xl sm:max-w-5xl sm:max-h-[90dvh] sm:supports-[not(height:100dvh)]:max-h-[90vh]"
+ overlayClassName="bg-black/50 backdrop-blur-none"
+ bodyClassName="p-0 flex overflow-hidden"
+ title={<>
+ <span className="flex items-center gap-2 min-w-0">
+ <History className="w-4 h-4 shrink-0" />
+ <span className="truncate">
+ {t('scenarios.history.title', { name: scenario.name, defaultValue: 'Run history — {{name}}' })}
+ </span>
+ </span>
+ <span className="block text-xs font-normal text-text-muted mt-0.5">
+ {loading
+ ? t('common.loading', 'Loading…')
+ : t('scenarios.history.runCount', { count: runs.length, defaultValue: `{{count}} run${runs.length !== 1 ? 's' : ''}` })}
+ </span>
+ </>}
+ >
+ <div className="flex-1 min-h-0 min-w-0 flex flex-col md:flex-row">
+ {/* Left: run list (full width below md until a run is picked) */}
+ <div className={clsx('md:w-1/2 min-h-0 overflow-y-auto overscroll-contain', showDetailOnly ? 'hidden' : 'flex-1 md:flex-none')}>
  {loading ? (
- <div className="p-8 text-center text-xs text-text-muted">Loading...</div>
+ <div className="p-8 text-center text-xs text-text-muted">{t('common.loading', 'Loading…')}</div>
  ) : runs.length === 0 ? (
  <div className="p-8 text-center text-xs text-text-muted">
- No runs yet. Trigger the scenario to create one.
+ {t('scenarios.history.empty', 'No runs yet. Trigger the scenario to create one.')}
  </div>
  ) : (
  <div className="divide-y divide-border/50">
@@ -1962,7 +2084,7 @@ function ScenarioHistoryModal({ scenario, onClose }: { scenario: Scenario; onClo
  key={run.id}
  onClick={() => setSelectedRunId(run.id)}
  className={clsx(
- 'w-full px-3 py-2 flex items-start gap-2 text-left text-xs transition-colors',
+ 'w-full px-3 py-2 coarse:py-3 flex items-start gap-2 text-left text-xs transition-colors',
  selectedRunId === run.id
  ? 'bg-accent/15 text-text-primary'
  : 'hover:bg-bg-secondary text-text-primary',
@@ -1993,11 +2115,26 @@ function ScenarioHistoryModal({ scenario, onClose }: { scenario: Scenario; onClo
  )}
  </div>
 
- {/* Right: selected run detail */}
- <div className="w-1/2 overflow-y-auto p-3">
+ {/* Right: selected run detail (below md: only once a run is picked, with a back bar) */}
+ <div className={clsx('md:w-1/2 min-h-0 overflow-y-auto overscroll-contain p-3', showDetailOnly ? 'flex-1' : 'hidden md:block')}>
+ {showDetailOnly && (
+ <div className="-mx-3 -mt-3 mb-3 px-2 py-1.5 flex items-center gap-2 sticky -top-3 z-10 bg-bg-primary">
+ <IconButton
+ label={t('common.back', 'Back')}
+ icon={<ArrowLeft className="w-4 h-4" />}
+ onClick={() => setSelectedRunId(null)}
+ />
+ <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-primary">
+ {(() => {
+ const r = runs.find((x) => x.id === selectedRunId) ?? selectedRun;
+ return r ? (r.device?.displayName || r.device?.hostname || `#${r.deviceId}`) : '';
+ })()}
+ </span>
+ </div>
+ )}
  {!selectedRunId ? (
  <div className="flex items-center justify-center h-full text-xs text-text-muted">
- Pick a run to see step-by-step output.
+ {t('scenarios.history.pickRun', 'Pick a run to see step-by-step output.')}
  </div>
  ) : detailLoading ? (
  <div className="flex items-center justify-center h-full">
@@ -2005,7 +2142,7 @@ function ScenarioHistoryModal({ scenario, onClose }: { scenario: Scenario; onClo
  </div>
  ) : !selectedRun ? (
  <div className="flex items-center justify-center h-full text-xs text-text-muted">
- Run no longer exists.
+ {t('scenarios.history.runGone', 'Run no longer exists.')}
  </div>
  ) : (
  <div className="space-y-2">
@@ -2141,124 +2278,6 @@ function ScenarioHistoryModal({ scenario, onClose }: { scenario: Scenario; onClo
  )}
  </div>
  </div>
- </div>
- </div>
- );
-}
-
-// ── Inline Group Tree Multi-Select (same pattern as ScriptSchedulesPage) ──
-
-function GroupTreeMultiSelect({ selectedIds, onChange }: { selectedIds: number[]; onChange: (ids: number[]) => void }) {
- const [tree, setTree] = useState<DeviceGroupTreeNode[]>([]);
- const [expanded, setExpanded] = useState<Set<number>>(new Set());
-
- useEffect(() => {
- groupsApi.tree().then((t) => {
- setTree(t);
- const all = new Set<number>();
- const walk = (nodes: DeviceGroupTreeNode[]) => { for (const n of nodes) { all.add(n.id); walk(n.children); } };
- walk(t);
- setExpanded(all);
- }).catch(() => {});
- }, []);
-
- const getDescendantIds = (node: DeviceGroupTreeNode): number[] => {
- const ids: number[] = [];
- for (const c of node.children) { ids.push(c.id, ...getDescendantIds(c)); }
- return ids;
- };
-
- const selected = new Set(selectedIds);
-
- const getCheckState = (node: DeviceGroupTreeNode): 'all' | 'some' | 'none' => {
- const descendants = getDescendantIds(node);
- const selfSelected = selected.has(node.id);
- if (descendants.length === 0) return selfSelected ? 'all' : 'none';
- const allIds = [node.id, ...descendants];
- const selectedCount = allIds.filter((id) => selected.has(id)).length;
- if (selectedCount === allIds.length) return 'all';
- if (selectedCount > 0) return 'some';
- return 'none';
- };
-
- const toggleNode = (node: DeviceGroupTreeNode) => {
- const descendants = getDescendantIds(node);
- const allIds = [node.id, ...descendants];
- const state = getCheckState(node);
- let next: Set<number>;
- if (state === 'all') {
- next = new Set(selectedIds.filter((id) => !allIds.includes(id)));
- } else {
- next = new Set([...selectedIds, ...allIds]);
- }
- onChange(Array.from(next));
- };
-
- const toggleExpand = (id: number) => {
- setExpanded((prev) => {
- const next = new Set(prev);
- next.has(id) ? next.delete(id) : next.add(id);
- return next;
- });
- };
-
- const renderNode = (node: DeviceGroupTreeNode, depth: number) => {
- const hasChildren = node.children.length > 0;
- const isExpanded = expanded.has(node.id);
- const state = getCheckState(node);
- const count = node.total ?? node.deviceCount ?? 0;
-
- return (
- <div key={node.id}>
- <div
- className={clsx(
- 'flex items-center gap-1.5 py-1.5 transition-colors rounded hover:bg-bg-hover',
- state === 'all' && 'bg-accent/5',
- )}
- style={{ paddingLeft: `${8 + depth * 20}px`, paddingRight: 8 }}
- >
- <button
- onClick={() => hasChildren && toggleExpand(node.id)}
- className={clsx('shrink-0 p-0.5 text-text-muted hover:text-text-primary transition-colors', !hasChildren && 'invisible')}
- >
- <ChevronRight className={clsx('w-3 h-3 transition-transform', isExpanded && 'rotate-90')} />
- </button>
- <button
- onClick={() => toggleNode(node)}
- className={clsx(
- 'w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors',
- state === 'all' ? 'bg-accent border-accent text-white' :
- state === 'some' ? 'bg-accent/30 border-accent text-white' :
- 'border-transparent hover:border-accent/50',
- )}
- >
- {state === 'all' && <Check className="w-3 h-3" />}
- {state === 'some' && <Minus className="w-3 h-3" />}
- </button>
- <FolderOpen className={clsx('w-3.5 h-3.5 shrink-0', state !== 'none' ? 'text-accent' : 'text-text-muted')} />
- <span
- className={clsx(
- 'flex-1 text-sm truncate cursor-pointer',
- state !== 'none' ? 'text-text-primary font-medium' : 'text-text-primary',
- )}
- onClick={() => toggleNode(node)}
- >
- {node.name}
- </span>
- <span className="text-text-muted text-[10px] shrink-0">{count}</span>
- </div>
- {hasChildren && isExpanded && node.children.map((c) => renderNode(c, depth + 1))}
- </div>
- );
- };
-
- if (tree.length === 0) {
- return <p className="text-sm text-text-muted py-2">No groups available</p>;
- }
-
- return (
- <div className="rounded-lg bg-bg-tertiary max-h-60 overflow-y-auto py-1">
- {tree.map((n) => renderNode(n, 0))}
- </div>
+ </Modal>
  );
 }

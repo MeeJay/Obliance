@@ -1,13 +1,13 @@
 {
   "schema": 1,
   "app": "obliance",
-  "packageName": null,
-  "version": "0.0.0",
-  "versionCode": 0,
-  "minSupportedVersionCode": 0,
-  "minSdk": null,
-  "sha256": null,
-  "sizeBytes": 0,
-  "signerSha256": null,
-  "builtAt": null
+  "packageName": "tools.obli.obliance",
+  "version": "1.0.0",
+  "versionCode": 10000,
+  "minSupportedVersionCode": 10000,
+  "minSdk": 26,
+  "sha256": "3b0c8b999f9ed880ac5974779dd8e18d097165a45eff3974b1341ce3a6e15bf8",
+  "sizeBytes": 2139438,
+  "signerSha256": "8c7e67f860beacde55ab2437a41f50c6e2c8f0777f2faca88876676c6d82ac8d",
+  "builtAt": "2026-09-25T09:33:49Z"
 }

@@ -4,6 +4,7 @@ import type { MaintenanceScopeType, NotificationChannel } from '@obliance/shared
 import { MaintenanceWindowList } from '@/components/maintenance/MaintenanceWindowList';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
+import { PageContainer } from '@/components/common/PageContainer';
 
 interface ScopeOption {
  id: number;
@@ -64,7 +65,7 @@ export function AdminMaintenancePage() {
  }
 
  return (
- <div className="space-y-6 p-6">
+ <PageContainer className="space-y-6">
  {/* Header */}
  <div className="flex items-center gap-3">
  <CalendarClock size={22} className="text-accent" />
@@ -92,13 +93,13 @@ export function AdminMaintenancePage() {
  </div>
 
  {/* All windows */}
- <div className="rounded-lg bg-bg-secondary p-5">
+ <div className="rounded-lg bg-bg-secondary p-4 sm:p-5">
  <MaintenanceWindowList
  scopeOptions={scopeOptions as any}
  channels={channels}
  title={t('maintenance.allWindows')}
  />
  </div>
- </div>
+ </PageContainer>
  );
 }

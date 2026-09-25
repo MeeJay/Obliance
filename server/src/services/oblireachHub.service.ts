@@ -48,6 +48,16 @@ interface ObliReachConn {
   ws: WebSocket;
   deviceUuid: string;
   tenantId: number;
+  /** agent_api_keys.id the channel authenticated with (null: unknown/legacy caller). */
+  apiKeyId: number | null;
+}
+
+/** Binding a sensitive command's recipient must match (see push). */
+export interface OrPushExpectation {
+  /** Tenant of the target device. */
+  tenantId: number;
+  /** devices.api_key_id of the target device (null = device not bound to a key). */
+  apiKeyId: number | null;
 }
 
 /** A command delivered from server → Oblireach agent over the WS channel. */
@@ -83,14 +93,14 @@ class ObliReachHubService {
    * Replaces any previous connection for the same deviceUuid.
    * Drains any pending offline-queued command immediately.
    */
-  async register(deviceUuid: string, tenantId: number, ws: WebSocket): Promise<void> {
+  async register(deviceUuid: string, tenantId: number, ws: WebSocket, apiKeyId: number | null = null): Promise<void> {
     // Replace stale connection if present
     const existing = this.byDevice.get(deviceUuid);
     if (existing?.ws.readyState === 1 /* OPEN */) {
       try { existing.ws.close(1000, 'replaced'); } catch {}
     }
 
-    const conn: ObliReachConn = { ws, deviceUuid, tenantId };
+    const conn: ObliReachConn = { ws, deviceUuid, tenantId, apiKeyId };
     this.byDevice.set(deviceUuid, conn);
 
     ws.on('close', () => this._unregister(deviceUuid, ws));
@@ -245,10 +255,24 @@ class ObliReachHubService {
    * Returns `true` if the message was delivered, `false` if the agent is
    * offline — caller should fall back to DB `pending_command` so the command
    * is delivered when the agent next connects.
+   *
+   * `expect` (pass it for anything carrying a secret, e.g. the relay token):
+   * the channel registered for this uuid must belong to the device's tenant
+   * and, when the device is bound to a key, have authenticated with that key.
+   * Otherwise the command is NOT sent (treated as offline) — a channel
+   * registered under a uuid by some other agent never receives it.
    */
-  push(deviceUuid: string, cmd: OrCommand): boolean {
+  push(deviceUuid: string, cmd: OrCommand, expect?: OrPushExpectation): boolean {
     const conn = this.byDevice.get(deviceUuid);
     if (!conn || conn.ws.readyState !== 1 /* OPEN */) return false;
+    if (expect) {
+      const tenantOk = Number(conn.tenantId) === Number(expect.tenantId);
+      const keyOk = expect.apiKeyId == null || (conn.apiKeyId != null && Number(conn.apiKeyId) === Number(expect.apiKeyId));
+      if (!tenantOk || !keyOk) {
+        logger.warn({ deviceUuid, cmdType: cmd.type }, 'ObliReach: channel does not match the device key binding — command not sent');
+        return false;
+      }
+    }
     try {
       conn.ws.send(JSON.stringify(cmd));
       return true;

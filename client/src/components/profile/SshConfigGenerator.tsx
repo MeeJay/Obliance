@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Copy, FileCode } from 'lucide-react';
 import { cn } from '@/utils/cn';
+import { IconButton } from '@/components/common/IconButton';
 import { copyText } from './SshKeysSection';
 
 // ── ~/.ssh/config generator for this Obliance instance ──────────────────────
@@ -88,17 +89,22 @@ export function SshConfigGenerator({ port, username }: { port: number; username?
           value={identity}
           onChange={(e) => onIdentity(e.target.value)}
           spellCheck={false}
+          autoCapitalize="off"
+          autoCorrect="off"
+          autoComplete="off"
           placeholder={DEFAULT_IDENTITY}
-          className="min-w-[14rem] flex-1 rounded-md bg-bg-primary px-2 py-1 font-mono text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+          className="min-w-0 sm:min-w-[14rem] max-sm:basis-full flex-1 rounded-md bg-bg-primary px-2 py-1 coarse:py-2 font-mono text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
         />
       </div>
-      <div className="flex gap-1">
+      <div className="flex flex-wrap gap-1 coarse:gap-2" role="tablist">
         {tabs.map((tb) => (
           <button
             key={tb.key}
+            role="tab"
+            aria-selected={format === tb.key}
             onClick={() => setFormat(tb.key)}
             className={cn(
-              'rounded px-2 py-0.5 text-[11px]',
+              'rounded px-2 py-0.5 coarse:px-3 coarse:py-2 text-[11px]',
               format === tb.key ? 'bg-accent/15 text-accent' : 'text-text-muted hover:bg-bg-hover hover:text-text-primary',
             )}
           >
@@ -107,14 +113,13 @@ export function SshConfigGenerator({ port, username }: { port: number; username?
         ))}
       </div>
       <div className="relative">
-        <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all rounded bg-bg-primary p-3 pr-9 font-mono text-[11px] text-text-primary select-all">{text}</pre>
-        <button
-          onClick={() => copyText(text, t('common.copied') || 'Copied')}
-          className="absolute right-1.5 top-1.5 p-1.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-hover"
-          title={t('common.copy') || 'Copy'}
-        >
-          <Copy size={13} />
-        </button>
+        <pre className="max-h-64 overflow-auto coarse:overscroll-contain whitespace-pre-wrap break-all rounded bg-bg-primary p-3 pr-9 coarse:pr-12 font-mono text-[11px] text-text-primary select-all">{text}</pre>
+        <IconButton
+          label={t('common.copy') || 'Copy'}
+          icon={<Copy size={13} />}
+          onClick={() => copyText(text, t('common.copied') || 'Copied', t('common.error'))}
+          className="absolute right-1.5 top-1.5"
+        />
       </div>
       <p className="text-[11px] text-text-muted">
         {format === 'config'

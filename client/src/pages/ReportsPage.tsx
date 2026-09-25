@@ -4,9 +4,16 @@ import { reportApi } from '@/api/report.api';
 import type { Report, ReportOutput, ReportType, ReportFormat, ReportSection, Device } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
+import { cn } from '@/utils/cn';
 import { useTranslation } from 'react-i18next';
 import { GroupTreePicker } from '@/components/devices/GroupTreePicker';
 import { deviceApi } from '@/api/device.api';
+import { PageContainer } from '@/components/common/PageContainer';
+import { IconButton } from '@/components/common/IconButton';
+import { useConfirm } from '@/components/common/ConfirmDialog';
+import { useIsCoarsePointer } from '@/hooks/useMediaQuery';
+import { downloadUrl } from '@/utils/download';
+import { DeviceFilterSelect } from './CompliancePage';
 
 const REPORT_TYPE_LABELS: Record<ReportType, string> = {
  fleet: 'Fleet Overview',
@@ -42,11 +49,11 @@ const REPORT_SECTIONS: ReportSection[] = ['hardware', 'network', 'inventory_deta
 // Cron presets — same set as the script-schedule UI so admins don't have to
 // learn a different vocabulary depending on which scheduler they're using.
 const COMMON_CRONS = [
- { label: 'Every hour', value: '0 * * * *' },
- { label: 'Every day at 2am', value: '0 2 * * *' },
- { label: 'Every Monday at 9am', value: '0 9 * * 1' },
- { label: 'Every Sunday at midnight', value: '0 0 * * 0' },
- { label: 'Every 15 minutes', value: '*/15 * * * *' },
+ { id: 'hourly', label: 'Every hour', value: '0 * * * *' },
+ { id: 'daily2am', label: 'Every day at 2am', value: '0 2 * * *' },
+ { id: 'monday9am', label: 'Every Monday at 9am', value: '0 9 * * 1' },
+ { id: 'sundayMidnight', label: 'Every Sunday at midnight', value: '0 0 * * 0' },
+ { id: 'every15min', label: 'Every 15 minutes', value: '*/15 * * * *' },
 ];
 
 interface ReportFormData {
@@ -83,10 +90,11 @@ const defaultForm: ReportFormData = {
 };
 
 function StatusBadge({ status }: { status: ReportOutput['status'] }) {
+ const { t } = useTranslation();
  const config = {
- generating: { label: 'Generating', color: 'text-blue-400 bg-blue-400/10 border-blue-400/30', icon: Loader, pulse: true },
- ready: { label: 'Ready', color: 'text-green-400 bg-green-400/10 border-green-400/30', icon: CheckCircle, pulse: false },
- error: { label: 'Error', color: 'text-red-400 bg-red-400/10 border-red-400/30', icon: AlertCircle, pulse: false },
+ generating: { label: t('reports.status.generating', 'Generating'), color: 'text-blue-400 bg-blue-400/10 border-blue-400/30', icon: Loader, pulse: true },
+ ready: { label: t('reports.status.ready', 'Ready'), color: 'text-green-400 bg-green-400/10 border-green-400/30', icon: CheckCircle, pulse: false },
+ error: { label: t('reports.status.error', 'Error'), color: 'text-red-400 bg-red-400/10 border-red-400/30', icon: AlertCircle, pulse: false },
  }[status];
 
  const Icon = config.icon;
@@ -110,6 +118,12 @@ function formatDate(val: string | null): string {
  return new Date(val).toLocaleString();
 }
 
+/** The server streams the file under its on-disk name (res.download). */
+function outputFilename(output: ReportOutput): string | undefined {
+ const base = output.filePath?.split(/[\\/]/).pop();
+ return base || undefined;
+}
+
 export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
  const [reports, setReports] = useState<Report[]>([]);
  const [outputsByReport, setOutputsByReport] = useState<Record<number, ReportOutput[]>>({});
@@ -123,6 +137,10 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
  const [filterType, setFilterType] = useState<string>('');
  const [devices, setDevices] = useState<Device[]>([]);
  const { t } = useTranslation();
+ const confirm = useConfirm();
+ const coarse = useIsCoarsePointer();
+
+ const typeLabel = (type: ReportType) => t(`reports.types.${type}`, REPORT_TYPE_LABELS[type]);
 
  const load = useCallback(async () => {
  setIsLoading(true);
@@ -130,11 +148,11 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
  const reportList = await reportApi.list();
  setReports(reportList);
  } catch {
- toast.error('Failed to load reports');
+ toast.error(t('reports.loadFailed', 'Failed to load reports'));
  } finally {
  setIsLoading(false);
  }
- }, []);
+ }, [t]);
 
  useEffect(() => { load(); }, [load]);
  // Devices for the "Specific device" scope selector (approved only).
@@ -195,7 +213,7 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
  };
 
  const handleSave = async () => {
- if (!form.name.trim()) { toast.error('Report name is required'); return; }
+ if (!form.name.trim()) { toast.error(t('reports.nameRequired', 'Report name is required')); return; }
  if ((form.scopeType === 'group' || form.scopeType === 'device') && !form.scopeId) {
  toast.error(t('reports.pickTarget') || (form.scopeType === 'group' ? 'Please choose a group' : 'Please choose a device'));
  return;
@@ -222,38 +240,38 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
  let savedReport: Report | undefined;
  if (editingReport) {
  savedReport = await reportApi.update(editingReport.id, payload);
- toast.success('Report updated');
+ toast.success(t('reports.updated', 'Report updated'));
  } else {
  savedReport = await reportApi.create(payload as any);
- toast.success('Report created');
+ toast.success(t('reports.created', 'Report created'));
  }
  // Fire an immediate generation when the user chose 'now'. Errors here
  // are non-fatal — the report definition is already saved.
  if (form.runMode === 'now' && savedReport?.id) {
  try {
  await reportApi.generate(savedReport.id);
- toast.success('Generation started');
- } catch { toast.error('Failed to start generation'); }
+ toast.success(t('reports.generationStarted', 'Generation started'));
+ } catch { toast.error(t('reports.generationStartFailed', 'Failed to start generation')); }
  }
  setShowForm(false);
  setEditingReport(null);
  await load();
  } catch {
- toast.error('Failed to save report');
+ toast.error(t('reports.saveFailed', 'Failed to save report'));
  } finally {
  setIsSaving(false);
  }
  };
 
  const handleDelete = async (id: number) => {
- if (!confirm('Delete this report?')) return;
+ if (!(await confirm({ message: t('reports.deleteConfirm', 'Delete this report?'), danger: true }))) return;
  try {
  await reportApi.delete(id);
- toast.success('Report deleted');
+ toast.success(t('reports.deleted', 'Report deleted'));
  if (expandedId === id) setExpandedId(null);
  await load();
  } catch {
- toast.error('Failed to delete report');
+ toast.error(t('reports.deleteFailed', 'Failed to delete report'));
  }
  };
 
@@ -261,21 +279,24 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
  setGeneratingId(report.id);
  try {
  await reportApi.generate(report.id);
- toast.success('Report generation started');
+ toast.success(t('reports.generateStarted', 'Report generation started'));
  await loadOutputs(report.id);
  if (expandedId !== report.id) {
  setExpandedId(report.id);
  }
  } catch {
- toast.error('Failed to generate report');
+ toast.error(t('reports.generateFailed', 'Failed to generate report'));
  } finally {
  setGeneratingId(null);
  }
  };
 
- const handleDownload = (outputId: number) => {
- const url = reportApi.getDownloadUrl(outputId);
- window.open(url, '_blank');
+ // Authenticated same-origin route: the shared helper hands it to the
+ // Android DownloadManager (with the session cookie) or uses an
+ // <a download> in a browser — window.open was a no-op in the WebView.
+ const handleDownload = async (output: ReportOutput) => {
+ const ok = await downloadUrl(reportApi.getDownloadUrl(output.id), outputFilename(output));
+ if (!ok) toast.error(t('common.error') || 'Something went wrong');
  };
 
  const handleCancel = async (reportId: number, outputId: number) => {
@@ -299,24 +320,32 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
 
  const filteredReports = filterType ? reports.filter(r => r.type === filterType) : reports;
 
- return (
- <div className={embedded ? 'space-y-6' : 'p-6 space-y-6'}>
- {!embedded && <div className="flex items-center justify-between">
- <div>
- <h1 className="text-2xl font-bold text-text-primary">Reports</h1>
- <p className="text-sm text-text-muted mt-0.5">Generate and download fleet reports</p>
- </div>
- <div className="flex gap-2">
- <button onClick={load} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
- <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
- </button>
+ const newReportButton = (extra?: string) => (
  <button
  onClick={handleOpenCreate}
- className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/80 text-sm transition-colors"
+ className={cn('flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/80 text-sm transition-colors', extra)}
  >
  <Plus className="w-4 h-4" />
- New Report
+ {t('reports.newReport', 'New Report')}
  </button>
+ );
+
+ return (
+ <PageContainer embedded={embedded} className="space-y-6">
+ {!embedded && <div className="flex flex-wrap items-center justify-between gap-2">
+ <div>
+ <h1 className="text-2xl font-bold text-text-primary">{t('reports.title', 'Reports')}</h1>
+ <p className="text-sm text-text-muted mt-0.5">{t('reports.subtitle', 'Generate and download fleet reports')}</p>
+ </div>
+ <div className="flex gap-2">
+ <IconButton
+ label={t('common.refresh', 'Refresh')}
+ icon={<RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />}
+ size="lg"
+ onClick={load}
+ className="rounded-lg hover:bg-bg-secondary"
+ />
+ {newReportButton()}
  </div>
  </div>}
 
@@ -324,44 +353,42 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
  you can always add another report, not just from the empty state. */}
  {embedded && !showForm && (
  <div className="flex items-center justify-end gap-2">
- <button onClick={load} title="Refresh" className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
- <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
- </button>
- <button
- onClick={handleOpenCreate}
- className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/80 text-sm transition-colors"
- >
- <Plus className="w-4 h-4" />
- New Report
- </button>
+ <IconButton
+ label={t('common.refresh', 'Refresh')}
+ icon={<RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />}
+ size="lg"
+ onClick={load}
+ className="rounded-lg hover:bg-bg-secondary"
+ />
+ {newReportButton()}
  </div>
  )}
 
  {/* Report form */}
  {showForm && (
- <div className="bg-bg-secondary rounded-xl p-6 space-y-5">
- <div className="flex items-center justify-between">
- <h2 className="text-lg font-semibold text-text-primary">{editingReport ? 'Edit Report' : 'New Report'}</h2>
+ <div className="bg-bg-secondary rounded-xl p-4 sm:p-6 space-y-5">
+ <div className="flex flex-wrap items-center justify-between gap-2">
+ <h2 className="text-lg font-semibold text-text-primary">{editingReport ? t('reports.editReport', 'Edit Report') : t('reports.newReport', 'New Report')}</h2>
  <div className="flex gap-2">
  <button
  onClick={() => { setShowForm(false); setEditingReport(null); }}
  className="px-4 py-2 text-sm text-text-muted hover:text-text-primary rounded-lg transition-colors"
  >
- Cancel
+ {t('common.cancel', 'Cancel')}
  </button>
  <button
  onClick={handleSave}
  disabled={isSaving}
  className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent/80 disabled:opacity-50 transition-colors"
  >
- {isSaving ? 'Saving...' : 'Save'}
+ {isSaving ? t('common.saving', 'Saving…') : t('common.save', 'Save')}
  </button>
  </div>
  </div>
 
  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
  <div className="space-y-1">
- <label className="text-xs font-medium text-text-muted uppercase">Name *</label>
+ <label className="text-xs font-medium text-text-muted uppercase">{t('reports.nameLabel', 'Name')} *</label>
  <input
  value={form.name}
  onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -369,24 +396,24 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
  />
  </div>
  <div className="space-y-1">
- <label className="text-xs font-medium text-text-muted uppercase">Type</label>
+ <label className="text-xs font-medium text-text-muted uppercase">{t('common.type', 'Type')}</label>
  <select
  value={form.type}
  onChange={(e) => setForm({ ...form, type: e.target.value as ReportType })}
  className="w-full px-3 py-2 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent"
  >
- {REPORT_TYPES.map(t => <option key={t} value={t}>{REPORT_TYPE_LABELS[t]}</option>)}
+ {REPORT_TYPES.map(rt => <option key={rt} value={rt}>{typeLabel(rt)}</option>)}
  </select>
  </div>
  <div className="space-y-1">
- <label className="text-xs font-medium text-text-muted uppercase">Format</label>
+ <label className="text-xs font-medium text-text-muted uppercase">{t('reports.format', 'Format')}</label>
  <div className="flex gap-2 flex-wrap">
  {REPORT_FORMATS.map(fmt => (
  <button
  key={fmt}
  onClick={() => setForm({ ...form, format: fmt })}
  className={clsx(
- 'px-3 py-1.5 text-sm rounded-lg border transition-colors',
+ 'px-3 py-1.5 text-sm rounded-lg border transition-colors coarse:min-h-10',
  form.format === fmt ? 'bg-accent/10 border-accent text-accent' : 'border-transparent text-text-muted hover:border-accent/50 hover:text-text-primary',
  )}
  >
@@ -396,15 +423,15 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
  </div>
  </div>
  <div className="space-y-1">
- <label className="text-xs font-medium text-text-muted uppercase">Scope</label>
+ <label className="text-xs font-medium text-text-muted uppercase">{t('reports.scope', 'Scope')}</label>
  <select
  value={form.scopeType}
  onChange={(e) => setForm({ ...form, scopeType: e.target.value as 'tenant' | 'group' | 'device', scopeId: null })}
  className="w-full px-3 py-2 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent"
  >
- <option value="tenant">Entire tenant</option>
- <option value="group">Device group</option>
- <option value="device">Specific device</option>
+ <option value="tenant">{t('reports.scopeTenant', 'Entire tenant')}</option>
+ <option value="group">{t('reports.scopeGroup', 'Device group')}</option>
+ <option value="device">{t('reports.scopeDevice', 'Specific device')}</option>
  </select>
  </div>
  {form.scopeType === 'group' && (
@@ -414,22 +441,34 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
  </div>
  )}
  {form.scopeType === 'device' && (
- <div className="space-y-1">
+ <div className="space-y-1 min-w-0">
  <label className="text-xs font-medium text-text-muted uppercase">{t('reports.device') || 'Device'}</label>
+ {coarse ? (
+ // Touch: a native <select> over the whole fleet is an unsearchable
+ // wall on Android — use the searchable device picker instead.
+ <DeviceFilterSelect
+ devices={devices}
+ value={form.scopeId ?? ''}
+ onChange={(v) => setForm({ ...form, scopeId: v === '' ? null : v })}
+ allLabel={t('reports.selectDevice') || 'Select a device…'}
+ touchTriggerClassName="w-full flex items-center gap-1.5 px-3 py-2 min-h-10 text-sm bg-bg-tertiary rounded-lg text-text-primary text-left min-w-0"
+ />
+ ) : (
  <select
  value={form.scopeId ?? ''}
  onChange={(e) => setForm({ ...form, scopeId: e.target.value ? parseInt(e.target.value, 10) : null })}
- className="w-full px-3 py-2 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent"
+ className="w-full max-w-full px-3 py-2 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent"
  >
  <option value="">{t('reports.selectDevice') || 'Select a device…'}</option>
  {devices.map((d) => (
  <option key={d.id} value={d.id}>{d.displayName || d.hostname}</option>
  ))}
  </select>
+ )}
  </div>
  )}
  <div className="space-y-1 md:col-span-2">
- <label className="text-xs font-medium text-text-muted uppercase">When to run</label>
+ <label className="text-xs font-medium text-text-muted uppercase">{t('reports.whenToRun', 'When to run')}</label>
  <div className="flex gap-2">
  <button
  type="button"
@@ -439,7 +478,7 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
  form.runMode === 'cron' ? 'bg-accent/10 border-accent text-accent' : 'border-transparent text-text-muted hover:border-accent/50',
  )}
  >
- Recurring (cron)
+ {t('reports.runRecurring', 'Recurring (cron)')}
  </button>
  <button
  type="button"
@@ -449,43 +488,45 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
  form.runMode === 'now' ? 'bg-accent/10 border-accent text-accent' : 'border-transparent text-text-muted hover:border-accent/50',
  )}
  >
- Generate now
+ {t('reports.runNow', 'Generate now')}
  </button>
  </div>
  </div>
  {form.runMode === 'cron' && (
  <div className="space-y-1">
- <label className="text-xs font-medium text-text-muted uppercase">Schedule (cron)</label>
+ <label className="text-xs font-medium text-text-muted uppercase">{t('reports.scheduleCron', 'Schedule (cron)')}</label>
  <input
  value={form.scheduleCron}
  onChange={(e) => setForm({ ...form, scheduleCron: e.target.value })}
- placeholder="e.g. 0 8 * * 1"
+ placeholder={t('reports.cronPlaceholder', 'e.g. 0 8 * * 1')}
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
  className="w-full px-3 py-2 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent font-mono"
  />
- <div className="flex flex-wrap gap-1 mt-1">
+ <div className="flex flex-wrap gap-1 mt-1 coarse:gap-2">
  {COMMON_CRONS.map((c) => (
  <button
  key={c.value}
  type="button"
  onClick={() => setForm({ ...form, scheduleCron: c.value })}
- className="text-xs px-2 py-0.5 bg-bg-tertiary rounded hover:border-accent/50 text-text-muted hover:text-text-primary transition-colors"
+ className="text-xs px-2 py-0.5 bg-bg-tertiary rounded hover:border-accent/50 text-text-muted hover:text-text-primary transition-colors coarse:min-h-9 coarse:px-3"
  >
- {c.label}
+ {t(`reports.cronPresets.${c.id}`, c.label)}
  </button>
  ))}
  </div>
  </div>
  )}
  <div className="space-y-1">
- <label className="text-xs font-medium text-text-muted uppercase">Timezone</label>
+ <label className="text-xs font-medium text-text-muted uppercase">{t('reports.timezone', 'Timezone')}</label>
  <input
  value={form.timezone}
  onChange={(e) => setForm({ ...form, timezone: e.target.value })}
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
  className="w-full px-3 py-2 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent"
  />
  </div>
  <div className="space-y-1 md:col-span-2">
- <label className="text-xs font-medium text-text-muted uppercase">Description</label>
+ <label className="text-xs font-medium text-text-muted uppercase">{t('common.description', 'Description')}</label>
  <input
  value={form.description}
  onChange={(e) => setForm({ ...form, description: e.target.value })}
@@ -495,48 +536,50 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
  </div>
 
  <div className="space-y-2">
- <label className="text-xs font-medium text-text-muted uppercase">Sections</label>
+ <label className="text-xs font-medium text-text-muted uppercase">{t('reports.sections', 'Sections')}</label>
  <div className="flex flex-wrap gap-2">
  {REPORT_SECTIONS.map(section => (
  <button
  key={section}
  onClick={() => toggleSection(section)}
  className={clsx(
- 'px-3 py-1.5 text-xs rounded-lg border transition-colors',
+ 'px-3 py-1.5 text-xs rounded-lg border transition-colors coarse:min-h-10',
  form.sections.includes(section) ? 'bg-accent/10 border-accent text-accent' : 'border-transparent text-text-muted hover:border-accent/50 hover:text-text-primary',
  )}
  >
- {REPORT_SECTION_LABELS[section]}
+ {t(`reports.sectionLabels.${section}`, REPORT_SECTION_LABELS[section])}
  </button>
  ))}
  </div>
  </div>
 
  <div className="flex gap-4 pt-2 ">
- <label className="flex items-center gap-2 cursor-pointer">
+ <label className="flex items-center gap-2 cursor-pointer coarse:min-h-10">
  <input
  type="checkbox"
  checked={form.isEnabled}
  onChange={(e) => setForm({ ...form, isEnabled: e.target.checked })}
  className="rounded"
  />
- <span className="text-sm text-text-primary">Enabled (for scheduled runs)</span>
+ <span className="text-sm text-text-primary">{t('reports.enabledForScheduled', 'Enabled (for scheduled runs)')}</span>
  </label>
  </div>
  </div>
  )}
 
  {/* Filter */}
- <div className="flex items-center gap-3">
+ <div className="flex flex-wrap items-center gap-3">
  <select
  value={filterType}
  onChange={(e) => setFilterType(e.target.value)}
  className="px-3 py-1.5 text-sm bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent"
  >
- <option value="">All types</option>
- {REPORT_TYPES.map(t => <option key={t} value={t}>{REPORT_TYPE_LABELS[t]}</option>)}
+ <option value="">{t('reports.allTypes', 'All types')}</option>
+ {REPORT_TYPES.map(rt => <option key={rt} value={rt}>{typeLabel(rt)}</option>)}
  </select>
- <span className="text-sm text-text-muted">{filteredReports.length} report{filteredReports.length !== 1 ? 's' : ''}</span>
+ <span className="text-sm text-text-muted">
+ {t('reports.count', { count: filteredReports.length, defaultValue_one: '{{count}} report', defaultValue_other: '{{count}} reports' })}
+ </span>
  </div>
 
  {/* Reports list */}
@@ -545,17 +588,11 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
  <RefreshCw className="w-5 h-5 animate-spin text-text-muted" />
  </div>
  ) : filteredReports.length === 0 ? (
- <div className="p-12 text-center text-text-muted bg-bg-secondary rounded-xl">
+ <div className="p-6 sm:p-12 text-center text-text-muted bg-bg-secondary rounded-xl">
  <FileText className="w-10 h-10 mx-auto mb-3 opacity-50" />
- <p className="font-medium text-text-primary mb-1">No reports yet</p>
- <p className="text-sm">Create reports to generate fleet insights and export data.</p>
- <button
- onClick={handleOpenCreate}
- className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/80 text-sm transition-colors"
- >
- <Plus className="w-4 h-4" />
- New Report
- </button>
+ <p className="font-medium text-text-primary mb-1">{t('reports.empty', 'No reports yet')}</p>
+ <p className="text-sm">{t('reports.emptyHint', 'Create reports to generate fleet insights and export data.')}</p>
+ {newReportButton('mt-4 inline-flex')}
  </div>
  ) : (
  <div className="space-y-2">
@@ -564,15 +601,17 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
  const outputs = outputsByReport[report.id] ?? [];
  return (
  <div key={report.id} className="bg-bg-secondary rounded-xl overflow-hidden">
- <div className="flex items-center gap-4 px-4 py-3">
+ {/* Below sm the actions wrap onto their own full-width row, so the
+ name + badges keep the whole card width. */}
+ <div className="flex items-center gap-4 px-4 py-3 max-sm:flex-wrap max-sm:gap-3">
  <div className="p-2 rounded-lg bg-accent/10">
  <FileText className="w-4 h-4 text-accent" />
  </div>
  <div className="flex-1 min-w-0">
  <div className="flex items-center gap-2 flex-wrap">
- <span className="text-sm font-medium text-text-primary">{report.name}</span>
+ <span className="text-sm font-medium text-text-primary break-words min-w-0">{report.name}</span>
  <span className="text-xs px-2 py-0.5 bg-bg-tertiary rounded-full text-text-muted">
- {REPORT_TYPE_LABELS[report.type]}
+ {typeLabel(report.type)}
  </span>
  <span className="text-xs px-2 py-0.5 bg-bg-tertiary rounded-full text-text-muted">
  {REPORT_FORMAT_LABELS[report.format]}
@@ -584,44 +623,44 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
  </span>
  )}
  </div>
- {report.description && <p className="text-xs text-text-muted mt-0.5 truncate">{report.description}</p>}
+ {report.description && <p className="text-xs text-text-muted mt-0.5 truncate max-sm:whitespace-normal max-sm:line-clamp-2">{report.description}</p>}
  <p className="text-xs text-text-muted mt-0.5">
- Last generated: {formatDate(report.lastGeneratedAt)} · Scope: {report.scopeType}
+ {t('reports.lastGenerated', 'Last generated')}: {formatDate(report.lastGeneratedAt)} · {t('reports.scope', 'Scope')}: {report.scopeType}
  </p>
  </div>
- <div className="flex items-center gap-2 shrink-0">
+ <div className="flex items-center gap-2 shrink-0 max-sm:w-full max-sm:justify-end">
  <button
  onClick={() => handleGenerate(report)}
  disabled={generatingId === report.id}
- className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 disabled:opacity-50 transition-colors"
- title="Generate report"
+ className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 disabled:opacity-50 transition-colors coarse:min-h-10 max-sm:mr-auto"
+ title={t('reports.generateTitle', 'Generate report')}
  >
  {generatingId === report.id ? (
  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
  ) : (
  <Play className="w-3.5 h-3.5" />
  )}
- Generate
+ {t('reports.generate', 'Generate')}
  </button>
- <button
+ <IconButton
+ label={t('reports.viewOutputs', 'View outputs')}
+ icon={expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+ aria-expanded={expanded}
  onClick={() => handleToggleExpand(report.id)}
- className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-tertiary rounded transition-colors"
- title="View outputs"
- >
- {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
- </button>
- <button
+ className="hover:bg-bg-tertiary"
+ />
+ <IconButton
+ label={t('common.edit', 'Edit')}
+ icon={<Edit className="w-4 h-4" />}
  onClick={() => handleOpenEdit(report)}
- className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-tertiary rounded transition-colors"
- >
- <Edit className="w-4 h-4" />
- </button>
- <button
+ className="hover:bg-bg-tertiary"
+ />
+ <IconButton
+ label={t('common.delete', 'Delete')}
+ icon={<Trash2 className="w-4 h-4" />}
+ variant="danger"
  onClick={() => handleDelete(report.id)}
- className="p-1.5 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded transition-colors"
- >
- <Trash2 className="w-4 h-4" />
- </button>
+ />
  </div>
  </div>
 
@@ -629,46 +668,50 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
  <div className=" bg-bg-tertiary/50">
  {outputs.length === 0 ? (
  <div className="px-4 py-6 text-center text-text-muted">
- <p className="text-sm">No outputs yet. Click Generate to create the first output.</p>
+ <p className="text-sm">{t('reports.noOutputs', 'No outputs yet. Click Generate to create the first output.')}</p>
  </div>
  ) : (
  <div className="divide-y divide-border">
- <div className="grid grid-cols-4 gap-4 px-4 py-2 text-xs font-medium text-text-muted uppercase">
- <span>Generated</span>
- <span>Status</span>
- <span>Size</span>
- <span className="text-right">Actions</span>
+ {/* Header row — hidden below md where each output is a card. */}
+ <div className="max-md:hidden grid grid-cols-4 gap-4 px-4 py-2 text-xs font-medium text-text-muted uppercase">
+ <span>{t('reports.colGenerated', 'Generated')}</span>
+ <span>{t('common.status', 'Status')}</span>
+ <span>{t('reports.colSize', 'Size')}</span>
+ <span className="text-right">{t('common.actions', 'Actions')}</span>
  </div>
  {outputs.map((output) => (
- <div key={output.id} className="grid grid-cols-4 gap-4 px-4 py-3 items-center">
+ // md+: 4-column grid (unchanged). Below md: a wrapping card —
+ // date + status, size, then full-width actions.
+ <div key={output.id} className="grid grid-cols-4 gap-4 px-4 py-3 items-center max-md:flex max-md:flex-wrap max-md:gap-x-3 max-md:gap-y-2">
  <span className="text-xs text-text-primary">{formatDate(output.generatedAt)}</span>
  <StatusBadge status={output.status} />
  <span className="text-xs text-text-muted">
  {formatBytes(output.fileSizeBytes)}
- {output.rowCount !== null && <span className="ml-1">· {output.rowCount} rows</span>}
+ {output.rowCount !== null && <span className="ml-1">· {t('reports.rows', { count: output.rowCount, defaultValue: '{{count}} rows' })}</span>}
  </span>
- <div className="flex justify-end gap-2 items-center">
+ <div className="flex justify-end gap-2 items-center min-w-0 max-md:w-full max-md:justify-start">
  {output.status === 'ready' && output.filePath && (
  <button
- onClick={() => handleDownload(output.id)}
- className="flex items-center gap-1.5 px-2.5 py-1 text-xs bg-green-500/20 text-green-400 border border-green-500/30 rounded hover:bg-green-500/30 transition-colors"
+ onClick={() => handleDownload(output)}
+ className="flex items-center gap-1.5 px-2.5 py-1 text-xs bg-green-500/20 text-green-400 border border-green-500/30 rounded hover:bg-green-500/30 transition-colors coarse:min-h-10 max-md:flex-1 max-md:justify-center"
  >
  <Download className="w-3 h-3" />
- Download
+ {t('common.download', 'Download')}
  </button>
  )}
  {output.status === 'generating' && (
  <button
  onClick={() => handleCancel(report.id, output.id)}
  title={t('reports.cancel') || 'Cancel generation'}
- className="flex items-center gap-1.5 px-2.5 py-1 text-xs bg-red-500/20 text-red-400 border border-red-500/30 rounded hover:bg-red-500/30 transition-colors"
+ className="flex items-center gap-1.5 px-2.5 py-1 text-xs bg-red-500/20 text-red-400 border border-red-500/30 rounded hover:bg-red-500/30 transition-colors coarse:min-h-10 max-md:flex-1 max-md:justify-center"
  >
  <Ban className="w-3 h-3" />
  {t('reports.cancel') || 'Cancel'}
  </button>
  )}
  {output.status === 'error' && output.errorMessage && (
- <span className="text-xs text-red-400 truncate max-w-xs" title={output.errorMessage}>
+ // Full error text below md / on touch (it was only in title=).
+ <span className="text-xs text-red-400 truncate max-w-xs max-md:max-w-none max-md:whitespace-normal max-md:break-words coarse:whitespace-normal coarse:break-words" title={output.errorMessage}>
  {output.errorMessage}
  </span>
  )}
@@ -684,6 +727,6 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
  })}
  </div>
  )}
- </div>
+ </PageContainer>
  );
 }

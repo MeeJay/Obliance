@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
  History, RefreshCw, Terminal, Package, Code2,
  Monitor, Search, Loader2, X, Zap, ChevronRight, ChevronDown,
@@ -13,6 +14,7 @@ import { useDeviceStore } from '@/store/deviceStore';
 import { getSocket } from '@/socket/socketClient';
 import type { Command, ScriptExecution, DeviceUpdate, ScenarioRun } from '@obliance/shared';
 import { anonymize } from '@/utils/anonymize';
+import { TableScroll } from '@/components/common/TableScroll';
 import toast from 'react-hot-toast';
 
 // ─── Unified event model ─────────────────────────────────────────────────────
@@ -25,6 +27,8 @@ interface HistoryEvent {
  date: string;
  deviceId: number;
  label: string;
+ /** i18n key of `label` (command types); `label` is the fallback. */
+ labelKey?: string;
  sublabel?: string;
  status: string;
  duration?: number;
@@ -33,6 +37,7 @@ interface HistoryEvent {
 
 // ─── Converters ──────────────────────────────────────────────────────────────
 
+// English fallbacks of history.cmd.<type>.
 const CMD_LABELS: Record<string, string> = {
  run_script: 'Run Script',
  install_update: 'Install Update',
@@ -57,6 +62,7 @@ function cmdToEvent(c: Command): HistoryEvent {
  date: c.createdAt,
  deviceId: c.deviceId,
  label: CMD_LABELS[c.type] ?? c.type,
+ labelKey: CMD_LABELS[c.type] ? `history.cmd.${c.type}` : undefined,
  status: c.status,
  duration: c.durationMs ?? (c.result as any)?.duration,
  createdByName: c.createdByName,
@@ -90,6 +96,7 @@ function updateToEvent(u: DeviceUpdate): HistoryEvent {
 
 // ─── Status config ───────────────────────────────────────────────────────────
 
+// `label` = English fallback of history.status.<status>.
 const STATUS_CFG: Record<string, { color: string; bg: string; label: string }> = {
  pending: { color: 'text-yellow-400', bg: 'bg-yellow-400/10', label: 'Pending' },
  sent: { color: 'text-blue-300', bg: 'bg-blue-300/10', label: 'Sent' },
@@ -108,6 +115,7 @@ const STATUS_CFG: Record<string, { color: string; bg: string; label: string }> =
 
 // ─── Kind config ─────────────────────────────────────────────────────────────
 
+// `label` = English fallback of history.kind.<kind>.
 const KIND_CFG: Record<EventKind, { color: string; bg: string; label: string; Icon: React.ElementType }> = {
  task: { color: 'text-blue-400', bg: 'bg-blue-400/10', label: 'Task', Icon: Terminal },
  script: { color: 'text-rose-400', bg: 'bg-rose-400/10', label: 'Script', Icon: Code2 },
@@ -117,9 +125,12 @@ const KIND_CFG: Record<EventKind, { color: string; bg: string; label: string; Ic
 type KindFilter = 'all' | EventKind;
 const PAGE_SIZE = 50;
 
+const TH = 'px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider';
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function HistoryPage({ embedded }: { embedded?: boolean } = {}) {
+ const { t } = useTranslation();
  const socket = getSocket();
  const { getDevice, fetchDevices } = useDeviceStore();
 
@@ -152,11 +163,11 @@ export function HistoryPage({ embedded }: { embedded?: boolean } = {}) {
  setEvents(all);
  setScenarioRuns(runs);
  } catch {
- toast.error('Failed to load history');
+ toast.error(t('history.loadFailed', 'Failed to load history'));
  } finally {
  setIsLoading(false);
  }
- }, []);
+ }, [t]);
 
  const toggleRun = async (runId: string) => {
  if (expandedRunId === runId) {
@@ -175,6 +186,7 @@ export function HistoryPage({ embedded }: { embedded?: boolean } = {}) {
  useEffect(() => {
  fetchDevices();
  load();
+ // eslint-disable-next-line react-hooks/exhaustive-deps
  }, []);
 
  // Real-time: update task rows live
@@ -219,6 +231,8 @@ export function HistoryPage({ embedded }: { embedded?: boolean } = {}) {
  return anonymize(d?.displayName || d?.hostname) || `#${id}`;
  };
 
+ const eventLabel = (e: HistoryEvent) => (e.labelKey ? t(e.labelKey, e.label) : e.label);
+
  // Apply filters
  const filtered = events.filter(e => {
  if (kindFilter !== 'all' && e.kind !== kindFilter) return false;
@@ -226,6 +240,7 @@ export function HistoryPage({ embedded }: { embedded?: boolean } = {}) {
  const q = search.toLowerCase();
  if (
  !e.label.toLowerCase().includes(q) &&
+ !eventLabel(e).toLowerCase().includes(q) &&
  !deviceName(e.deviceId).toLowerCase().includes(q) &&
  !(e.sublabel ?? '').toLowerCase().includes(q)
  ) return false;
@@ -244,69 +259,98 @@ export function HistoryPage({ embedded }: { embedded?: boolean } = {}) {
  const hasMore = filtered.length > shown;
 
  const FILTERS: { key: KindFilter; label: string }[] = [
- { key: 'all', label: 'All' },
- { key: 'task', label: 'Tasks' },
- { key: 'script', label: 'Scripts' },
- { key: 'update', label: 'Updates' },
+ { key: 'all', label: t('history.filter.all', 'All') },
+ { key: 'task', label: t('history.filter.task', 'Tasks') },
+ { key: 'script', label: t('history.filter.script', 'Scripts') },
+ { key: 'update', label: t('history.filter.update', 'Updates') },
  ];
 
  const SCENARIO_STATUS_CFG: Record<string, { color: string; bg: string; label: string }> = {
- pending: { color: 'text-gray-400', bg: 'bg-gray-400/10', label: 'Pending' },
- running: { color: 'text-blue-400', bg: 'bg-blue-400/10', label: 'Running' },
- success: { color: 'text-emerald-400', bg: 'bg-emerald-400/10', label: 'Success' },
- failure: { color: 'text-red-400', bg: 'bg-red-400/10', label: 'Failed' },
- cancelled: { color: 'text-text-muted', bg: 'bg-bg-tertiary', label: 'Cancelled' },
- timeout: { color: 'text-orange-400', bg: 'bg-orange-400/10', label: 'Timeout' },
+ pending: { color: 'text-gray-400', bg: 'bg-gray-400/10', label: t('history.status.pending', 'Pending') },
+ running: { color: 'text-blue-400', bg: 'bg-blue-400/10', label: t('history.status.running', 'Running') },
+ success: { color: 'text-emerald-400', bg: 'bg-emerald-400/10', label: t('history.status.success', 'Success') },
+ failure: { color: 'text-red-400', bg: 'bg-red-400/10', label: t('history.status.failure', 'Failed') },
+ cancelled: { color: 'text-text-muted', bg: 'bg-bg-tertiary', label: t('history.status.cancelled', 'Cancelled') },
+ timeout: { color: 'text-orange-400', bg: 'bg-orange-400/10', label: t('history.status.timeout', 'Timeout') },
+ };
+
+ const statusLabel = (status: string) => {
+ const cfg = STATUS_CFG[status];
+ return cfg ? t(`history.status.${status}`, cfg.label) : status;
+ };
+ const kindLabel = (kind: EventKind) => t(`history.kind.${kind}`, KIND_CFG[kind].label);
+ const formatMs = (ms: number) => (ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`);
+
+ // `inRunRow`: link inside a clickable scenario-run row (does not toggle it,
+ // and keeps that table's historic look: no icon hover tint).
+ const deviceLink = (deviceId: number, inRunRow = false) => {
+ const device = getDevice(deviceId);
+ return device ? (
+ <Link
+ to={`/devices/${deviceId}`}
+ onClick={inRunRow ? (e) => e.stopPropagation() : undefined}
+ className={clsx('inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-accent transition-colors min-w-0', !inRunRow && 'group')}
+ >
+ <Monitor className={clsx('w-3.5 h-3.5 text-text-muted shrink-0', !inRunRow && 'group-hover:text-accent')} />
+ <span className="truncate max-w-[140px]">{anonymize(device.displayName || device.hostname)}</span>
+ </Link>
+ ) : (
+ <span className="text-xs text-text-muted">#{deviceId}</span>
+ );
  };
 
  return (
- <div className={embedded ? 'flex flex-col min-h-0 space-y-5' : 'flex flex-col h-full min-h-0 p-6 space-y-5'}>
+ <div className={embedded ? 'flex flex-col min-h-0 space-y-5' : 'flex flex-col h-full min-h-0 p-3 sm:p-4 lg:p-6 space-y-5'}>
 
  {/* Header */}
  <div className="flex items-center justify-between gap-4 flex-wrap">
  {!embedded && <div className="flex items-center gap-3">
  <History className="w-5 h-5 text-text-muted" />
- <h1 className="text-xl font-semibold text-text-primary">History</h1>
+ <h1 className="text-xl font-semibold text-text-primary">{t('history.title', 'History')}</h1>
  {!isLoading && mainTab === 'events' && (
  <span className="text-xs text-text-muted bg-bg-secondary border border-transparent px-2 py-0.5 rounded-full">
- {filtered.length} events
+ {t('history.eventCount', '{{count}} events', { count: filtered.length })}
  </span>
  )}
  </div>}
  <button
  onClick={() => { setShown(PAGE_SIZE); load(); }}
  disabled={isLoading}
- className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bg-secondary border border-transparent text-sm text-text-muted hover:text-text-primary transition-colors disabled:opacity-50"
+ className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bg-secondary border border-transparent text-sm text-text-muted hover:text-text-primary transition-colors disabled:opacity-50 coarse:min-h-10"
  >
  <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
- Refresh
+ {t('common.refresh', 'Refresh')}
  </button>
  </div>
 
- {/* Main tabs: Events vs Scenarios */}
- <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-transparent w-fit">
+ {/* Main tabs: Events vs Scenarios (scroll instead of overflowing on phones) */}
+ <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-transparent w-fit max-w-full overflow-x-auto overscroll-x-contain scrollbar-none" role="tablist">
  <button
+ role="tab"
+ aria-selected={mainTab === 'events'}
  onClick={() => setMainTab('events')}
  className={clsx(
- 'flex items-center gap-2 px-4 py-1.5 text-sm font-medium rounded-md transition-colors',
+ 'flex items-center gap-2 px-4 py-1.5 text-sm font-medium rounded-md transition-colors shrink-0 whitespace-nowrap coarse:min-h-10',
  mainTab === 'events' ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary',
  )}
  >
  <Terminal className="w-4 h-4" />
- Tasks &amp; Scripts
+ {t('history.tabEvents', 'Tasks & Scripts')}
  <span className={clsx('rounded-full px-1.5 py-0.5 text-[10px] font-semibold', mainTab === 'events' ? 'bg-white/20 text-white' : 'bg-bg-tertiary text-text-muted')}>
  {events.length}
  </span>
  </button>
  <button
+ role="tab"
+ aria-selected={mainTab === 'scenarios'}
  onClick={() => setMainTab('scenarios')}
  className={clsx(
- 'flex items-center gap-2 px-4 py-1.5 text-sm font-medium rounded-md transition-colors',
+ 'flex items-center gap-2 px-4 py-1.5 text-sm font-medium rounded-md transition-colors shrink-0 whitespace-nowrap coarse:min-h-10',
  mainTab === 'scenarios' ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary',
  )}
  >
  <Zap className="w-4 h-4" />
- Scenarios
+ {t('history.tabScenarios', 'Scenarios')}
  <span className={clsx('rounded-full px-1.5 py-0.5 text-[10px] font-semibold', mainTab === 'scenarios' ? 'bg-white/20 text-white' : 'bg-bg-tertiary text-text-muted')}>
  {scenarioRuns.length}
  </span>
@@ -321,8 +365,9 @@ export function HistoryPage({ embedded }: { embedded?: boolean } = {}) {
  <button
  key={key}
  onClick={() => { setKindFilter(key); setShown(PAGE_SIZE); }}
+ aria-pressed={kindFilter === key}
  className={clsx(
- 'flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-colors border',
+ 'flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-colors border coarse:min-h-9',
  kindFilter === key
  ? 'bg-accent text-white border-accent'
  : 'bg-bg-secondary text-text-muted hover:text-text-primary border-transparent'
@@ -341,18 +386,23 @@ export function HistoryPage({ embedded }: { embedded?: boolean } = {}) {
  ))}
  </div>
 
- <div className="relative flex-1 min-w-[180px] max-w-xs ml-auto">
+ <div className="relative flex-1 min-w-[180px] max-w-xs ml-auto max-sm:max-w-none max-sm:basis-full">
  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted pointer-events-none" />
  <input
  value={search}
  onChange={e => { setSearch(e.target.value); setShown(PAGE_SIZE); }}
- placeholder="Search task, device…"
- className="w-full pl-8 pr-8 py-1.5 bg-bg-secondary rounded-lg text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent"
+ placeholder={t('history.searchPlaceholder', 'Search task, device…')}
+ aria-label={t('history.searchPlaceholder', 'Search task, device…')}
+ autoCapitalize="off"
+ autoCorrect="off"
+ spellCheck={false}
+ className="w-full pl-8 pr-8 py-1.5 bg-bg-secondary rounded-lg text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent coarse:pr-11"
  />
  {search && (
  <button
  onClick={() => setSearch('')}
- className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors"
+ aria-label={t('history.clearSearch', 'Clear search')}
+ className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors coarse:right-0 coarse:min-h-10 coarse:min-w-10 coarse:flex coarse:items-center coarse:justify-center"
  >
  <X className="w-3.5 h-3.5" />
  </button>
@@ -369,77 +419,84 @@ export function HistoryPage({ embedded }: { embedded?: boolean } = {}) {
  <div className="flex flex-col items-center justify-center flex-1 min-h-[240px] text-text-muted">
  <History className="w-10 h-10 mb-3 opacity-30" />
  <p className="text-sm">
- {search || kindFilter !== 'all' ? 'No results for this filter' : 'No history yet'}
+ {search || kindFilter !== 'all' ? t('history.noResults', 'No results for this filter') : t('history.empty', 'No history yet')}
  </p>
  </div>
  ) : (
  <div className="flex-1 min-h-0 space-y-3">
- <div className="bg-bg-secondary rounded-xl overflow-hidden">
+ {/* Below md: Date / Type / Device move under the action (stacked
+ row), so Action and Status keep the width. */}
+ <TableScroll className="bg-bg-secondary rounded-xl">
  <table className="w-full">
  <thead>
  <tr className="">
- <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider whitespace-nowrap">Date</th>
- <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Type</th>
- <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Action</th>
- <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider hidden md:table-cell">Device</th>
- <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Status</th>
- <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider hidden md:table-cell">User</th>
- <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider hidden lg:table-cell">Duration</th>
+ <th className={clsx(TH, 'whitespace-nowrap hidden md:table-cell')}>{t('history.col.date', 'Date')}</th>
+ <th className={clsx(TH, 'hidden md:table-cell')}>{t('history.col.type', 'Type')}</th>
+ <th className={clsx(TH, 'max-md:px-3')}>{t('history.col.action', 'Action')}</th>
+ <th className={clsx(TH, 'hidden md:table-cell')}>{t('history.col.device', 'Device')}</th>
+ <th className={clsx(TH, 'max-md:px-3')}>{t('history.col.status', 'Status')}</th>
+ <th className={clsx(TH, 'hidden md:table-cell')}>{t('history.col.user', 'User')}</th>
+ <th className={clsx(TH, 'hidden lg:table-cell')}>{t('history.col.duration', 'Duration')}</th>
  </tr>
  </thead>
  <tbody className="divide-y divide-border">
  {visible.map(ev => {
  const kc = KIND_CFG[ev.kind];
  const sc = STATUS_CFG[ev.status] ?? { color: 'text-text-muted', bg: 'bg-bg-tertiary', label: ev.status };
- const device = getDevice(ev.deviceId);
  const isLive = ev.status === 'ack_running' || ev.status === 'running';
 
  return (
  <tr key={ev.id} className="hover:bg-bg-tertiary transition-colors">
 
  {/* Date */}
- <td className="px-4 py-2.5 text-xs text-text-muted whitespace-nowrap">
+ <td className="px-4 py-2.5 text-xs text-text-muted whitespace-nowrap hidden md:table-cell">
  {new Date(ev.date).toLocaleString()}
  </td>
 
  {/* Kind badge */}
- <td className="px-4 py-2.5">
+ <td className="px-4 py-2.5 hidden md:table-cell">
  <span className={clsx('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium', kc.color, kc.bg)}>
  <kc.Icon className="w-3 h-3" />
- {kc.label}
+ {kindLabel(ev.kind)}
  </span>
  </td>
 
- {/* Label */}
- <td className="px-4 py-2.5 max-w-0">
+ {/* Label (+ kind · device · date · user on phones) */}
+ <td className="px-4 py-2.5 max-w-0 max-md:px-3">
  <span className="text-sm text-text-primary font-medium truncate block">
- {ev.label}
+ {eventLabel(ev)}
  </span>
  {ev.sublabel && (
  <span className="text-xs text-text-muted capitalize">{ev.sublabel}</span>
+ )}
+ <div className="md:hidden mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-muted">
+ <span className={clsx('inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium', kc.color, kc.bg)}>
+ <kc.Icon className="w-3 h-3" />
+ {kindLabel(ev.kind)}
+ </span>
+ {deviceLink(ev.deviceId)}
+ <span className="whitespace-nowrap">{new Date(ev.date).toLocaleString()}</span>
+ {ev.createdByName && <span className="truncate">{anonymize(ev.createdByName)}</span>}
+ {ev.duration != null && <span className="whitespace-nowrap">{formatMs(ev.duration)}</span>}
+ </div>
+ {/* md–lg: the Duration column is hidden, show it here. */}
+ {ev.duration != null && (
+ <div className="hidden md:block lg:hidden mt-0.5 text-xs text-text-muted">
+ {t('history.col.duration', 'Duration')}: {formatMs(ev.duration)}
+ </div>
  )}
  </td>
 
  {/* Device link */}
  <td className="px-4 py-2.5 hidden md:table-cell whitespace-nowrap">
- {device ? (
- <Link
- to={`/devices/${ev.deviceId}`}
- className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-accent transition-colors group"
- >
- <Monitor className="w-3.5 h-3.5 text-text-muted group-hover:text-accent shrink-0" />
- <span className="truncate max-w-[140px]">{anonymize(device.displayName || device.hostname)}</span>
- </Link>
- ) : (
- <span className="text-xs text-text-muted">#{ev.deviceId}</span>
- )}
+ {deviceLink(ev.deviceId)}
  </td>
 
  {/* Status badge */}
- <td className="px-4 py-2.5">
- <span className={clsx('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium', sc.color, sc.bg)}>
+ <td className="px-4 py-2.5 max-md:px-3 max-md:align-top">
+ <span className={clsx('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap', sc.color, sc.bg)}>
  {isLive && <Loader2 className="w-3 h-3 animate-spin" />}
- {sc.label}
+ {statusLabel(ev.status)}
  </span>
  </td>
 
@@ -450,26 +507,24 @@ export function HistoryPage({ embedded }: { embedded?: boolean } = {}) {
 
  {/* Duration */}
  <td className="px-4 py-2.5 text-xs text-text-muted hidden lg:table-cell whitespace-nowrap">
- {ev.duration != null
- ? ev.duration < 1000 ? `${ev.duration}ms` : `${(ev.duration / 1000).toFixed(1)}s`
- : '—'}
+ {ev.duration != null ? formatMs(ev.duration) : '—'}
  </td>
  </tr>
  );
  })}
  </tbody>
  </table>
- </div>
+ </TableScroll>
 
  {/* Pagination footer */}
- <div className="flex items-center justify-between text-xs text-text-muted px-1">
- <span>Showing {Math.min(shown, filtered.length)} of {filtered.length}</span>
+ <div className="flex items-center justify-between gap-3 text-xs text-text-muted px-1">
+ <span>{t('history.showingOf', 'Showing {{shown}} of {{total}}', { shown: Math.min(shown, filtered.length), total: filtered.length })}</span>
  {hasMore && (
  <button
  onClick={() => setShown(s => s + PAGE_SIZE)}
- className="px-3 py-1.5 rounded-lg bg-bg-secondary border border-transparent hover:text-text-primary transition-colors"
+ className="px-3 py-1.5 rounded-lg bg-bg-secondary border border-transparent hover:text-text-primary transition-colors coarse:min-h-10"
  >
- Load {Math.min(PAGE_SIZE, filtered.length - shown)} more
+ {t('history.loadMore', 'Load {{count}} more', { count: Math.min(PAGE_SIZE, filtered.length - shown) })}
  </button>
  )}
  </div>
@@ -485,27 +540,27 @@ export function HistoryPage({ embedded }: { embedded?: boolean } = {}) {
  ) : scenarioRuns.length === 0 ? (
  <div className="flex flex-col items-center justify-center flex-1 min-h-[240px] text-text-muted">
  <Zap className="w-10 h-10 mb-3 opacity-30" />
- <p className="text-sm">No scenario runs yet</p>
+ <p className="text-sm">{t('history.noScenarioRuns', 'No scenario runs yet')}</p>
  </div>
  ) : (
  <div className="flex-1 min-h-0 space-y-3">
- <div className="bg-bg-secondary rounded-xl overflow-hidden">
+ {/* Below md, Device and Trigger move under the scenario name. */}
+ <TableScroll className="bg-bg-secondary rounded-xl">
  <table className="w-full">
  <thead>
  <tr className="">
- <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider whitespace-nowrap">Date</th>
- <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Scenario</th>
- <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Device</th>
- <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Trigger</th>
- <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Status</th>
- <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider hidden lg:table-cell">Duration</th>
+ <th className={clsx(TH, 'whitespace-nowrap max-md:px-3')}>{t('history.col.date', 'Date')}</th>
+ <th className={clsx(TH, 'max-md:px-3')}>{t('history.col.scenario', 'Scenario')}</th>
+ <th className={clsx(TH, 'hidden md:table-cell')}>{t('history.col.device', 'Device')}</th>
+ <th className={clsx(TH, 'hidden md:table-cell')}>{t('history.col.trigger', 'Trigger')}</th>
+ <th className={clsx(TH, 'max-md:px-3')}>{t('history.col.status', 'Status')}</th>
+ <th className={clsx(TH, 'hidden lg:table-cell')}>{t('history.col.duration', 'Duration')}</th>
  <th className="w-8"></th>
  </tr>
  </thead>
  <tbody className="divide-y divide-border">
  {scenarioRuns.map((r) => {
  const sc = SCENARIO_STATUS_CFG[r.status] ?? { color: 'text-text-muted', bg: 'bg-bg-tertiary', label: r.status };
- const device = getDevice(r.deviceId);
  const isExpanded = expandedRunId === r.id;
  const detail = runDetails[r.id];
  const duration = r.finishedAt && r.startedAt
@@ -513,36 +568,33 @@ export function HistoryPage({ embedded }: { embedded?: boolean } = {}) {
  : null;
  return (
  <Fragment key={r.id}>
- <tr className="hover:bg-bg-tertiary transition-colors cursor-pointer" onClick={() => toggleRun(r.id)}>
- <td className="px-4 py-2.5 text-xs text-text-muted whitespace-nowrap">
+ <tr
+ className="hover:bg-bg-tertiary transition-colors cursor-pointer"
+ onClick={() => toggleRun(r.id)}
+ aria-expanded={isExpanded}
+ >
+ <td className="px-4 py-2.5 text-xs text-text-muted whitespace-nowrap max-md:px-3 max-md:whitespace-normal max-md:min-w-[6.5rem]">
  {new Date(r.startedAt || r.createdAt).toLocaleString()}
  </td>
- <td className="px-4 py-2.5">
+ <td className="px-4 py-2.5 max-md:px-3">
  <span className="text-sm text-text-primary font-medium">{r.scenario?.name ?? `#${r.scenarioId}`}</span>
+ <div className="md:hidden mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-muted">
+ {deviceLink(r.deviceId, true)}
+ <span className="capitalize">{r.triggerType.replace('_', ' ')}</span>
+ </div>
  </td>
- <td className="px-4 py-2.5 whitespace-nowrap">
- {device ? (
- <Link
- to={`/devices/${r.deviceId}`}
- onClick={(e) => e.stopPropagation()}
- className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-accent transition-colors"
- >
- <Monitor className="w-3.5 h-3.5 text-text-muted shrink-0" />
- <span className="truncate max-w-[140px]">{anonymize(device.displayName || device.hostname)}</span>
- </Link>
- ) : (
- <span className="text-xs text-text-muted">#{r.deviceId}</span>
- )}
+ <td className="px-4 py-2.5 whitespace-nowrap hidden md:table-cell">
+ {deviceLink(r.deviceId, true)}
  </td>
- <td className="px-4 py-2.5 text-xs text-text-muted capitalize">{r.triggerType.replace('_', ' ')}</td>
- <td className="px-4 py-2.5">
- <span className={clsx('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium', sc.color, sc.bg)}>
+ <td className="px-4 py-2.5 text-xs text-text-muted capitalize hidden md:table-cell">{r.triggerType.replace('_', ' ')}</td>
+ <td className="px-4 py-2.5 max-md:px-3">
+ <span className={clsx('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap', sc.color, sc.bg)}>
  {r.status === 'running' && <Loader2 className="w-3 h-3 animate-spin" />}
  {sc.label}
  </span>
  </td>
  <td className="px-4 py-2.5 text-xs text-text-muted hidden lg:table-cell whitespace-nowrap">
- {duration != null ? (duration < 1000 ? `${duration}ms` : `${(duration / 1000).toFixed(1)}s`) : '—'}
+ {duration != null ? formatMs(duration) : '—'}
  </td>
  <td className="px-2 py-2.5 text-text-muted">
  {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
@@ -550,26 +602,31 @@ export function HistoryPage({ embedded }: { embedded?: boolean } = {}) {
  </tr>
  {isExpanded && (
  <tr className="bg-bg-tertiary/40">
- <td colSpan={7} className="px-6 py-3">
+ <td colSpan={7} className="px-6 py-3 max-md:px-3">
  {!detail ? (
- <div className="text-xs text-text-muted">Loading steps...</div>
+ <div className="text-xs text-text-muted">{t('history.loadingSteps', 'Loading steps...')}</div>
  ) : !detail.stepRuns || detail.stepRuns.length === 0 ? (
- <div className="text-xs text-text-muted">No step details</div>
+ <div className="text-xs text-text-muted">{t('history.noSteps', 'No step details')}</div>
  ) : (
  <div className="space-y-1">
+ {duration != null && (
+ <div className="lg:hidden text-xs text-text-muted">
+ {t('history.col.duration', 'Duration')}: {formatMs(duration)}
+ </div>
+ )}
  {[...detail.stepRuns].sort((a, b) => a.sortOrder - b.sortOrder).map((sr) => (
- <div key={sr.id} className="flex items-center gap-3 text-xs">
+ <div key={sr.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
  <span className="text-text-muted w-6">#{sr.sortOrder + 1}</span>
  <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium capitalize', (SCENARIO_STATUS_CFG[sr.status] ?? { color: 'text-text-muted', bg: 'bg-bg-tertiary', label: sr.status }).color, (SCENARIO_STATUS_CFG[sr.status] ?? { bg: 'bg-bg-tertiary' }).bg)}>
  {sr.status.replace('_', ' ')}
  </span>
- {sr.checkExitCode != null && <span className="text-text-muted">check: exit {sr.checkExitCode}</span>}
- {sr.resolveExitCode != null && <span className="text-text-muted">resolve: exit {sr.resolveExitCode}</span>}
- {sr.recheckExitCode != null && <span className="text-text-muted">recheck: exit {sr.recheckExitCode}</span>}
+ {sr.checkExitCode != null && <span className="text-text-muted">{t('history.step.check', 'check: exit {{code}}', { code: sr.checkExitCode })}</span>}
+ {sr.resolveExitCode != null && <span className="text-text-muted">{t('history.step.resolve', 'resolve: exit {{code}}', { code: sr.resolveExitCode })}</span>}
+ {sr.recheckExitCode != null && <span className="text-text-muted">{t('history.step.recheck', 'recheck: exit {{code}}', { code: sr.recheckExitCode })}</span>}
  </div>
  ))}
  {detail.errorMessage && (
- <div className="mt-2 text-xs text-red-400">{detail.errorMessage}</div>
+ <div className="mt-2 text-xs text-red-400 break-words">{detail.errorMessage}</div>
  )}
  </div>
  )}
@@ -581,7 +638,7 @@ export function HistoryPage({ embedded }: { embedded?: boolean } = {}) {
  })}
  </tbody>
  </table>
- </div>
+ </TableScroll>
  </div>
  )
  )}

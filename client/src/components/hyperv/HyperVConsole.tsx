@@ -7,6 +7,7 @@ import { hypervApi } from '@/api/hyperv.api';
 import { getSocket } from '@/socket/socketClient';
 import { useNativeBack } from '@/hooks/useNativeBack';
 import { useIsCoarsePointer } from '@/hooks/useMediaQuery';
+import { useNativeTopOffset } from '@/hooks/useNativeTopOffset';
 
 // Layer-A console: a read-only VMware-style framebuffer preview driven by
 // Hyper-V's GetVirtualSystemThumbnailImage. The agent posts PNG frames (or an
@@ -142,8 +143,10 @@ export function HyperVConsoleModal({ hostDeviceId, vmId, vmName, onClose }: { ho
   // a 1024×768 frame fitted to a phone is unreadable.
   const coarse = useIsCoarsePointer();
   const [zoomed, setZoomed] = useState(false);
+  // ObliTools desktop shell: start below its native tab bar (0 elsewhere).
+  const nativeTop = useNativeTopOffset();
   return createPortal(
-    <div className="fixed inset-0 z-[200] flex flex-col bg-[#0d0f14] pt-safe pb-safe px-safe">
+    <div className="fixed inset-x-0 bottom-0 z-[200] flex flex-col bg-[#0d0f14] pt-safe pb-safe px-safe" style={{ top: nativeTop }}>
       <div className="flex items-center gap-2 px-3 py-1.5 bg-bg-primary shrink-0">
         <Monitor className="w-4 h-4 text-text-muted shrink-0" />
         <span className="text-sm font-medium text-text-primary truncate">{vmName}</span>

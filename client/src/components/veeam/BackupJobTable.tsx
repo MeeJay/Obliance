@@ -8,6 +8,11 @@ import {
 } from 'lucide-react';
 import type { BackupJob, BackupJobAction, BackupJobState, BackupJobResult, DeviceStatus } from '@obliance/shared';
 import { DeviceStatusBadge } from '@/components/devices/DeviceStatusBadge';
+import { TableScroll } from '@/components/common/TableScroll';
+import { IconButton } from '@/components/common/IconButton';
+import { ActionMenu } from '@/components/common/ActionMenu';
+import { Tip } from '@/components/common/Tip';
+import { useCanHover } from '@/hooks/useMediaQuery';
 
 interface Props {
   jobs: BackupJob[];
@@ -62,6 +67,8 @@ function fmtDate(iso: string | null): string {
 
 export function BackupJobTable({ jobs, busyJobId, showHost, searchable, canControl = true, hostStatusById, onRefresh, refreshing, onAction }: Props) {
   const { t } = useTranslation();
+  // Touch: title= tooltips don't exist, so descriptions / raw states use <Tip>.
+  const canHover = useCanHover();
   const [menuJobId, setMenuJobId] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
@@ -167,7 +174,7 @@ export function BackupJobTable({ jobs, busyJobId, showHost, searchable, canContr
                 type="button"
                 onClick={() => toggleTag(tag)}
                 className={clsx(
-                  'px-2.5 py-1 text-xs rounded-full border transition-colors',
+                  'px-2.5 py-1 text-xs rounded-full border transition-colors coarse:min-h-9',
                   active
                     ? 'bg-accent/15 text-accent border-accent/40'
                     : 'bg-bg-secondary text-text-muted border-transparent hover:text-text-primary hover:bg-bg-tertiary',
@@ -178,8 +185,8 @@ export function BackupJobTable({ jobs, busyJobId, showHost, searchable, canContr
             );
           })}
           {tagFilters.size > 0 && (
-            <button type="button" onClick={() => setTagFilters(new Set())} className="flex items-center gap-1 text-xs text-text-muted hover:text-text-primary">
-              <X className="w-3.5 h-3.5" /> {t('common.clear') || 'Clear'}
+            <button type="button" onClick={() => setTagFilters(new Set())} className="flex items-center gap-1 text-xs text-text-muted hover:text-text-primary coarse:min-h-9">
+              <X className="w-3.5 h-3.5" /> {t('common.clear', 'Clear')}
             </button>
           )}
         </div>
@@ -195,10 +202,11 @@ export function BackupJobTable({ jobs, busyJobId, showHost, searchable, canContr
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={t('veeam.searchPlaceholder') || 'Search job or host…'}
+                autoCapitalize="off" autoCorrect="off" spellCheck={false}
                 className="w-full pl-9 pr-8 py-2 text-sm bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent"
               />
               {search && (
-                <button type="button" onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-primary">
+                <button type="button" onClick={() => setSearch('')} aria-label={t('common.clear', 'Clear')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-primary coarse:after:absolute coarse:after:-inset-2 coarse:after:content-['']">
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
@@ -229,8 +237,12 @@ export function BackupJobTable({ jobs, busyJobId, showHost, searchable, canContr
           <p className="text-sm">{t('veeam.noMatch') || 'No job matches your search.'}</p>
         </div>
       ) : (
-      <div className="bg-bg-secondary rounded-xl overflow-visible">
-      <table className="w-full">
+      // Below lg, and on touch devices at any width, the table scrolls
+      // horizontally (the row "⋯" is then a portal ActionMenu, so nothing is
+      // clipped); lg+ with a mouse keeps the original overflow-visible
+      // container + inline dropdown.
+      <TableScroll className="bg-bg-secondary rounded-xl lg:can-hover:overflow-visible" innerClassName="lg:can-hover:overflow-visible">
+      <table className="w-full max-lg:min-w-[520px]">
         <thead>
           <tr>
             <SortHead k="name" label={t('veeam.col.name') || 'Job'} />
@@ -255,7 +267,7 @@ export function BackupJobTable({ jobs, busyJobId, showHost, searchable, canContr
                     <td colSpan={colCount} className="px-3 py-1.5">
                       <button
                         onClick={() => setCollapsed((prev) => { const n = new Set(prev); n.has(g.host) ? n.delete(g.host) : n.add(g.host); return n; })}
-                        className="flex items-center gap-2 text-xs font-semibold text-text-primary"
+                        className="flex items-center gap-2 text-xs font-semibold text-text-primary text-left coarse:min-h-9"
                       >
                         {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                         <Database className="w-3.5 h-3.5 text-text-muted" />
@@ -279,15 +291,45 @@ export function BackupJobTable({ jobs, busyJobId, showHost, searchable, canContr
                   return (
                     <tr key={job.jobId} className="hover:bg-bg-tertiary/40 transition-colors">
                       <td className="px-4 py-2.5 text-sm text-text-primary font-medium">
-                        <span className={clsx('inline-flex items-center gap-1.5', showHost && 'pl-5')} title={job.description ?? undefined}>
-                          {job.name}
-                        </span>
+                        {!canHover && job.description ? (
+                          <Tip content={job.description} align="start" className={clsx(showHost && 'pl-5')}>
+                            <span className="inline-flex items-center gap-1.5 underline decoration-dotted decoration-text-muted/50 underline-offset-2">
+                              {job.name}
+                            </span>
+                          </Tip>
+                        ) : (
+                          <span className={clsx('inline-flex items-center gap-1.5', showHost && 'pl-5')} title={job.description ?? undefined}>
+                            {job.name}
+                          </span>
+                        )}
                         {job.jobType ? <span className="ml-2 text-[10px] text-text-muted">{job.jobType}</span> : null}
+                        {/* Columns hidden below md / lg / xl, repeated as a muted
+                            second line so they stay reachable on tablets & phones. */}
+                        <div className={clsx('xl:hidden lg:can-hover:hidden flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-[11px] font-normal text-text-muted', showHost && 'pl-5')}>
+                          <span className="md:hidden">
+                            {t('veeam.col.lastRun') || 'Last run'}: {fmtDate(job.lastRunEnd)}
+                            {job.durationSeconds ? ` (${fmtDuration(job.durationSeconds)})` : ''}
+                          </span>
+                          <span className="lg:hidden">
+                            {t('veeam.col.nextRun') || 'Next run'}: {disabled ? (t('veeam.scheduleDisabled') || 'Disabled') : fmtDate(job.nextRun)}
+                          </span>
+                          {job.repository && (
+                            <span className="break-all">{t('veeam.col.repository') || 'Repository'}: {job.repository}</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-2.5">
-                        <span className={clsx('inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-full border', STATE_BADGE[job.state])} title={job.rawState ?? undefined}>
-                          {running && job.progressPercent != null ? `${stateLabel(job.state)} ${job.progressPercent}%` : stateLabel(job.state)}
-                        </span>
+                        {!canHover && job.rawState ? (
+                          <Tip content={job.rawState} align="start">
+                            <span className={clsx('inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-full border', STATE_BADGE[job.state])}>
+                              {running && job.progressPercent != null ? `${stateLabel(job.state)} ${job.progressPercent}%` : stateLabel(job.state)}
+                            </span>
+                          </Tip>
+                        ) : (
+                          <span className={clsx('inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-full border', STATE_BADGE[job.state])} title={job.rawState ?? undefined}>
+                            {running && job.progressPercent != null ? `${stateLabel(job.state)} ${job.progressPercent}%` : stateLabel(job.state)}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-2.5">
                         <span className={clsx('inline-flex items-center gap-1.5 text-xs', result.cls)}>
@@ -309,19 +351,26 @@ export function BackupJobTable({ jobs, busyJobId, showHost, searchable, canContr
                         {canControl ? (
                         <div className="flex items-center justify-end gap-1">
                           {running || transitioning ? (
-                            <button disabled={busy} onClick={() => onAction(job, 'stop')} title={t('veeam.action.stop') || 'Stop'} className="p-1.5 rounded text-orange-400 hover:bg-orange-400/10 disabled:opacity-40 transition-colors">
-                              <Square className="w-4 h-4" />
-                            </button>
+                            <IconButton disabled={busy} onClick={() => onAction(job, 'stop')} label={t('veeam.action.stop') || 'Stop'} variant="plain" className="text-orange-400 hover:text-orange-400 hover:bg-orange-400/10 disabled:opacity-40" icon={<Square className="w-4 h-4" />} />
                           ) : (
-                            <button disabled={busy} onClick={() => onAction(job, 'start')} title={t('veeam.action.start') || 'Start'} className="p-1.5 rounded text-green-400 hover:bg-green-400/10 disabled:opacity-40 transition-colors">
-                              <Play className="w-4 h-4" />
-                            </button>
+                            <IconButton disabled={busy} onClick={() => onAction(job, 'start')} label={t('veeam.action.start') || 'Start'} variant="plain" className="text-green-400 hover:text-green-400 hover:bg-green-400/10 disabled:opacity-40" icon={<Play className="w-4 h-4" />} />
                           )}
-                          <button disabled={busy || running || transitioning} onClick={() => onAction(job, 'retry')} title={t('veeam.action.retry') || 'Retry failed'} className="p-1.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-secondary disabled:opacity-30 transition-colors">
-                            <RotateCcw className="w-4 h-4" />
-                          </button>
-                          <div className="relative">
-                            <button disabled={busy} onClick={() => setMenuJobId(menuJobId === job.jobId ? null : job.jobId)} className="p-1.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-secondary disabled:opacity-40 transition-colors">
+                          <IconButton disabled={busy || running || transitioning} onClick={() => onAction(job, 'retry')} label={t('veeam.action.retry') || 'Retry failed'} variant="plain" className="hidden lg:can-hover:inline-flex hover:bg-bg-secondary disabled:opacity-30" icon={<RotateCcw className="w-4 h-4" />} />
+                          {/* Below lg / touch: portal-positioned menu (bottom sheet on phones). */}
+                          <ActionMenu
+                            disabled={busy}
+                            triggerVariant="plain"
+                            triggerClassName="lg:can-hover:hidden hover:bg-bg-secondary"
+                            label={t('veeam.col.actions') || 'Actions'}
+                            sheetTitle={job.name}
+                            items={[
+                              { key: 'retry', icon: <HardDriveDownload className="w-4 h-4" />, label: t('veeam.action.retry') || 'Retry failed items', disabled: running || transitioning, onClick: () => onAction(job, 'retry') },
+                              { key: 'disable', icon: <CalendarOff className="w-4 h-4" />, label: t('veeam.action.disable') || 'Disable schedule', hidden: !job.scheduleEnabled, onClick: () => onAction(job, 'disable') },
+                              { key: 'enable', icon: <CalendarClock className="w-4 h-4" />, label: t('veeam.action.enable') || 'Enable schedule', hidden: job.scheduleEnabled, onClick: () => onAction(job, 'enable') },
+                            ]}
+                          />
+                          <div className="relative hidden lg:can-hover:block">
+                            <button disabled={busy} onClick={() => setMenuJobId(menuJobId === job.jobId ? null : job.jobId)} aria-label={t('veeam.col.actions') || 'Actions'} className="p-1.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-secondary disabled:opacity-40 transition-colors">
                               <MoreHorizontal className="w-4 h-4" />
                             </button>
                             {menuJobId === job.jobId && (
@@ -356,7 +405,7 @@ export function BackupJobTable({ jobs, busyJobId, showHost, searchable, canContr
           })}
         </tbody>
       </table>
-      </div>
+      </TableScroll>
       )}
     </div>
   );

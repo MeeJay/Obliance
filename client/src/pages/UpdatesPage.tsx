@@ -369,7 +369,7 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
  className="rounded-lg hover:bg-bg-secondary"
  />
  )}
- <select value={selectedSource} onChange={(e) => setSelectedSource(e.target.value)} className="px-3 py-1.5 text-sm bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent">
+ <select value={selectedSource} onChange={(e) => setSelectedSource(e.target.value)} className="px-3 py-1.5 text-sm bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent coarse:min-h-10">
  <option value="">{t('updates.filters.allSources', 'All sources')}</option>
  <option value="windows_update">Windows Update</option>
  <option value="winget">Winget</option>
@@ -378,14 +378,14 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
  <option value="brew">Brew</option>
  </select>
  {(selectedSeverity || selectedSource) && (
- <button onClick={() => { setSelectedSeverity(''); setSelectedSource(''); }} className="flex items-center gap-1 text-xs text-text-muted hover:text-text-primary">
+ <button onClick={() => { setSelectedSeverity(''); setSelectedSource(''); }} className="flex items-center gap-1 text-xs text-text-muted hover:text-text-primary coarse:min-h-10">
  <X className="w-3.5 h-3.5" /> {t('updates.actions.clear')}
  </button>
  )}
  <div className="ml-auto flex gap-2 flex-wrap">
  {selectedUids.size > 0 && (
  <>
- <button onClick={handleApproveSelected} className="text-xs px-3 py-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors font-medium">
+ <button onClick={handleApproveSelected} className="text-xs px-3 py-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors font-medium coarse:min-h-10">
  {t('updates.actions.approve')} ({selectedUids.size})
  </button>
  {aggUpdates.some((u) => selectedUids.has(u.updateUid) && u.failedCount > 0) && (
@@ -399,7 +399,7 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
  await load();
  } catch { toast.error(t('updates.toast.retryFailed', 'Retry failed')); }
  }}
- className="text-xs px-3 py-1.5 bg-orange-500/10 text-orange-400 border border-orange-500/20 rounded-lg hover:bg-orange-500/20 transition-colors font-medium"
+ className="text-xs px-3 py-1.5 bg-orange-500/10 text-orange-400 border border-orange-500/20 rounded-lg hover:bg-orange-500/20 transition-colors font-medium coarse:min-h-10"
  >
  {t('updates.actions.retryFailed', 'Retry failed')}
  </button>
@@ -413,7 +413,7 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
  await load();
  } catch { toast.error(t('updates.toast.approveFailed')); }
  }}
- className="text-xs px-3 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors font-medium"
+ className="text-xs px-3 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors font-medium coarse:min-h-10"
  >
  {t('updates.actions.approveAndDeploy', 'Approve & Deploy')} ({selectedUids.size})
  </button>
@@ -427,14 +427,14 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
  await load();
  } catch { toast.error(t('updates.toast.deployFailed', 'Deploy failed')); }
  }}
- className="text-xs px-3 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors"
+ className="text-xs px-3 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors coarse:min-h-10"
  >
  {t('updates.actions.deployAllApproved', 'Deploy all approved')}
  </button>
- <button onClick={async () => { try { const r = await updateApi.bulkApproveBySeverity(['critical','important'], selectedGroupId); toast.success(t('updates.toast.bulkApproved',{count:r.approved})); load(); } catch { toast.error(t('updates.toast.approveFailed')); } }} className="text-xs px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors">
+ <button onClick={async () => { try { const r = await updateApi.bulkApproveBySeverity(['critical','important'], selectedGroupId); toast.success(t('updates.toast.bulkApproved',{count:r.approved})); load(); } catch { toast.error(t('updates.toast.approveFailed')); } }} className="text-xs px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors coarse:min-h-10">
  {t('updates.actions.approveAllCritical')}
  </button>
- <button onClick={async () => { try { const r = await updateApi.bulkApproveBySeverity(['critical','important','moderate','optional','unknown'], selectedGroupId); toast.success(t('updates.toast.bulkApproved',{count:r.approved})); load(); } catch { toast.error(t('updates.toast.approveFailed')); } }} className="text-xs px-3 py-1.5 bg-accent/10 text-accent border border-accent/20 rounded-lg hover:bg-accent/20 transition-colors">
+ <button onClick={async () => { try { const r = await updateApi.bulkApproveBySeverity(['critical','important','moderate','optional','unknown'], selectedGroupId); toast.success(t('updates.toast.bulkApproved',{count:r.approved})); load(); } catch { toast.error(t('updates.toast.approveFailed')); } }} className="text-xs px-3 py-1.5 bg-accent/10 text-accent border border-accent/20 rounded-lg hover:bg-accent/20 transition-colors coarse:min-h-10">
  {t('updates.actions.approveAll')}
  </button>
  </div>
@@ -819,7 +819,7 @@ function UpdatePolicyGroupTree({ selectedIds, onChange }: { selectedIds: number[
  <div className={clsx('flex items-center gap-1.5 py-1.5 transition-colors rounded hover:bg-bg-hover', state === 'all' && 'bg-accent/5')}
  style={{ paddingLeft: `${8 + depth * 20}px`, paddingRight: 8 }}>
  <button type="button" onClick={() => hasChildren && toggleExpand(node.id)}
- aria-label={node.name} aria-expanded={hasChildren ? isExpanded : undefined}
+ aria-label={isExpanded ? t('customSections.collapseGroup', 'Collapse {{name}}', { name: node.name }) : t('customSections.expandGroup', 'Expand {{name}}', { name: node.name })} aria-expanded={hasChildren ? isExpanded : undefined}
  className={clsx('shrink-0 p-0.5 text-text-muted hover:text-text-primary transition-colors coarse:inline-flex coarse:min-h-10 coarse:min-w-10 coarse:items-center coarse:justify-center', !hasChildren && 'invisible')}>
  <ChevronRight className={clsx('w-3 h-3 coarse:w-4 coarse:h-4 transition-transform', isExpanded && 'rotate-90')} />
  </button>
@@ -885,7 +885,7 @@ function GroupScopePicker({ value, onChange }: { value: number | undefined; onCh
  <div className={clsx('flex items-center gap-1.5 py-1.5 rounded hover:bg-bg-tertiary', isSel && 'bg-accent/10')}
  style={{ paddingLeft: `${8 + depth * 18}px`, paddingRight: 8 }}>
  <button type="button" onClick={() => hasChildren && toggleExpand(node.id)}
- aria-label={node.name} aria-expanded={hasChildren ? isExpanded : undefined}
+ aria-label={isExpanded ? t('customSections.collapseGroup', 'Collapse {{name}}', { name: node.name }) : t('customSections.expandGroup', 'Expand {{name}}', { name: node.name })} aria-expanded={hasChildren ? isExpanded : undefined}
  className={clsx('shrink-0 p-0.5 text-text-muted hover:text-text-primary coarse:inline-flex coarse:min-h-10 coarse:min-w-10 coarse:items-center coarse:justify-center', !hasChildren && 'invisible')}>
  <ChevronRight className={clsx('w-3 h-3 coarse:w-4 coarse:h-4 transition-transform', isExpanded && 'rotate-90')} />
  </button>
@@ -905,7 +905,7 @@ function GroupScopePicker({ value, onChange }: { value: number | undefined; onCh
  <div className="relative">
  <button type="button" onClick={() => setOpen(o => !o)}
  title={t('updates.scope.hint') || 'Scope the list + approvals to a group (and its sub-groups)'}
- className={clsx('flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors',
+ className={clsx('flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors coarse:min-h-10',
  value ? 'bg-accent/10 text-accent border border-accent/30' : 'bg-bg-secondary text-text-primary hover:bg-bg-tertiary')}>
  <FolderTree className="w-3.5 h-3.5 shrink-0" />
  <span className="truncate max-w-[180px]">{label}</span>
@@ -921,7 +921,7 @@ function GroupScopePicker({ value, onChange }: { value: number | undefined; onCh
  className={clsx('w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-bg-tertiary coarse:min-h-10', !value ? 'text-accent font-medium' : 'text-text-primary')}>
  <Globe className="w-3.5 h-3.5" /> {t('updates.scope.all') || 'All devices'}
  </button>
- <div className="max-h-64 overflow-y-auto overscroll-contain py-1 border-t border-border/40 max-sm:max-h-[50dvh]">
+ <div className="max-h-64 overflow-y-auto overscroll-contain py-1 border-t border-border/40 max-sm:max-h-[50dvh] max-sm:supports-[not(height:100dvh)]:max-h-[50vh]">
  {tree.length ? tree.map(n => renderNode(n, 0)) : <p className="text-sm text-text-muted px-3 py-2">{t('updates.scope.none') || 'No groups'}</p>}
  </div>
  </div>

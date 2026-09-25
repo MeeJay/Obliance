@@ -40,7 +40,8 @@ interface BridgeHost {
     suspend fun requestNotificationPermission(): Boolean
     /** Same-origin DownloadManager download (handles legacy permission). */
     suspend fun downloadFromServer(url: String, filename: String?, mime: String?): Long?
-    fun applySystemBars(argb: Int, lightIcons: Boolean)
+    /** [lightTheme] = the web theme is light (dark icons wanted); null = not stated. */
+    fun applySystemBars(argb: Int, lightTheme: Boolean?)
     fun openSettings()
     fun offerUpdate(manifest: UpdateManifest, required: Boolean)
     fun webViewVersion(): String?
@@ -168,7 +169,7 @@ class NativeBridge(private val host: BridgeHost) : WebViewCompat.WebMessageListe
             }
             "setSystemBars" -> {
                 val color = BridgeValidators.color(p.string("colorHex", 16))
-                host.applySystemBars(color, p.bool("lightIcons", default = true))
+                host.applySystemBars(color, p.optBool("lightTheme"))
                 JsonPrimitive(true)
             }
             "requestNotificationPermission" ->

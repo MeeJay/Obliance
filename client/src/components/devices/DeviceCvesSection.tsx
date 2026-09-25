@@ -131,7 +131,7 @@ export function DeviceCvesSection({ deviceId }: Props) {
          {items.map((it) => (
            <div key={it.id} className="px-4 py-3 flex items-start gap-3">
              <HintSpan
-               hint={`${it.matchConfidence} confidence match`}
+               hint={t('cves.confidenceMatch', { defaultValue: '{{level}} confidence match', level: it.matchConfidence })}
                className={clsx('w-2 h-2 rounded-full shrink-0 mt-1.5', CONFIDENCE_CLR[it.matchConfidence] ?? CONFIDENCE_CLR.medium)}
              />
              <div className="flex-1 min-w-0">
@@ -153,6 +153,12 @@ export function DeviceCvesSection({ deviceId }: Props) {
                  <span className={clsx('px-2 py-0.5 text-[10px] uppercase font-semibold rounded-full border', SEVERITY_CLR[it.cve.severity ?? 'unknown'])}>
                    {it.cve.severity ?? 'unknown'}
                  </span>
+                 {/* Touch: the confidence dot's meaning is spelled out (no hover tooltip). */}
+                 {!canHover && (
+                   <span className="text-[10px] text-text-muted">
+                     {t('cves.confidenceMatch', { defaultValue: '{{level}} confidence match', level: it.matchConfidence })}
+                   </span>
+                 )}
                  {it.cve.dueDate && (
                    <span className="text-[11px] text-text-muted">
                      {t('cves.due') || 'Due'} {new Date(it.cve.dueDate).toLocaleDateString()}

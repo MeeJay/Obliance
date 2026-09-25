@@ -6,7 +6,7 @@ import { WebSocketServer } from 'ws';
 import type { WebSocket } from 'ws';
 import { config } from './config';
 import { db } from './db';
-import { createApp } from './app';
+import { createApp, getSessionMiddleware } from './app';
 import { createSocketServer } from './socket';
 import { logger } from './utils/logger';
 import { deviceService } from './services/device.service';
@@ -17,6 +17,12 @@ import { remoteService } from './services/remote.service';
 import { agentHub } from './services/agentHub.service';
 import { oblireachHub } from './services/oblireachHub.service';
 import { obligateService } from './services/obligate.service';
+import {
+  agentKeyMayActForDevice,
+  browserVerdictHttpStatus,
+  isUuid,
+  rejectUpgrade,
+} from './services/remoteSessionSecurity';
 
 async function main() {
   // Run database migrations
@@ -56,59 +62,95 @@ async function main() {
   server.on('upgrade', (request: IncomingMessage, socket: Duplex, head: Buffer) => {
     const pathname = new URL(request.url ?? '/', 'http://localhost').pathname;
 
+    const clientIpOf = () =>
+      (request.headers['x-forwarded-for'] as string | undefined)?.split(',')[0].trim()
+      ?? request.socket.remoteAddress;
+
     // ── Browser remote tunnel ──────────────────────────────────────────────
+    // SECURITY: the token in the URL is NOT a credential on its own. The
+    // upgrade must carry the express-session cookie of the user who STARTED
+    // the session (same cookie as the REST API / socket.io), and the session
+    // must still be open. A refusal is a plain HTTP 401/403/404 written
+    // BEFORE the handshake (never a 101 then a close): the client gets no
+    // `open`, so a viewer's retry counter is not reset by a tunnel it may not
+    // use. The in-process SSH bastion does not come through here (it calls
+    // registerBrowserTunnel directly).
     const browserMatch = BROWSER_RE.exec(pathname);
     if (browserMatch) {
       const sessionToken = browserMatch[1];
-      remoteWss.handleUpgrade(request, socket, head, async (ws: WebSocket) => {
-        try {
-          const session = await db('remote_sessions')
-            .where({ session_token: sessionToken })
-            .first();
-          if (!session || session.status === 'closed') {
-            ws.close(4004, 'Session not found or already closed');
+      // Authenticate BEFORE accepting the WebSocket so the browser tunnel is
+      // registered synchronously in the handleUpgrade callback (no window
+      // where early browser frames could be dropped). Node removed its own
+      // 'error' listener before emitting 'upgrade': guard the socket while
+      // we wait, or a client reset during the lookup would crash the process.
+      const onEarlyError = () => socket.destroy();
+      socket.on('error', onEarlyError);
+      remoteService.authorizeBrowserTunnel(request, sessionToken, getSessionMiddleware())
+        .then((verdict) => {
+          socket.removeListener('error', onEarlyError);
+          if (socket.destroyed) return;
+          if (!verdict.ok) {
+            if (verdict.code === 4003) {
+              logger.warn({ sessionId: verdict.sessionId, userId: verdict.userId, ip: clientIpOf(), reason: verdict.reason },
+                'Browser remote tunnel refused');
+            }
+            rejectUpgrade(socket, browserVerdictHttpStatus(verdict), verdict.reason);
             return;
           }
-          remoteService.registerBrowserTunnel(sessionToken, ws);
-          logger.info({ sessionToken }, 'Browser remote tunnel connected');
-        } catch (err) {
+          remoteWss.handleUpgrade(request, socket, head, (ws: WebSocket) => {
+            remoteService.registerBrowserTunnel(sessionToken, ws);
+            logger.info({ sessionId: verdict.sessionId, userId: verdict.userId }, 'Browser remote tunnel connected');
+          });
+        })
+        .catch((err) => {
           logger.error(err, 'Browser remote tunnel setup error');
-          ws.close(4000, 'Internal error');
-        }
-      });
+          socket.destroy();
+        });
       return; // handled — do NOT forward to socket.io
     }
 
     // ── Agent remote tunnel ────────────────────────────────────────────────
+    // SECURITY: the X-Api-Key must be the key the session's DEVICE is bound
+    // to (same rule as the /api/agent/ws channel below), the session must
+    // still be waiting for its agent, and only one agent may attach — a
+    // second "agent" would otherwise receive every keystroke of the user.
+    // Refused before the handshake, like the browser end.
     const agentMatch = AGENT_RE.exec(pathname);
     if (agentMatch) {
       const sessionToken = agentMatch[1];
       const apiKey = request.headers['x-api-key'] as string | undefined;
-      remoteWss.handleUpgrade(request, socket, head, async (ws: WebSocket) => {
-        try {
-          if (!apiKey) {
-            ws.close(4003, 'Missing X-Api-Key header');
+      const onEarlyError = () => socket.destroy();
+      socket.on('error', onEarlyError);
+      remoteService.authorizeAgentTunnel(apiKey, sessionToken)
+        .then((verdict) => {
+          socket.removeListener('error', onEarlyError);
+          if (socket.destroyed) return;
+          // Re-check in this tick: another agent may have attached while we
+          // were reading the DB. handleUpgrade then calls back synchronously.
+          if (verdict.ok && remoteService.hasLiveAgent(sessionToken)) {
+            verdict = { ok: false, status: 409, reason: 'Agent already attached', sessionId: verdict.sessionId, deviceId: verdict.deviceId };
+          }
+          if (!verdict.ok) {
+            if (verdict.status === 403 || verdict.status === 409) {
+              logger.warn({ sessionId: verdict.sessionId, deviceId: verdict.deviceId, ip: clientIpOf(), reason: verdict.reason },
+                'Agent remote tunnel refused');
+            }
+            rejectUpgrade(socket, verdict.status, verdict.reason);
             return;
           }
-          const keyRow = await db('agent_api_keys').where({ key: apiKey }).first();
-          if (!keyRow || keyRow.is_active === false) {
-            ws.close(4003, 'Invalid API key');
-            return;
-          }
-          const session = await db('remote_sessions')
-            .where({ session_token: sessionToken })
-            .first();
-          if (!session) {
-            ws.close(4004, 'Session not found');
-            return;
-          }
-          remoteService.registerAgentTunnel(sessionToken, ws);
-          logger.info({ sessionToken }, 'Agent remote tunnel connected');
-        } catch (err) {
+          const { sessionId, deviceId } = verdict;
+          remoteWss.handleUpgrade(request, socket, head, (ws: WebSocket) => {
+            if (!remoteService.registerAgentTunnel(sessionToken, ws)) {
+              ws.close(4009, 'Agent already attached');
+              return;
+            }
+            logger.info({ sessionId, deviceId }, 'Agent remote tunnel connected');
+          });
+        })
+        .catch((err) => {
           logger.error(err, 'Agent remote tunnel setup error');
-          ws.close(4000, 'Internal error');
-        }
-      });
+          socket.destroy();
+        });
       return; // handled — do NOT forward to socket.io
     }
 
@@ -185,7 +227,22 @@ async function main() {
           // No is_active check — matches agentAuth middleware (is_active may be NULL on older keys).
           const keyRow = await db('agent_api_keys').where({ key: apiKey }).first();
           if (!keyRow || keyRow.is_active === false) { ws.close(4003, 'Invalid API key'); return; }
-          await oblireachHub.register(devUuid, keyRow.tenant_id, ws);
+          // SECURITY: this channel receives open_remote_tunnel (relay token +
+          // privacy unlock token). If the uuid belongs to an enrolled device,
+          // the key must be the one that device is bound to (same rule as
+          // /api/agent/ws) — otherwise any key could claim another device's
+          // channel. A uuid with no devices row (standalone ObliReach agent)
+          // is still accepted: no session can target it, and oblireachHub.push
+          // re-checks the key binding before sending anything sensitive.
+          if (isUuid(devUuid)) {
+            const device = await db('devices').where({ uuid: devUuid }).first('id', 'tenant_id', 'api_key_id');
+            if (device && !agentKeyMayActForDevice(keyRow, device)) {
+              logger.warn({ deviceId: device.id, apiKeyId: keyRow.id, ip: clientIpOf() }, 'ObliReach command channel refused: device/API-key mismatch');
+              ws.close(4003, 'Device/API-key mismatch');
+              return;
+            }
+          }
+          await oblireachHub.register(devUuid, keyRow.tenant_id, ws, keyRow.id);
         } catch (err) {
           logger.error(err, 'ObliReach command channel setup error');
           ws.close(4000, 'Internal error');

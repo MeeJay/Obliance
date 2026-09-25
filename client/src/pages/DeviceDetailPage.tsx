@@ -237,7 +237,7 @@ function DuplicateAgentIdBanner({
 
  return (
  <div className="rounded-lg border border-amber-400/40 bg-amber-500/10 text-amber-200">
- <div className="flex items-start gap-3 px-4 py-3">
+ <div className="flex items-start gap-3 px-4 py-3 max-sm:flex-wrap">
  <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
  <div className="flex-1 min-w-0">
  <p className="text-sm font-semibold">
@@ -255,10 +255,10 @@ function DuplicateAgentIdBanner({
  || 'Fix: run the built-in "Regen Linux machine-id" script on each affected device, then delete the stale entry from the admin panel.'}
  </p>
  </div>
- <div className="flex items-center gap-2 shrink-0">
+ <div className="flex items-center gap-2 shrink-0 max-sm:w-full max-sm:justify-end">
  <button
  onClick={() => setExpanded((v) => !v)}
- className="px-2 py-1 text-xs font-medium rounded-md border border-amber-400/40 hover:bg-amber-500/20 transition-colors"
+ className="px-2 py-1 text-xs font-medium rounded-md border border-amber-400/40 hover:bg-amber-500/20 transition-colors coarse:min-h-10"
  >
  {expanded
  ? (t('duplicateAgentId.hideHistory') || 'Hide history')
@@ -267,10 +267,10 @@ function DuplicateAgentIdBanner({
  <button
  onClick={handleAcknowledge}
  disabled={acking}
- className="px-2 py-1 text-xs font-medium rounded-md bg-amber-500/30 hover:bg-amber-500/40 border border-amber-400/40 transition-colors disabled:opacity-50"
+ className="px-2 py-1 text-xs font-medium rounded-md bg-amber-500/30 hover:bg-amber-500/40 border border-amber-400/40 transition-colors disabled:opacity-50 coarse:min-h-10"
  >
  {acking
- ? (t('common.processing') || 'Working…')
+ ? (t('common.processing', 'Working…'))
  : (t('duplicateAgentId.acknowledge') || 'Acknowledge')}
  </button>
  </div>
@@ -283,7 +283,7 @@ function DuplicateAgentIdBanner({
  </p>
  <ul className="space-y-1 text-xs font-mono">
  {fps.slice().reverse().map((f, idx) => (
- <li key={`${f.observedAt}-${idx}`} className="flex items-center gap-3 text-amber-100/90">
+ <li key={`${f.observedAt}-${idx}`} className="flex items-center gap-3 text-amber-100/90 max-sm:flex-wrap max-sm:gap-y-0">
  <span className="text-amber-200/70 shrink-0 w-32">
  {new Date(f.observedAt).toLocaleString()}
  </span>
@@ -497,7 +497,7 @@ function MetricsHistorySection({ deviceId }: { deviceId: number }) {
             <div className="p-3 bg-bg-tertiary rounded-lg">
               <span className="text-xs font-semibold text-amber-400">{t('deviceHistory.disksTitle') || 'Disques (par volume)'}</span>
               <div className="overflow-x-auto mt-2">
-                <table className="w-full text-xs">
+                <table className="w-full text-xs max-sm:min-w-[460px]">
                   <thead>
                     <tr className="text-text-muted">
                       <th className="text-left font-medium pb-1 pr-2">{t('deviceHistory.volume') || 'Volume'}</th>
@@ -835,6 +835,9 @@ function InventoryTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor
  const [showLicenseForm, setShowLicenseForm] = useState(false);
  const [licenseForm, setLicenseForm] = useState({ softwareName: '', licenseKey: '', licenseType: 'per_device' as string, vendor: '', expiryDate: '', notes: '' });
  const confirm = useConfirm();
+ // Touch-only confirm before deleting a license (easy mis-tap on a dense
+ // row); desktop with a mouse keeps the historic one-click delete.
+ const canHover = useCanHover();
 
  const loadLicenses = useCallback(() => {
  licenseApi.listForDevice(deviceId).then(setLicenses).catch(() => {});
@@ -898,13 +901,13 @@ function InventoryTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor
  <div className="flex gap-2">
  <button
  onClick={() => setActiveSection('hardware')}
- className={clsx('px-3 py-1.5 text-sm rounded-lg transition-colors', activeSection === 'hardware' ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary hover:bg-bg-tertiary')}
+ className={clsx('px-3 py-1.5 text-sm rounded-lg transition-colors coarse:min-h-10', activeSection === 'hardware' ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary hover:bg-bg-tertiary')}
  >
  Hardware
  </button>
  <button
  onClick={() => setActiveSection('software')}
- className={clsx('px-3 py-1.5 text-sm rounded-lg transition-colors', activeSection === 'software' ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary hover:bg-bg-tertiary')}
+ className={clsx('px-3 py-1.5 text-sm rounded-lg transition-colors coarse:min-h-10', activeSection === 'software' ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary hover:bg-bg-tertiary')}
  >
  Software ({softwareTotal})
  </button>
@@ -913,7 +916,7 @@ function InventoryTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor
  <button
  onClick={handleScan}
  disabled={!isCommandSupported({ agentFlavor }, 'scan_inventory')}
- className="flex items-center gap-2 px-3 py-1.5 text-sm bg-bg-secondary rounded-lg hover:border-accent/50 transition-colors text-text-muted hover:text-text-primary disabled:opacity-40 disabled:cursor-not-allowed"
+ className="flex items-center gap-2 px-3 py-1.5 text-sm bg-bg-secondary rounded-lg hover:border-accent/50 transition-colors text-text-muted hover:text-text-primary disabled:opacity-40 disabled:cursor-not-allowed coarse:min-h-10"
  >
  <Scan className="w-3.5 h-3.5" />
  Scan now
@@ -938,6 +941,8 @@ function InventoryTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor
  <div key={k as string} className="flex justify-between text-sm">
  <dt className="text-text-muted shrink-0 mr-2">{k as string}</dt>
  <dd className="text-text-primary font-medium text-right truncate select-all max-lg:min-w-0 max-lg:whitespace-normal max-lg:break-all">{v as string}</dd>
+ {/* Product keys: one-tap copy on touch (select-all needs a mouse). */}
+ {k === 'Windows Key' && <CopyValueButton value={v as string} className="hidden coarse:inline-flex ml-1" />}
  </div>
  ))}
  </dl>
@@ -1009,7 +1014,7 @@ function InventoryTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor
  {iface.mac && <span className="text-text-muted text-xs font-mono">{anonymizeMac(iface.mac)}</span>}
  {iface.type && <span className="text-text-muted text-xs">{iface.type}</span>}
  {(iface.addresses ?? []).length > 0 && (
- <span className="text-text-muted text-xs">{(iface.addresses ?? []).map(a => anonymizeIp(a)).join(' · ')}</span>
+ <span className="text-text-muted text-xs max-sm:min-w-0 max-sm:break-all">{(iface.addresses ?? []).map(a => anonymizeIp(a)).join(' · ')}</span>
  )}
  </div>
  ))}
@@ -1099,7 +1104,7 @@ function InventoryTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor
  'text-yellow-400 bg-yellow-400/10 border-yellow-400/30';
  return (
  <div key={vol.driveLetter} className="space-y-1.5">
- <div className="flex items-center gap-2">
+ <div className="flex flex-wrap items-center gap-2">
  <span className="text-sm font-medium text-text-primary">{vol.driveLetter}</span>
  <span className={clsx('text-xs px-2 py-0.5 rounded-full border font-medium', statusColor)}>
  {statusLabel}
@@ -1123,8 +1128,10 @@ function InventoryTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor
  {vol.recoveryKeys.length > 0 && (
  <div className="space-y-0.5">
  {vol.recoveryKeys.map((key, i) => (
- <div key={i} className="flex items-center gap-2">
- <code className="text-xs text-text-muted font-mono bg-bg-tertiary px-2 py-0.5 rounded select-all">{anonymize(key)}</code>
+ <div key={i} className="flex items-center gap-2 max-sm:min-w-0">
+ <code className="text-xs text-text-muted font-mono bg-bg-tertiary px-2 py-0.5 rounded select-all max-sm:min-w-0 max-sm:break-all">{anonymize(key)}</code>
+ {/* Touch: select-all is awkward on a phone — one-tap copy. */}
+ <CopyValueButton value={anonymize(key)} className="hidden coarse:inline-flex" />
  </div>
  ))}
  </div>
@@ -1191,6 +1198,7 @@ function InventoryTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor
  value={softwareSearch}
  onChange={(e) => setSoftwareSearch(e.target.value)}
  placeholder="Search software..."
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
  className="w-full px-3 py-2 bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent text-sm"
  />
  {softwareLoading && (
@@ -1274,7 +1282,7 @@ function InventoryTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor
  className="px-3 py-1.5 text-sm bg-bg-primary rounded-lg text-text-primary focus:outline-none focus:border-accent" />
  </div>
  <div className="flex justify-end gap-2 pt-1">
- <button onClick={() => setShowLicenseForm(false)} className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary">Cancel</button>
+ <button onClick={() => setShowLicenseForm(false)} className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary coarse:min-h-10">{t('common.cancel', 'Cancel')}</button>
  <button onClick={async () => {
  if (!licenseForm.softwareName.trim()) return;
  try {
@@ -1290,7 +1298,7 @@ function InventoryTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor
  setShowLicenseForm(false);
  loadLicenses();
  } catch { toast.error('Failed to add license'); }
- }} className="px-3 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent/90">Save</button>
+ }} className="px-3 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent/90 coarse:min-h-10">{t('common.save', 'Save')}</button>
  </div>
  </div>
  )}
@@ -1318,7 +1326,7 @@ function InventoryTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor
  className="text-red-400 hover:text-red-300"
  icon={<Trash2 className="w-3.5 h-3.5" />}
  onClick={async () => {
- if (!(await confirm({ message: t('deviceDetail.license.deleteConfirm', { defaultValue: 'Delete the license "{{name}}"?', name: lic.softwareName }), danger: true }))) return;
+ if (!canHover && !(await confirm({ message: t('deviceDetail.license.deleteConfirm', { defaultValue: 'Delete the license "{{name}}"?', name: lic.softwareName }), danger: true }))) return;
  try { await licenseApi.remove(lic.id); loadLicenses(); } catch { toast.error('Failed to delete license'); }
  }}
  /></td>
@@ -1354,7 +1362,7 @@ function ScriptsTab({ deviceId }: { deviceId: number }) {
  key={st.id}
  onClick={() => setSubTab(st.id)}
  className={clsx(
- 'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+ 'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors coarse:min-h-10',
  subTab === st.id ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary',
  )}
  >
@@ -1651,8 +1659,8 @@ function DeviceScriptSchedule({ deviceId }: { deviceId: number }) {
  </div>
  </div>
  <div className="flex gap-2">
- <button onClick={() => setFormMode('cron')} className={clsx('flex-1 py-1.5 text-xs rounded-lg border transition-colors', formMode === 'cron' ? 'bg-accent/10 border-accent text-accent' : 'border-transparent text-text-muted')}>Recurring</button>
- <button onClick={() => setFormMode('once')} className={clsx('flex-1 py-1.5 text-xs rounded-lg border transition-colors', formMode === 'once' ? 'bg-accent/10 border-accent text-accent' : 'border-transparent text-text-muted')}>One-time</button>
+ <button onClick={() => setFormMode('cron')} className={clsx('flex-1 py-1.5 text-xs rounded-lg border transition-colors coarse:min-h-10', formMode === 'cron' ? 'bg-accent/10 border-accent text-accent' : 'border-transparent text-text-muted')}>Recurring</button>
+ <button onClick={() => setFormMode('once')} className={clsx('flex-1 py-1.5 text-xs rounded-lg border transition-colors coarse:min-h-10', formMode === 'once' ? 'bg-accent/10 border-accent text-accent' : 'border-transparent text-text-muted')}>One-time</button>
  </div>
  {formMode === 'cron' ? (
  <input value={formCron} onChange={(e) => setFormCron(e.target.value)}
@@ -1663,8 +1671,8 @@ function DeviceScriptSchedule({ deviceId }: { deviceId: number }) {
  className="w-full px-3 py-1.5 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent" />
  )}
  <div className="flex gap-2 justify-end">
- <button onClick={() => setShowForm(false)} className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary rounded-lg transition-colors">Cancel</button>
- <button onClick={handleCreate} disabled={isSaving} className="px-3 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent/80 disabled:opacity-50 transition-colors">
+ <button onClick={() => setShowForm(false)} className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary rounded-lg transition-colors coarse:min-h-10">Cancel</button>
+ <button onClick={handleCreate} disabled={isSaving} className="px-3 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent/80 disabled:opacity-50 transition-colors coarse:min-h-10">
  {isSaving ? 'Creating...' : 'Create'}
  </button>
  </div>
@@ -1682,8 +1690,8 @@ function DeviceScriptSchedule({ deviceId }: { deviceId: number }) {
  <div key={sch.id} className="bg-bg-secondary rounded-lg px-4 py-3 flex items-center gap-3">
  <CalendarClock className="w-4 h-4 text-text-muted shrink-0" />
  <div className="flex-1 min-w-0">
- <p className="text-sm font-medium text-text-primary">{sch.name}</p>
- <p className="text-xs text-text-muted">
+ <p className="text-sm font-medium text-text-primary break-words">{sch.name}</p>
+ <p className="text-xs text-text-muted break-words">
  {scriptMap.get(sch.scriptId) ?? `Script #${sch.scriptId}`} · {sch.cronExpression ?? 'One-time'}
  <span className="ml-2 text-text-muted/60">{TARGET_LABELS[sch.targetType] ?? sch.targetType}</span>
  </p>
@@ -1858,7 +1866,7 @@ function UpdatesTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor: 
  <button
  onClick={handleApproveAll}
  disabled={isApprovingAll}
- className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-green-500/10 text-green-400 border border-green-500/30 rounded-lg hover:bg-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+ className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-green-500/10 text-green-400 border border-green-500/30 rounded-lg hover:bg-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors coarse:min-h-10"
  >
  {isApprovingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
  {t('updates.actions.approveAll')}
@@ -1868,7 +1876,7 @@ function UpdatesTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor: 
  <button
  onClick={handleDeploy}
  disabled={isDeploying}
- className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+ className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors coarse:min-h-10"
  >
  {isDeploying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Package className="w-3.5 h-3.5" />}
  {t('updates.actions.deploy')} ({approved.length})
@@ -1887,7 +1895,7 @@ function UpdatesTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor: 
  }
  toast.success(`${ok} update(s) queued for retry`);
  }}
- className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-500/10 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/20 transition-colors"
+ className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-500/10 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/20 transition-colors coarse:min-h-10"
  >
  <RotateCcw className="w-3.5 h-3.5" />
  Retry all ({failed.length})
@@ -1897,7 +1905,7 @@ function UpdatesTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor: 
  <button
  onClick={handleScan}
  disabled={!isCommandSupported({ agentFlavor }, 'scan_updates')}
- className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-bg-secondary rounded-lg hover:border-accent/50 transition-colors text-text-muted hover:text-text-primary disabled:opacity-40 disabled:cursor-not-allowed"
+ className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-bg-secondary rounded-lg hover:border-accent/50 transition-colors text-text-muted hover:text-text-primary disabled:opacity-40 disabled:cursor-not-allowed coarse:min-h-10"
  >
  <Scan className="w-3.5 h-3.5" />
  {t('updates.actions.scan')}
@@ -1948,7 +1956,7 @@ function UpdatesTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor: 
  <button
  onClick={() => handleApprove(update.id)}
  disabled={approvingId === update.id}
- className="shrink-0 flex items-center gap-1 px-2.5 py-1 text-xs text-green-400 bg-green-400/10 border border-green-400/20 rounded-lg hover:bg-green-400/20 disabled:opacity-50 transition-colors"
+ className="shrink-0 flex items-center gap-1 px-2.5 py-1 text-xs text-green-400 bg-green-400/10 border border-green-400/20 rounded-lg hover:bg-green-400/20 disabled:opacity-50 transition-colors coarse:min-h-9"
  >
  {approvingId === update.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <ShieldCheck className="w-3 h-3" />}
  {t('updates.actions.approve')}
@@ -1970,7 +1978,7 @@ function UpdatesTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor: 
  toast.error('Failed to retry update');
  }
  }}
- className="shrink-0 flex items-center gap-1 px-2.5 py-1 text-xs text-accent bg-accent/10 border border-accent/20 rounded-lg hover:bg-accent/20 transition-colors"
+ className="shrink-0 flex items-center gap-1 px-2.5 py-1 text-xs text-accent bg-accent/10 border border-accent/20 rounded-lg hover:bg-accent/20 transition-colors coarse:min-h-9"
  >
  <RotateCcw className="w-3 h-3" />
  Retry
@@ -2238,7 +2246,7 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
  <div className="flex gap-2">
  <button
  onClick={load}
- className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg hover:bg-bg-secondary text-text-muted hover:text-text-primary transition-colors"
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg hover:bg-bg-secondary text-text-muted hover:text-text-primary transition-colors coarse:min-h-10"
  >
  <RefreshCw className="w-3 h-3" />
  Refresh
@@ -2246,7 +2254,7 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
  <button
  onClick={handleTriggerCheck}
  disabled={triggering}
- className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-accent/10 border border-accent/30 text-accent hover:bg-accent/20 disabled:opacity-50 transition-colors"
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-accent/10 border border-accent/30 text-accent hover:bg-accent/20 disabled:opacity-50 transition-colors coarse:min-h-10"
  >
  {triggering ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
  Run Check
@@ -2350,7 +2358,7 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
  <div className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary/80">
  <button
  onClick={(e) => { e.stopPropagation(); handleRemediateAll(result); }}
- className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors coarse:min-h-10"
  >
  <Wrench className="w-3.5 h-3.5" />
  Remediate all ({remediableFailCount})
@@ -2460,7 +2468,7 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
  <div className="flex gap-2">
  <button
  onClick={loadSwResults}
- className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg hover:bg-bg-secondary text-text-muted hover:text-text-primary transition-colors"
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg hover:bg-bg-secondary text-text-muted hover:text-text-primary transition-colors coarse:min-h-10"
  >
  <RefreshCw className={clsx('w-3 h-3', swLoading && 'animate-spin')} />
  Refresh
@@ -2468,7 +2476,7 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
  <button
  onClick={handleSwTriggerCheck}
  disabled={swTriggering}
- className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-accent/10 border border-accent/30 text-accent hover:bg-accent/20 disabled:opacity-50 transition-colors"
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-accent/10 border border-accent/30 text-accent hover:bg-accent/20 disabled:opacity-50 transition-colors coarse:min-h-10"
  >
  {swTriggering ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
  Run Check
@@ -2569,7 +2577,7 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
  <div className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary/80">
  <button
  onClick={(e) => { e.stopPropagation(); handleSwRemediateAll(result); }}
- className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors coarse:min-h-10"
  >
  <Wrench className="w-3.5 h-3.5" />
  Remediate all ({nonCompliantCount})
@@ -3838,12 +3846,12 @@ function RemoteTab({ device }: { device: Device }) {
  ) : (
  <DisabledTip reason={
  (!isOnline || isStarting || orInstalled === null || !isCommandSupported(device, 'install_oblireach'))
- && (!isCommandSupported(device, 'install_oblireach') ? unsupportedTooltip(t) : (orInstalled === null ? 'Checking Oblireach status…' : 'Oblireach agent not installed — click to deploy'))
+ && (!isCommandSupported(device, 'install_oblireach') ? unsupportedTooltip(t) : (orInstalled === null ? t('deviceDetail.reason.reachChecking', 'Checking Oblireach status…') : t('deviceDetail.reason.reachNotInstalled', 'Oblireach agent not installed — click to deploy')))
  }>
  <button
  onClick={orInstalled === false ? () => handleInstallOblireach() : undefined}
  disabled={!isOnline || isStarting || orInstalled === null || !isCommandSupported(device, 'install_oblireach')}
- title={!isCommandSupported(device, 'install_oblireach') ? unsupportedTooltip(t) : (orInstalled === null ? 'Checking Oblireach status…' : 'Oblireach agent not installed — click to deploy')}
+ title={!isCommandSupported(device, 'install_oblireach') ? unsupportedTooltip(t) : (orInstalled === null ? t('deviceDetail.reason.reachChecking', 'Checking Oblireach status…') : t('deviceDetail.reason.reachNotInstalled', 'Oblireach agent not installed — click to deploy'))}
  className="flex items-center gap-2 px-4 py-2 bg-gray-500/10 text-gray-400 border border-gray-500/30 rounded-lg hover:bg-yellow-500/10 hover:text-yellow-400 hover:border-yellow-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
  >
  <MonitorPlay className="w-4 h-4" />
@@ -4056,21 +4064,30 @@ function HyperVTab({ deviceId }: { deviceId: number }) {
  const [busyVmId, setBusyVmId] = useState<string | null>(null);
  const [refreshing, setRefreshing] = useState(false);
  const [modal, setModal] = useState<{ kind: 'edit' | 'checkpoints'; vm: import('@obliance/shared').VirtualMachine } | { kind: 'create' } | null>(null);
- const [liveConsole, setLiveConsole] = useState<{ token: string | null; sessionId: string; vmName: string } | null>(null);
+ const [liveConsole, setLiveConsole] = useState<{ token: string | null; sessionId: string; vmName: string; vmId: string } | null>(null);
  const openLiveConsole = useCallback(async (vm: import('@obliance/shared').VirtualMachine) => {
  try {
  const sess = await remoteApi.startSession(deviceId, 'vmconsole', undefined, undefined, vm.vmId);
- setLiveConsole({ token: sess.sessionToken ?? null, sessionId: String(sess.id), vmName: vm.name });
+ setLiveConsole({ token: sess.sessionToken ?? null, sessionId: String(sess.id), vmName: vm.name, vmId: vm.vmId });
  } catch (e: any) {
- toast.error(e?.response?.data?.error || (t('hyperv.consoleError') || 'Could not open the interactive console'));
+ toast.error(e?.response?.data?.error || (t('hyperv.consoleError', 'Could not open the interactive console')));
  }
  }, [deviceId, t]);
+ // Auto-reconnect for the interactive VM console (mobile networks drop the
+ // WebSocket when the app goes to the background): same contract as the
+ // header Reach viewer — open a fresh session and hand the viewer its token.
+ const reconnectLiveConsole = useCallback(async () => {
+ const cur = liveConsole;
+ if (!cur) return;
+ const sess = await remoteApi.startSession(deviceId, 'vmconsole', undefined, undefined, cur.vmId);
+ setLiveConsole((prev) => (prev ? { ...prev, token: sess.sessionToken ?? null, sessionId: String(sess.id) } : prev));
+ }, [deviceId, liveConsole]);
  const [installingConsole, setInstallingConsole] = useState(false);
  const handleInstallConsole = async () => {
  setInstallingConsole(true);
  try {
  await hypervApi.installConsole(deviceId);
- toast.success(t('hyperv.consoleInstalling') || 'Installing the console helper on the host (~130 MB download)…', { duration: 7000 });
+ toast.success(t('hyperv.consoleInstalling', 'Installing the console helper on the host (~130 MB download)…'), { duration: 7000 });
  } catch (e: any) {
  toast.error(e?.response?.data?.error || (t('common.error') || 'Failed'));
  } finally {
@@ -4133,11 +4150,13 @@ function HyperVTab({ deviceId }: { deviceId: number }) {
  }))) return;
  let params: Record<string, unknown> | undefined;
  if (action === 'checkpoint_create') {
- // Same semantics as the former window.prompt: Cancel = unnamed checkpoint.
- const name = (await prompt({
+ // Cancel / Escape / Android Back abort the action; an empty but
+ // confirmed name creates an unnamed checkpoint.
+ const name = await prompt({
  message: t('hyperv.checkpointNamePrompt', 'Checkpoint name (optional):'),
  plain: false,
- })) ?? '';
+ });
+ if (name === null) return;
  params = name ? { checkpointName: name } : undefined;
  }
  setBusyVmId(vm.vmId);
@@ -4170,15 +4189,15 @@ function HyperVTab({ deviceId }: { deviceId: number }) {
  <button
  onClick={handleInstallConsole}
  disabled={installingConsole}
- title={t('hyperv.installConsoleHint') || 'Download the interactive console helper (~130 MB) onto this host'}
- className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-bg-secondary text-text-muted rounded-lg hover:text-text-primary hover:bg-bg-tertiary disabled:opacity-50 transition-colors"
+ title={t('hyperv.installConsoleHint', 'Download the interactive console helper (~130 MB) onto this host')}
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-bg-secondary text-text-muted rounded-lg hover:text-text-primary hover:bg-bg-tertiary disabled:opacity-50 transition-colors coarse:min-h-10"
  >
  <Download className={clsx('w-3.5 h-3.5', installingConsole && 'animate-pulse')} />
- {t('hyperv.installConsole') || 'Install console'}
+ {t('hyperv.installConsole', 'Install console')}
  </button>
  <button
  onClick={() => setModal({ kind: 'create' })}
- className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors"
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors coarse:min-h-10"
  >
  <Plus className="w-3.5 h-3.5" />
  {t('hyperv.newVm') || 'New VM'}
@@ -4186,7 +4205,7 @@ function HyperVTab({ deviceId }: { deviceId: number }) {
  <button
  onClick={handleRefresh}
  disabled={refreshing}
- className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-bg-secondary text-text-muted rounded-lg hover:text-text-primary hover:bg-bg-tertiary disabled:opacity-50 transition-colors"
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-bg-secondary text-text-muted rounded-lg hover:text-text-primary hover:bg-bg-tertiary disabled:opacity-50 transition-colors coarse:min-h-10"
  >
  <RefreshCw className={clsx('w-3.5 h-3.5', refreshing && 'animate-spin')} />
  {t('hyperv.refresh') || 'Refresh'}
@@ -4213,6 +4232,7 @@ function HyperVTab({ deviceId }: { deviceId: number }) {
  try { await remoteApi.endSession(liveConsole.sessionId); } catch {}
  setLiveConsole(null);
  }}
+ onReconnect={reconnectLiveConsole}
  />
  )}
  </div>
@@ -4300,7 +4320,7 @@ function VeeamTab({ deviceId }: { deviceId: number }) {
  <button
  onClick={handleRefresh}
  disabled={refreshing}
- className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-bg-secondary text-text-muted rounded-lg hover:text-text-primary hover:bg-bg-tertiary disabled:opacity-50 transition-colors"
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-bg-secondary text-text-muted rounded-lg hover:text-text-primary hover:bg-bg-tertiary disabled:opacity-50 transition-colors coarse:min-h-10"
  >
  <RefreshCw className={clsx('w-3.5 h-3.5', refreshing && 'animate-spin')} />
  {t('veeam.refresh') || 'Refresh'}
@@ -4432,7 +4452,7 @@ function CommandsTab({ deviceId }: { deviceId: number }) {
  key={key}
  onClick={() => setFilter(key)}
  className={clsx(
- 'flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-colors border',
+ 'flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-colors border coarse:min-h-9',
  filter === key
  ? 'bg-accent text-white border-accent'
  : 'bg-bg-secondary text-text-muted hover:text-text-primary border-transparent'
@@ -4452,7 +4472,7 @@ function CommandsTab({ deviceId }: { deviceId: number }) {
  </div>
  <button
  onClick={load}
- className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-bg-secondary border border-transparent text-text-muted hover:text-text-primary transition-colors text-xs"
+ className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-bg-secondary border border-transparent text-text-muted hover:text-text-primary transition-colors text-xs coarse:min-h-10"
  >
  <RefreshCw className="w-3.5 h-3.5" /> Refresh
  </button>
@@ -4629,6 +4649,8 @@ function CommandsTab({ deviceId }: { deviceId: number }) {
 
 function ServicesTab({ device }: { device: Device }) {
  const { t } = useTranslation();
+ // Reason shown (tap on touch) when the agent flavour can't run a command.
+ const unsup = (c: Parameters<typeof isCommandSupported>[1]) => (isCommandSupported(device, c) ? null : unsupportedTooltip(t));
  const [services, setServices] = useState<ServiceInfo[]>([]);
  const [isLoadingServices, setIsLoadingServices] = useState(false);
  // Per-service pending action: name → 'start' | 'stop' | 'restart'
@@ -4786,7 +4808,7 @@ function ServicesTab({ device }: { device: Device }) {
  Fetching services…
  </div>
  ) : (
- <div className="overflow-auto overscroll-x-contain max-h-[65vh] max-md:max-h-none">
+ <div className="overflow-auto overscroll-x-contain md:max-h-[65dvh] md:supports-[not(height:100dvh)]:max-h-[65vh]">
  <table className="w-full text-sm">
  <thead className="sticky top-0 bg-bg-secondary z-10 ">
  <tr>
@@ -4820,7 +4842,7 @@ function ServicesTab({ device }: { device: Device }) {
  <span className="md:hidden block font-sans text-[11px] text-text-muted break-words">{svc.displayName}</span>
  )}
  {(svc.startType || svc.runAsUser) && (
- <span className="xl:hidden block font-sans text-[11px] text-text-muted whitespace-normal break-all">
+ <span className="xl:hidden lg:can-hover:hidden block font-sans text-[11px] text-text-muted whitespace-normal break-all">
  {svc.startType && <span className="lg:hidden">{svc.startType}</span>}
  {svc.startType && svc.runAsUser && <span className="lg:hidden"> · </span>}
  {svc.runAsUser && <span className="font-mono">{svc.runAsUser}</span>}
@@ -4882,6 +4904,7 @@ function ServicesTab({ device }: { device: Device }) {
  </div>
  <div className="hidden md:flex items-center justify-end gap-1">
  {/* Start — only when stopped */}
+ <DisabledTip reason={unsup('start_service')}>
  <button
  onClick={() => handleServiceAction(svc.name, 'start_service')}
  disabled={!isStopped || !!pending || !isCommandSupported(device, 'start_service')}
@@ -4896,7 +4919,9 @@ function ServicesTab({ device }: { device: Device }) {
  {pending === 'start_service' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
  Start
  </button>
+ </DisabledTip>
  {/* Stop — only when running */}
+ <DisabledTip reason={unsup('stop_service')}>
  <button
  onClick={() => handleServiceAction(svc.name, 'stop_service')}
  disabled={!isRunning || !!pending || !isCommandSupported(device, 'stop_service')}
@@ -4911,7 +4936,9 @@ function ServicesTab({ device }: { device: Device }) {
  {pending === 'stop_service' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Square className="w-3 h-3" />}
  Stop
  </button>
+ </DisabledTip>
  {/* Restart — always available */}
+ <DisabledTip reason={unsup('restart_service')}>
  <button
  onClick={() => handleServiceAction(svc.name, 'restart_service')}
  disabled={!!pending || !isCommandSupported(device, 'restart_service')}
@@ -4921,6 +4948,7 @@ function ServicesTab({ device }: { device: Device }) {
  {pending === 'restart_service' ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
  Restart
  </button>
+ </DisabledTip>
  </div>
  </td>
  </tr>
@@ -5111,7 +5139,7 @@ function ProcessesTab({ device }: { device: Device }) {
  )}
  </div>
  ) : (
- <div className="overflow-auto overscroll-x-contain max-h-[70vh] max-md:max-h-none">
+ <div className="overflow-auto overscroll-x-contain md:max-h-[70dvh] md:supports-[not(height:100dvh)]:max-h-[70vh]">
  <table className="w-full text-sm">
  <thead className="sticky top-0 bg-bg-secondary z-10 ">
  <tr>
@@ -5803,7 +5831,7 @@ export function DeviceDetailPage() {
  setHeaderPending((p) => new Set(p).add('airgap'));
  try {
  await deviceApi.disableAirgap(device.id);
- toast.success(t('airgap.disabled'));
+ toast.success(t('airgap.disableSent', 'Airgap disable command sent'));
  } catch { toast.error(t('airgap.disableFailed')); }
  finally { setHeaderPending((p) => { const n = new Set(p); n.delete('airgap'); return n; }); }
  } else {
@@ -5815,7 +5843,7 @@ export function DeviceDetailPage() {
  setHeaderPending((p) => new Set(p).add('airgap'));
  try {
  await deviceApi.enableAirgap(device.id);
- toast.success(t('airgap.enabled'));
+ toast.success(t('airgap.enableSent', 'Airgap enable command sent'));
  } catch { toast.error(t('airgap.enableFailed')); }
  finally { setHeaderPending((p) => { const n = new Set(p); n.delete('airgap'); return n; }); }
  }
@@ -6056,9 +6084,10 @@ export function DeviceDetailPage() {
  <DuplicateAgentIdBanner device={device} onAcknowledged={async () => { await fetchDevice(deviceId); }} />
  )}
 
- {/* Header — below lg the action cluster drops to its own row (it used to
- be shrink-0 next to the name and squeezed it to nothing on tablets). */}
- <div className="flex items-start gap-4 max-lg:flex-wrap max-lg:gap-3">
+ {/* Header — below lg (and below xl on touch tablets, e.g. 1024 landscape)
+ the action cluster drops to its own row (it used to be shrink-0 next to
+ the name and squeezed it to nothing on tablets). */}
+ <div className="flex items-start gap-4 max-lg:flex-wrap max-lg:gap-3 coarse:max-xl:flex-wrap coarse:max-xl:gap-3">
  <IconButton
  onClick={() => {
  // Prefer history back so the previous page (with its filters) is restored.
@@ -6208,7 +6237,9 @@ export function DeviceDetailPage() {
  onDelete={deleteNote}
  />
  </div>
- <div className="flex items-center gap-2 shrink-0 flex-wrap max-lg:w-full max-lg:shrink max-lg:min-w-0">
+ {/* Below lg: order-last so the refresh button stays on the first row
+ (next to the name) and the action cluster gets a full-width row. */}
+ <div className="flex items-center gap-2 shrink-0 flex-wrap max-lg:order-last max-lg:w-full max-lg:shrink max-lg:min-w-0 coarse:max-xl:order-last coarse:max-xl:w-full coarse:max-xl:shrink coarse:max-xl:min-w-0">
  {device.approvalStatus === 'pending' ? (
  /* ── Pending device: only show approve / refuse ── */
  canManageApproval && (
@@ -6216,7 +6247,7 @@ export function DeviceDetailPage() {
  <button
  onClick={handleApproveDevice}
  disabled={isApprovingDevice}
- className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-500 hover:bg-green-400 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+ className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-500 hover:bg-green-400 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors coarse:min-h-10"
  >
  {isApprovingDevice ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
  Approve
@@ -6224,7 +6255,7 @@ export function DeviceDetailPage() {
  <button
  onClick={handleRefuseDevice}
  disabled={isRefusingDevice}
- className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500 hover:bg-red-400 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+ className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500 hover:bg-red-400 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors coarse:min-h-10"
  >
  {isRefusingDevice ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
  Refuse
@@ -6233,7 +6264,7 @@ export function DeviceDetailPage() {
  )
  ) : (
  /* ── Approved/suspended device: show all actions ── */
- <div className="flex flex-col items-end gap-2 max-lg:items-start max-lg:min-w-0 max-lg:flex-1">
+ <div className="flex flex-col items-end gap-2 max-lg:items-start max-lg:min-w-0 max-lg:flex-1 coarse:max-xl:items-start coarse:max-xl:min-w-0 coarse:max-xl:flex-1">
  {/* ── Cross-app links (Obliview, Obliguard, Oblimap…) — in the "⋯" sheet below md ── */}
  {crossAppLinks.length > 0 && (
  <div className="flex items-center gap-1.5 flex-wrap max-md:hidden">
@@ -6245,7 +6276,7 @@ export function DeviceDetailPage() {
  rel="noopener noreferrer"
  onClick={(e) => { e.preventDefault(); void openExternal(link.url); }}
  title={`Open in ${link.name}`}
- className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border transition-colors"
+ className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border transition-colors coarse:min-h-9"
  style={{ color: link.color ?? '#58a6ff', borderColor: `${link.color ?? '#58a6ff'}40`, backgroundColor: `${link.color ?? '#58a6ff'}0d` }}
  >
  <ArrowLeftRight size={12} />
@@ -6293,9 +6324,9 @@ export function DeviceDetailPage() {
  <DisabledTip reason={
  (!isAgentReachable(device.status) || headerOrInstalled === false || device.privacyModeEnabled) && (
  headerOrInstalled === false
- ? 'ObliReach is not deployed on this device — chat is unavailable'
+ ? t('deviceDetail.reason.chatNoReach', 'ObliReach is not deployed on this device — chat is unavailable')
  : device.privacyModeEnabled
- ? 'Chat is unavailable while privacy mode is active (ObliReach service is stopped)'
+ ? t('deviceDetail.reason.chatPrivacy', 'Chat is unavailable while privacy mode is active (ObliReach service is stopped)')
  : t('deviceDetail.reason.agentOnline', 'Agent must be online'))
  }>
  <button
@@ -6341,12 +6372,12 @@ export function DeviceDetailPage() {
  disabled={!isAgentReachable(device.status) || headerOrInstalled === false || device.privacyModeEnabled}
  title={
  headerOrInstalled === false
- ? 'ObliReach is not deployed on this device — chat is unavailable'
+ ? t('deviceDetail.reason.chatNoReach', 'ObliReach is not deployed on this device — chat is unavailable')
  : device.privacyModeEnabled
- ? 'Chat is unavailable while privacy mode is active (ObliReach service is stopped)'
+ ? t('deviceDetail.reason.chatPrivacy', 'Chat is unavailable while privacy mode is active (ObliReach service is stopped)')
  : 'Chat with user'
  }
- className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+ className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors coarse:min-h-10"
  >
  <MessageCircle className="w-3.5 h-3.5" />
  Chat
@@ -6382,7 +6413,7 @@ export function DeviceDetailPage() {
  onClick={() => guardedClick(() => handleHeaderRemote(opts[0]))}
  disabled={isStartingRemote || headerRemoteOpen || !isAgentReachable(device.status) || remoteHardBlocked}
  title={`${label(opts[0])} Remote`}
- className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-green-400 hover:bg-green-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+ className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-green-400 hover:bg-green-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors coarse:min-h-10"
  >
  {isStartingRemote ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MonitorPlay className="w-3.5 h-3.5" />}
  {label(opts[0])}
@@ -6396,7 +6427,7 @@ export function DeviceDetailPage() {
  onClick={() => guardedClick(() => setRemoteDropdownOpen((o) => !o))}
  disabled={isStartingRemote || headerRemoteOpen || !isAgentReachable(device.status) || remoteHardBlocked}
  title="Remote Control"
- className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-green-400 hover:bg-green-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+ className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-green-400 hover:bg-green-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors coarse:min-h-10"
  >
  {isStartingRemote ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MonitorPlay className="w-3.5 h-3.5" />}
  Remote
@@ -6563,7 +6594,7 @@ export function DeviceDetailPage() {
  toast.error('Failed to cancel uninstall');
  }
  }}
- className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-orange-500/50 text-orange-400 hover:bg-orange-500/20 transition-colors"
+ className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-orange-500/50 text-orange-400 hover:bg-orange-500/20 transition-colors coarse:min-h-10"
  >
  Cancel uninstall
  </button>

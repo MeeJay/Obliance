@@ -8,6 +8,8 @@ import {
 } from '@/api/sshBastion.api';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
+import { IconButton } from '@/components/common/IconButton';
+import { useConfirm } from '@/components/common/ConfirmDialog';
 import { cn } from '@/utils/cn';
 
 // ── SSH bastion administration (platform admins) ────────────────────────────
@@ -16,6 +18,7 @@ import { cn } from '@/utils/cn';
 
 export function SshBastionAdminSection() {
   const { t } = useTranslation();
+  const confirm = useConfirm();
   const [status, setStatus] = useState<SshBastionStatus | null>(null);
   const [allow, setAllow] = useState<SshAllowEntry[]>([]);
   const [bans, setBans] = useState<SshBan[]>([]);
@@ -45,8 +48,12 @@ export function SshBastionAdminSection() {
   const toggleEnforce = async () => {
     if (!status) return;
     const next = !status.enforce;
-    if (!next && !confirm(t('sshBastion.admin.confirmDisableEnforce')
-      || 'Disable IP enforcement? Any IP holding a valid key will be able to reach the bastion, and refused IPs will no longer be banned.')) {
+    if (!next && !(await confirm({
+      message: t('sshBastion.admin.confirmDisableEnforce')
+        || 'Disable IP enforcement? Any IP holding a valid key will be able to reach the bastion, and refused IPs will no longer be banned.',
+      danger: true,
+      confirmLabel: t('common.disable'),
+    }))) {
       return;
     }
     setBusy(true);
@@ -73,7 +80,10 @@ export function SshBastionAdminSection() {
   };
 
   const removeEntry = async (e: SshAllowEntry) => {
-    if (!confirm(t('sshBastion.admin.confirmRemoveEntry', { cidr: e.cidr }) || `Remove ${e.cidr} from the allow-list?`)) return;
+    if (!(await confirm({
+      message: t('sshBastion.admin.confirmRemoveEntry', { cidr: e.cidr }) || `Remove ${e.cidr} from the allow-list?`,
+      danger: true,
+    }))) return;
     try {
       await sshBastionApi.deleteAllowlist(e.id);
       setAllow((prev) => prev.filter((x) => x.id !== e.id));
@@ -81,7 +91,10 @@ export function SshBastionAdminSection() {
   };
 
   const unban = async (b: SshBan) => {
-    if (!confirm(t('sshBastion.admin.confirmUnban', { ip: b.ip }) || `Unban ${b.ip}?`)) return;
+    if (!(await confirm({
+      message: t('sshBastion.admin.confirmUnban', { ip: b.ip }) || `Unban ${b.ip}?`,
+      confirmLabel: t('sshBastion.admin.unban') || 'Unban',
+    }))) return;
     try {
       await sshBastionApi.unban(b.ip);
       setBans((prev) => prev.filter((x) => x.ip !== b.ip));
@@ -99,7 +112,7 @@ export function SshBastionAdminSection() {
         <h2 className="text-lg font-semibold text-text-primary">{t('sshBastion.admin.title') || 'SSH bastion'}</h2>
       </div>
 
-      <div className="rounded-lg bg-bg-secondary p-5 space-y-6">
+      <div className="rounded-lg bg-bg-secondary p-4 sm:p-5 space-y-6">
         {loading ? (
           <p className="text-sm text-text-muted animate-pulse">{t('common.loading') || 'Loading…'}</p>
         ) : !status ? (
@@ -120,9 +133,9 @@ export function SshBastionAdminSection() {
                   </span>
                 </span>
                 {status.hostKey && (
-                  <span className="text-text-muted">
+                  <span className="text-text-muted min-w-0 break-all">
                     {t('sshBastion.connect.fingerprint') || 'Fingerprint'}:{' '}
-                    <span className="font-mono text-text-secondary select-all">{status.hostKey.fingerprint}</span>
+                    <span className="font-mono text-text-secondary select-all break-all">{status.hostKey.fingerprint}</span>
                   </span>
                 )}
               </div>
@@ -135,7 +148,7 @@ export function SshBastionAdminSection() {
 
             {/* ── Enforce ── */}
             <div className="flex items-start justify-between gap-4">
-              <div>
+              <div className="min-w-0">
                 <p className="flex items-center gap-1.5 text-sm font-medium text-text-primary">
                   {status.enforce ? <ShieldCheck size={14} className="text-status-up" /> : <ShieldOff size={14} className="text-amber-400" />}
                   {t('sshBastion.admin.enforceTitle') || 'Restrict access by IP'}
@@ -147,10 +160,13 @@ export function SshBastionAdminSection() {
               <button
                 role="switch"
                 aria-checked={status.enforce}
+                aria-label={t('sshBastion.admin.enforceTitle') || 'Restrict access by IP'}
                 onClick={toggleEnforce}
                 disabled={busy}
                 className={cn(
                   'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-50',
+                  // Invisible >=40px hit area on touch (desktop geometry unchanged).
+                  "coarse:after:absolute coarse:after:-inset-2.5 coarse:after:content-['']",
                   status.enforce ? 'bg-accent' : 'bg-bg-tertiary',
                 )}
               >
@@ -172,30 +188,37 @@ export function SshBastionAdminSection() {
                 <div className="space-y-1">
                   {allow.map((a) => (
                     <div key={a.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 rounded bg-bg-tertiary/30 text-xs">
-                      <span className="font-mono text-text-primary min-w-[10rem]">{a.cidr}</span>
-                      <span className="text-text-secondary flex-1 min-w-0 truncate">{a.label || '—'}</span>
+                      <span className="font-mono text-text-primary min-w-[10rem] break-all">{a.cidr}</span>
+                      <span className="text-text-secondary flex-1 min-w-0 lg:truncate max-lg:break-words">{a.label || '—'}</span>
                       <span className="text-text-muted">{a.createdByName || '—'} · {fmt(a.createdAt)}</span>
-                      <button
+                      <IconButton
+                        label={t('common.delete') || 'Delete'}
+                        icon={<Trash2 size={13} />}
+                        size="sm"
+                        variant="plain"
                         onClick={() => removeEntry(a)}
-                        className="text-red-400 hover:text-red-300 hover:bg-red-400/10 p-1 rounded"
-                        title={t('common.delete') || 'Delete'}
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                        className="text-red-400 hover:text-red-300 hover:bg-red-400/10 max-lg:ml-auto"
+                      />
                     </div>
                   ))}
                 </div>
               )}
               <div className="flex flex-wrap items-end gap-2">
-                <div className="w-52">
+                <div className="w-full sm:w-52">
                   <Input
                     value={cidr}
                     onChange={(e) => setCidr(e.target.value)}
                     placeholder={t('sshBastion.admin.cidrPlaceholder') || '203.0.113.4 or 10.0.0.0/24'}
                     onKeyDown={(e) => { if (e.key === 'Enter') addEntry(); }}
+                    aria-label={t('sshBastion.admin.allowlist') || 'IP allow-list'}
+                    inputMode="url"
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    enterKeyHint="done"
                   />
                 </div>
-                <div className="w-64">
+                <div className="w-full sm:w-64">
                   <Input
                     value={label}
                     onChange={(e) => setLabel(e.target.value)}
@@ -221,13 +244,12 @@ export function SshBastionAdminSection() {
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                   {t('sshBastion.admin.bans') || 'Banned IPs'}
                 </p>
-                <button
+                <IconButton
+                  label={t('common.refresh') || 'Refresh'}
+                  icon={<RotateCcw size={13} />}
+                  size="sm"
                   onClick={load}
-                  className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-hover"
-                  title={t('common.refresh') || 'Refresh'}
-                >
-                  <RotateCcw size={13} />
-                </button>
+                />
               </div>
               {bans.length === 0 ? (
                 <p className="text-xs text-text-muted italic">{t('sshBastion.admin.noBans') || 'No active ban.'}</p>
@@ -235,8 +257,8 @@ export function SshBastionAdminSection() {
                 <div className="space-y-1">
                   {bans.map((b) => (
                     <div key={b.ip} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 rounded bg-bg-tertiary/30 text-xs">
-                      <span className="font-mono text-text-primary min-w-[10rem]">{b.ip}</span>
-                      <span className="text-text-secondary flex-1 min-w-0 truncate">{b.reason || '—'}</span>
+                      <span className="font-mono text-text-primary min-w-[10rem] break-all">{b.ip}</span>
+                      <span className="text-text-secondary flex-1 min-w-0 lg:truncate max-lg:break-words">{b.reason || '—'}</span>
                       <span className="text-text-muted">
                         {b.expiresAt
                           ? (t('sshBastion.admin.banUntil', { time: fmt(b.expiresAt) }) || `until ${fmt(b.expiresAt)}`)
@@ -244,7 +266,7 @@ export function SshBastionAdminSection() {
                       </span>
                       <button
                         onClick={() => unban(b)}
-                        className="text-xs text-accent hover:bg-accent/10 px-2 py-0.5 rounded"
+                        className="text-xs text-accent hover:bg-accent/10 px-2 py-0.5 coarse:px-3 coarse:py-2 rounded max-lg:ml-auto"
                       >
                         {t('sshBastion.admin.unban') || 'Unban'}
                       </button>

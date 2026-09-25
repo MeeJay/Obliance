@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Périmètre et tenant</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Rajdhani:wght@600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+body{margin:0;font-family:Inter,system-ui,sans-serif;background:#0b0d1a;color:#f0f4fc;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+a{color:inherit;text-decoration:none}a:hover{color:inherit}
+::placeholder{color:#828caf;opacity:1}
+@keyframes obliPulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes obliSpin{to{transform:rotate(360deg)}}
+@keyframes obliSkeleton{0%,100%{opacity:.55}50%{opacity:1}}
+</style>
+</helmet>
+<div style="position:relative;width:390px;height:844px;box-sizing:border-box;display:flex;flex-direction:column;background:#0B0D1A;overflow:hidden">
+
+  <!-- S10 « À traiter » sous la feuille : décor inerte -->
+  <div aria-hidden="true" style="flex:1;min-height:0;display:flex;flex-direction:column">
+    <div style="flex:none;background:#0F1220;padding:0 4px 12px 16px">
+      <div style="display:flex;align-items:center;gap:4px;height:56px">
+        <span style="display:flex;align-items:center;height:48px;min-width:0"><span style="display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 10px;border-radius:8px;background:#1D2238;color:#F0F4FC;white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B4BCD7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"></path><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"></path><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"></path><path d="M10 6h4"></path><path d="M10 10h4"></path><path d="M10 14h4"></path><path d="M10 18h4"></path></svg><span style="font:500 14px/20px Inter,system-ui,sans-serif">Default</span><span style="font:400 11px/14px 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase;color:#B4BCD7;background:#2A3048;border-radius:4px;padding:1px 5px">Vue globale</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#828CAF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="m6 9 6 6 6-6"></path></svg></span></span>
+        <span style="flex:1"></span>
+        <span style="display:flex;align-items:center;justify-content:center;width:48px;height:48px;color:#B4BCD7"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg></span>
+        <span style="display:flex;align-items:center;justify-content:center;width:48px;height:48px"><span style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:#2A3048;color:#F0F4FC;font:600 13px/16px Inter,system-ui,sans-serif;box-shadow:0 0 0 2px #0F1220,0 0 0 4px #4ADE80">KB</span></span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding-right:12px">
+        <span style="font:600 24px/28px Rajdhani,Inter,sans-serif;letter-spacing:.025em;color:#F0F4FC">À traiter</span>
+        <span style="display:inline-flex;align-items:center;gap:6px;font:400 12px/16px 'JetBrains Mono',ui-monospace,monospace;color:#B4BCD7;white-space:nowrap"><span style="flex:none;width:6px;height:6px;border-radius:50%;background:#4ADE80"></span>En direct</span>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;padding:12px 16px 0">
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;height:44px;padding:3px;box-sizing:border-box;border-radius:8px;background:#131728">
+        <span style="display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;border-radius:6px;background:#222740;color:#F0F4FC;font:600 14px/20px Inter,system-ui,sans-serif;white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.04)">Alertes<span style="font:500 12px/16px 'JetBrains Mono',ui-monospace,monospace;color:#B4BCD7">5</span></span>
+        <span style="display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;color:#828CAF;font:500 14px/20px Inter,system-ui,sans-serif;white-space:nowrap">Approbations<span style="font:500 12px/16px 'JetBrains Mono',ui-monospace,monospace;color:#828CAF">1</span></span>
+        <span style="display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;color:#828CAF;font:500 14px/20px Inter,system-ui,sans-serif;white-space:nowrap">Enrôlements<span style="font:500 12px/16px 'JetBrains Mono',ui-monospace,monospace;color:#828CAF">1</span></span>
+      </div>
+      <div style="display:flex;gap:8px;overflow:hidden">
+        <span style="flex:none;display:inline-flex;align-items:center;height:44px"><span style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 8px 0 12px;border-radius:8px;background:#181C30;color:#B4BCD7;font:500 14px/20px Inter,system-ui,sans-serif;white-space:nowrap">Tous les tenants<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#828CAF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="m6 9 6 6 6-6"></path></svg></span></span>
+        <span style="flex:none;display:inline-flex;align-items:center;height:44px"><span style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:8px;background:#181C30;color:#B4BCD7;font:500 14px/20px Inter,system-ui,sans-serif;white-space:nowrap"><span style="flex:none;width:6px;height:6px;border-radius:50%;background:#F87171"></span>Critique<span style="font:500 12px/16px 'JetBrains Mono',ui-monospace,monospace;color:#828CAF">2</span></span></span>
+        <span style="flex:none;display:inline-flex;align-items:center;height:44px"><span style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:8px;background:#181C30;color:#B4BCD7;font:500 14px/20px Inter,system-ui,sans-serif;white-space:nowrap"><span style="flex:none;width:6px;height:6px;border-radius:50%;background:#FACC15"></span>Attention<span style="font:500 12px/16px 'JetBrains Mono',ui-monospace,monospace;color:#828CAF">2</span></span></span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;padding:16px;border-radius:12px;background:#131728;box-shadow:0 6px 24px -8px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.03)">
+        <span style="font:400 11px/14px 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:#828CAF">Possible coupure de site</span>
+        <span style="font:400 14px/20px Inter,system-ui,sans-serif;color:#F0F4FC">5 appareils de BASH › Siège › Serveurs hors ligne entre 03:07 et 03:09.</span>
+        <span style="align-self:flex-start;display:inline-flex;align-items:center;gap:8px;height:44px;margin-top:6px;padding:0 16px;border-radius:8px;background:rgba(255,104,104,.12);color:#FF6868;font:500 14px/20px Inter,system-ui,sans-serif">Voir les 5</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Voile : un appui ferme la feuille sans rien changer -->
+  <a href="Main.dc.html" aria-label="Fermer sans changer de périmètre" style="position:absolute;inset:0;background:rgba(5,6,12,.64)"></a>
+
+  <!-- S81 : feuille « Périmètre et tenant » -->
+  <section role="dialog" aria-modal="true" aria-labelledby="scope-title" style="position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;padding:0 16px 20px;border-radius:16px 16px 0 0;background:#131728;box-shadow:0 -8px 32px -8px rgba(0,0,0,.55)">
+    <div style="display:flex;justify-content:center;padding-top:10px"><span style="width:32px;height:4px;border-radius:2px;background:#4B5273"></span></div>
+    <div style="display:flex;flex-direction:column;gap:2px;padding:10px 0 2px">
+      <h2 id="scope-title" style="margin:0;font:600 20px/28px Inter,system-ui,sans-serif;color:#F0F4FC">Périmètre et tenant</h2>
+      <span style="font:400 12px/16px Inter,system-ui,sans-serif;color:#828CAF">Session sur Default · vue globale · Karim Benali</span>
+    </div>
+
+    <!-- Filtrer la vue globale -->
+    <h3 style="margin:0;padding:14px 8px 4px;font:400 11px/14px 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:#828CAF">Filtrer la vue globale</h3>
+    <p style="margin:0;padding:0 8px 4px;font:400 12px/16px Inter,system-ui,sans-serif;color:#828CAF">Les listes se limitent aux tenants choisis. La session et le temps réel ne changent pas.</p>
+    <div role="group" aria-label="Tenants affichés" style="display:flex;flex-wrap:wrap;column-gap:8px">
+      <button type="button" aria-pressed="true" style="flex:none;display:inline-flex;align-items:center;height:44px;padding:0;border:0;background:transparent;cursor:pointer"><span style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:8px;background:#222740;color:#F0F4FC;font:600 14px/20px Inter,system-ui,sans-serif;white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="M20 6 9 17l-5-5"></path></svg>Tous les tenants</span></button>
+      <button type="button" aria-pressed="false" aria-label="BASH, 248 appareils dont 1 critique, 3 en attention, 14 hors ligne" style="flex:none;display:inline-flex;align-items:center;height:44px;padding:0;border:0;background:transparent;cursor:pointer"><span style="display:inline-flex;flex-direction:column;justify-content:center;gap:3px;height:36px;padding:0 12px;box-sizing:border-box;border-radius:8px;background:#181C30;white-space:nowrap">
+        <span style="display:flex;align-items:center;gap:6px"><span style="font:500 14px/18px Inter,system-ui,sans-serif;color:#B4BCD7">BASH</span><span style="font:500 12px/16px 'JetBrains Mono',ui-monospace,monospace;color:#828CAF">248 · 1 crit.</span></span>
+        <span aria-hidden="true" style="display:flex;gap:1px;height:3px;border-radius:2px;overflow:hidden"><span style="flex:1 0 3px;background:#F87171"></span><span style="flex:3 0 3px;background:#FACC15"></span><span style="flex:230 0 3px;background:#4ADE80"></span><span style="flex:14 0 3px;background:#9CA3AF"></span></span>
+      </span></button>
+      <button type="button" aria-pressed="false" aria-label="Default, 64 appareils dont 2 en attention, 2 hors ligne" style="flex:none;display:inline-flex;align-items:center;height:44px;padding:0;border:0;background:transparent;cursor:pointer"><span style="display:inline-flex;flex-direction:column;justify-content:center;gap:3px;height:36px;padding:0 12px;box-sizing:border-box;border-radius:8px;background:#181C30;white-space:nowrap">
+        <span style="display:flex;align-items:center;gap:6px"><span style="font:500 14px/18px Inter,system-ui,sans-serif;color:#B4BCD7">Default</span><span style="font:500 12px/16px 'JetBrains Mono',ui-monospace,monospace;color:#828CAF">64</span></span>
+        <span aria-hidden="true" style="display:flex;gap:1px;height:3px;border-radius:2px;overflow:hidden"><span style="flex:2 0 3px;background:#FACC15"></span><span style="flex:60 0 3px;background:#4ADE80"></span><span style="flex:2 0 3px;background:#9CA3AF"></span></span>
+      </span></button>
+    </div>
+
+    <!-- Travailler dans un tenant -->
+    <h3 style="margin:0;padding:14px 8px 4px;font:400 11px/14px 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:#828CAF">Travailler dans un tenant</h3>
+    <div aria-current="true" style="display:flex;align-items:center;gap:14px;min-height:72px;padding:8px 12px 8px 8px;box-sizing:border-box;border-radius:8px;background:#222740">
+      <span style="position:relative;flex:none;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:6px;background:#2A3048;color:#B4BCD7"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"></path><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"></path><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"></path><path d="M10 6h4"></path><path d="M10 10h4"></path><path d="M10 14h4"></path><path d="M10 18h4"></path></svg><span role="img" aria-label="Pire état : attention" style="position:absolute;right:-3px;bottom:-3px;width:10px;height:10px;border-radius:50%;background:#FACC15;box-shadow:0 0 0 2px #222740;animation:obliPulse 2s ease-in-out infinite"></span></span>
+      <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+        <span style="display:flex;align-items:center;gap:8px;min-width:0"><span style="font:500 16px/22px Inter,system-ui,sans-serif;color:#F0F4FC">Default</span><span style="flex:none;font:400 11px/14px 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase;color:#B4BCD7;background:#2A3048;border-radius:4px;padding:1px 5px">Vue globale</span></span>
+        <span style="display:flex;align-items:center;gap:6px;font:400 14px/20px Inter,system-ui,sans-serif;color:#B4BCD7;white-space:nowrap">64 appareils ·<span style="flex:none;width:8px;height:8px;border-radius:50%;background:#60A5FA"></span>2 alertes non lues</span>
+      </span>
+      <span role="img" aria-label="Tenant actuel" style="flex:none;color:#F0F4FC"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="M20 6 9 17l-5-5"></path></svg></span>
+    </div>
+    <a href="Main.dc.html" aria-label="Travailler dans BASH — 248 appareils, 5 alertes non lues, une critique" style="display:flex;align-items:center;gap:14px;min-height:72px;padding:8px 12px 8px 8px;box-sizing:border-box;border-radius:8px">
+      <span style="position:relative;flex:none;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:6px;background:#1D2238;color:#B4BCD7"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"></path><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"></path><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"></path><path d="M10 6h4"></path><path d="M10 10h4"></path><path d="M10 14h4"></path><path d="M10 18h4"></path></svg><span style="position:absolute;right:-3px;bottom:-3px;width:10px;height:10px;border-radius:50%;background:#F87171;box-shadow:0 0 0 2px #131728;animation:obliPulse 2s ease-in-out infinite"></span></span>
+      <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+        <span style="display:flex;align-items:baseline;gap:8px;min-width:0"><span style="font:500 16px/22px Inter,system-ui,sans-serif;color:#F0F4FC">BASH</span><span style="font:400 12px/16px 'JetBrains Mono',ui-monospace,monospace;color:#828CAF">admin</span></span>
+        <span style="display:flex;align-items:center;gap:6px;font:400 14px/20px Inter,system-ui,sans-serif;color:#B4BCD7;white-space:nowrap">248 appareils ·<span style="flex:none;width:8px;height:8px;border-radius:50%;background:#60A5FA"></span>5 alertes non lues</span>
+      </span>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#828CAF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="m9 18 6-6-6-6"></path></svg>
+    </a>
+
+    <p style="display:flex;align-items:flex-start;gap:10px;margin:10px 0 0;padding:0 8px;font:400 14px/20px Inter,system-ui,sans-serif;color:#828CAF"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none;margin-top:2px"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>Le changement recharge les données et le temps réel. Vos 2 sessions restent ouvertes.</p>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

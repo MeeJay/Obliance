@@ -383,24 +383,21 @@ class AgentHubService {
     // Special handling: open_remote_tunnel failure → mark session failed
     if (msg.commandType === 'open_remote_tunnel' && !msg.success && msg.sessionToken) {
       const [updated] = await db('remote_sessions')
-        .where({ session_token: msg.sessionToken })
+        // Only this agent's own sessions — an agent cannot fail another
+        // device's session by echoing a token back.
+        .where({ session_token: msg.sessionToken, device_id: conn.deviceId })
         .whereIn('status', ['waiting', 'connecting'])
         .update({ status: 'failed', ended_at: new Date(), end_reason: 'command_failure' })
         .returning('*');
 
       if (updated) {
+        // Token only to the starter — lazy import: remote.service imports this module.
         try {
-          getIO().to(`tenant:${conn.tenantId}`).emit(SocketEvents.REMOTE_SESSION_UPDATED, {
-            id: updated.id, deviceId: updated.device_id, tenantId: updated.tenant_id,
-            protocol: updated.protocol, status: updated.status,
-            sessionToken: updated.session_token, startedBy: updated.started_by,
-            startedAt: updated.started_at, connectedAt: updated.connected_at,
-            endedAt: updated.ended_at, durationSeconds: updated.duration_seconds,
-            endReason: updated.end_reason, createdAt: updated.created_at,
-          });
+          const { remoteService } = await import('./remote.service');
+          remoteService.emitSessionEvent(SocketEvents.REMOTE_SESSION_UPDATED, updated);
         } catch {}
         logger.error(
-          { sessionToken: msg.sessionToken, error: msg.error, deviceId: conn.deviceId },
+          { sessionId: updated.id, error: msg.error, deviceId: conn.deviceId },
           'open_remote_tunnel failed (command channel)',
         );
       }

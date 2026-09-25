@@ -60,7 +60,7 @@ Le wrapper `ObliNative` est injecté par `addDocumentStartJavaScript` (mêmes or
 | `share(text, title?)` | texte | Feuille de partage Android. |
 | `notify(title, body, navigateTo?)` | | Notification locale (canal « alertes »). |
 | `openSettings()` | — | Ouvre l'écran natif de réglages de l'app. |
-| `setSystemBars(colorHex, lightIcons)` | ex. `'#0f1220'`, `false` | Couleur des barres système (suivre le thème). |
+| `setSystemBars(colorHex, lightTheme)` | couleur (`#rgb`, `#rrggbb`, `#aarrggbb`) ; `lightTheme` = `true` si le **thème web est clair** (ex. `'#0f1220'`, `false`) | Couleur des barres système (suivre le thème). `lightTheme = true` → icônes **sombres**, `false` → icônes claires. Pour une couleur nettement sombre ou nettement claire, le shell impose les icônes lisibles quelle que soit la valeur ; `lightTheme` ne décide que pour les tons moyens (absent : icônes sombres). |
 | `requestNotificationPermission()` | — | Résout `'granted'` ou `'denied'`. |
 | `checkForUpdate()` | — | Résout `{available, versionName, versionCode}`. |
 | `getInfo()` | — | Résout `{app, appVersion, versionCode, webViewVersion, serverUrl}`. |
@@ -185,7 +185,7 @@ const off = onNativeLifecycle('resume', () => refetch());   // 'resume' | 'pause
 sur `<html>` (dans le shell) et synchronise `setSystemBars(couleur, clair)` +
 `<meta name="theme-color">` sur la couleur du header du thème courant
 (`--c-bg-secondary`, suivie via `data-theme`). Second argument de
-`setSystemBars` : `true` uniquement sur un thème clair (= icônes sombres,
+`setSystemBars` (`lightTheme`) : `true` uniquement sur un thème clair (= icônes sombres,
 `isAppearanceLightStatusBars`), comme l'exemple `('#0f1220', false)` du §3.
 
 ```ts

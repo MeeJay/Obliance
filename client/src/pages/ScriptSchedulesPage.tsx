@@ -141,7 +141,7 @@ function fmtDuration(startedAt: string | null, finishedAt: string | null) {
  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
 }
 
-function HistoryBatchRow({ batch, scheduleId }: { batch: BatchData; scheduleId: number }) {
+function HistoryBatchRow({ batch, scheduleId, scheduleName }: { batch: BatchData; scheduleId: number; scheduleName?: string }) {
  const { t } = useTranslation();
  const [open, setOpen] = useState(false);
  const [expandedExecId, setExpandedExecId] = useState<string | null>(null);
@@ -202,7 +202,16 @@ function HistoryBatchRow({ batch, scheduleId }: { batch: BatchData; scheduleId: 
  type="button"
  onClick={async (e) => {
  e.stopPropagation();
- const ok = await downloadUrl(`/api/schedules/${scheduleId}/history/${encodeURIComponent(batch.batchId)}/export`);
+ // Explicit filename: the Android DownloadManager fixes the
+ // destination before the request, so without it the file
+ // would land as "export.bin". Mirrors the server's
+ // Content-Disposition name (which still wins in browsers).
+ const safeName = String(scheduleName || 'schedule').replace(/[^a-zA-Z0-9_-]+/g, '_').slice(0, 60);
+ const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+ const ok = await downloadUrl(
+ `/api/schedules/${scheduleId}/history/${encodeURIComponent(batch.batchId)}/export`,
+ `${safeName}-history-${stamp}.csv`,
+ );
  if (!ok) toast.error(t('importExport.failedExport', 'Export failed'));
  }}
  className="flex items-center gap-1.5 px-2 py-1 coarse:min-h-10 coarse:px-3 text-[11px] font-medium text-text-muted hover:text-accent rounded hover:bg-accent/10 transition-colors"
@@ -730,21 +739,23 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
  other items to a new line and misaligned the row.
  */}
  {/* Touch devices never see title= tooltips: there the same hint
- is rendered under each label (hidden on mouse devices, so
- the desktop row is unchanged). Stacked below sm. */}
+ is rendered as a caption under each label (hidden on mouse
+ devices, so the desktop row is unchanged) and title is not
+ passed, so ToggleSwitch does not add a redundant (i). Stacked
+ below sm. */}
  <div className="flex flex-wrap gap-x-6 gap-y-3 pt-2 items-center max-sm:flex-col max-sm:items-stretch">
  <ToggleSwitch
  checked={form.enabled}
  onChange={(v) => setForm({ ...form, enabled: v })}
  label="Enabled"
- title={toggleHints.enabled}
+ title={canHover ? toggleHints.enabled : undefined}
  description={<TouchHint text={toggleHints.enabled} />}
  />
  <ToggleSwitch
  checked={form.skipIfInFlight}
  onChange={(v) => setForm({ ...form, skipIfInFlight: v })}
  label="Skip if still running"
- title={toggleHints.skipIfInFlight}
+ title={canHover ? toggleHints.skipIfInFlight : undefined}
  description={<TouchHint text={toggleHints.skipIfInFlight} />}
  />
  <div className="flex items-center gap-2 max-sm:flex-wrap">
@@ -752,7 +763,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
  checked={form.catchupEnabled}
  onChange={(v) => setForm({ ...form, catchupEnabled: v })}
  label="Enable catchup"
- title={toggleHints.catchup}
+ title={canHover ? toggleHints.catchup : undefined}
  description={<TouchHint text={toggleHints.catchup} />}
  />
  {form.catchupEnabled && (
@@ -774,21 +785,21 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
  checked={form.assertPass}
  onChange={(v) => setForm({ ...form, assertPass: v })}
  label="Assert pass"
- title={toggleHints.assertPass}
+ title={canHover ? toggleHints.assertPass : undefined}
  description={<TouchHint text={toggleHints.assertPass} />}
  />
  <ToggleSwitch
  checked={form.notifyOnce}
  onChange={(v) => setForm({ ...form, notifyOnce: v })}
  label="Notify once"
- title={toggleHints.notifyOnce}
+ title={canHover ? toggleHints.notifyOnce : undefined}
  description={<TouchHint text={toggleHints.notifyOnce} />}
  />
  <ToggleSwitch
  checked={form.bypassPrivacyMode}
  onChange={(v) => setForm({ ...form, bypassPrivacyMode: v })}
  label={t('schedules.privacyBypass.label', 'Bypass privacy mode')}
- title={toggleHints.bypassPrivacy}
+ title={canHover ? toggleHints.bypassPrivacy : undefined}
  description={<TouchHint text={toggleHints.bypassPrivacy} />}
  />
  </div>
@@ -879,7 +890,9 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
  <StatusBadge enabled={schedule.enabled} />
  {isReadOnlyForCaller(schedule) && (
  // Tap on the badge explains why Edit / Delete are disabled.
- <span className="inline-flex" onClick={(e) => e.stopPropagation()}>
+ // On desktop (canHover) the Tip is disabled, so the click
+ // bubbles and toggles the row exactly as before.
+ <span className="inline-flex" onClick={canHover ? undefined : (e) => e.stopPropagation()}>
  <Tip content={readOnlyReason} disabled={canHover}>
  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] uppercase tracking-wider rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/30">
  🔒 Master
@@ -1060,7 +1073,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
  return (
  <div className="space-y-1.5">
  {batches.map((batch) => (
- <HistoryBatchRow key={batch.batchId} batch={batch} scheduleId={schedule.id} />
+ <HistoryBatchRow key={batch.batchId} batch={batch} scheduleId={schedule.id} scheduleName={schedule.name} />
  ))}
  </div>
  );

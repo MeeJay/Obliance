@@ -16,7 +16,6 @@ import {
 import { useTranslation } from 'react-i18next';
 import { anonymize } from '@/utils/anonymize';
 import { useUiStore } from '@/store/uiStore';
-import { clsx } from 'clsx';
 import { getSocket } from '@/socket/socketClient';
 import { hypervApi } from '@/api/hyperv.api';
 import { HyperVVmTable } from '@/components/hyperv/HyperVVmTable';
@@ -1043,7 +1042,7 @@ export function DashboardPage() {
           Link wrapper too: without it the inner card shrinks to its
           content height and the row looks ragged when "Appareils
           total" carries a sparkline + 4-day grid the others don't. */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 items-stretch">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5 items-stretch">
         <Link to="/devices" className="h-full block hover:opacity-95 transition-opacity">
           <HeroFeatured
             label={t('dashboard.totalDevices', 'Appareils total')}
@@ -1273,9 +1272,9 @@ export function DashboardPage() {
           Sibling order respects each group's admin-defined sortOrder so the
           dashboard reads exactly like the group tree elsewhere in the app. */}
       <div className="rounded-xl bg-bg-secondary p-5 shadow-[0_1px_0_0_rgba(255,255,255,0.03),_0_6px_24px_-8px_rgba(0,0,0,0.45)]">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="flex items-center gap-2">
-            <FolderTree size={16} className="text-accent" />
+        <div className="flex items-center gap-3 mb-4 max-sm:flex-wrap max-sm:gap-y-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <FolderTree size={16} className="text-accent shrink-0" />
             <div>
               <div className="text-[15px] font-semibold text-text-primary">
                 {t('dashboard.groupView', 'Vue par groupe')}
@@ -1285,7 +1284,7 @@ export function DashboardPage() {
               </div>
             </div>
           </div>
-          <Link to="/admin/devices" className="ml-auto text-[12px] font-mono text-accent hover:opacity-80 transition-opacity">
+          <Link to="/admin/devices" className="ml-auto text-[12px] font-mono text-accent hover:opacity-80 transition-opacity coarse:py-2">
             {t('dashboard.manageGroups', 'Gérer les groupes')} →
           </Link>
         </div>

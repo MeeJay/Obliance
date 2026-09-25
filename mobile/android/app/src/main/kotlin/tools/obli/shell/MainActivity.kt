@@ -683,9 +683,9 @@ class MainActivity : AppCompatActivity(), WebCallbacks, BridgeHost {
         return id
     }
 
-    override fun applySystemBars(argb: Int, lightIcons: Boolean) {
+    override fun applySystemBars(argb: Int, lightTheme: Boolean?) {
         val color = argb or 0xFF000000.toInt()
-        val light = SystemBarContrast.lightIcons(color, lightIcons)
+        val light = SystemBarContrast.lightIcons(color, lightTheme)
         root.setBackgroundColor(color)
         webContainer.setBackgroundColor(color)
         WindowCompat.getInsetsController(window, window.decorView).apply {

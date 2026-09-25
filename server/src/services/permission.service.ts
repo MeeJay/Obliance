@@ -191,6 +191,57 @@ export const permissionService = {
   },
 
   /**
+   * Batch form of canUseCapability (same rules: a direct device-scope grant,
+   * or a group-scope grant on the device's group or one of its ancestors,
+   * whose capabilities include `capability`). Returns the ids — in input
+   * order, deduplicated — the user may NOT use the capability on (unknown
+   * devices included). Callers handle the admin bypass themselves, exactly
+   * as with canUseCapability(…, isAdmin=false, …). A constant number of
+   * queries per chunk instead of 1-3 per device, so a fleet-wide target
+   * set stays cheap.
+   */
+  async devicesLackingCapability(userId: number, deviceIds: number[], capability: string): Promise<number[]> {
+    const ids = [...new Set(deviceIds.map(Number).filter((n) => Number.isInteger(n) && n > 0))];
+    if (ids.length === 0) return [];
+    const hasCap = (raw: unknown): boolean => {
+      const caps = typeof raw === 'string' ? JSON.parse(raw) : (raw ?? []);
+      return Array.isArray(caps) && caps.includes(capability);
+    };
+    const granted = new Set<number>();
+    const CHUNK = 5000;
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const chunk = ids.slice(i, i + CHUNK);
+      const devices = await db('devices').whereIn('id', chunk).select('id', 'group_id') as Array<{ id: number; group_id: number | null }>;
+
+      const direct = await db('team_permissions as tp')
+        .join('team_memberships as tm', 'tm.team_id', 'tp.team_id')
+        .where({ 'tm.user_id': userId, 'tp.scope': 'device' })
+        .whereIn('tp.scope_id', chunk)
+        .select('tp.scope_id', 'tp.capabilities') as Array<{ scope_id: number; capabilities: unknown }>;
+      for (const row of direct) if (hasCap(row.capabilities)) granted.add(Number(row.scope_id));
+
+      const groupIds = [...new Set(devices.map((d) => d.group_id).filter((g): g is number => g != null))];
+      const grantedGroups = new Set<number>();
+      if (groupIds.length) {
+        const groupRows = await db('team_permissions as tp')
+          .join('team_memberships as tm', 'tm.team_id', 'tp.team_id')
+          .join('device_group_closure as dgc', 'dgc.ancestor_id', 'tp.scope_id')
+          .where({ 'tm.user_id': userId, 'tp.scope': 'group' })
+          .whereIn('dgc.descendant_id', groupIds)
+          .select('dgc.descendant_id', 'tp.capabilities') as Array<{ descendant_id: number; capabilities: unknown }>;
+        for (const row of groupRows) if (hasCap(row.capabilities)) grantedGroups.add(Number(row.descendant_id));
+      }
+      for (const d of devices) {
+        if (d.group_id != null && grantedGroups.has(Number(d.group_id))) granted.add(Number(d.id));
+      }
+      // A device granted directly but deleted since is still "lacking".
+      const existing = new Set(devices.map((d) => Number(d.id)));
+      for (const id of chunk) if (!existing.has(id)) granted.delete(id);
+    }
+    return ids.filter((id) => !granted.has(id));
+  },
+
+  /**
    * Get effective permission for a user on a group.
    * Checks direct group permissions + ancestor permissions via closure table.
    */

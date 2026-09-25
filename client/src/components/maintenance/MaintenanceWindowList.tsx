@@ -6,6 +6,9 @@ import { maintenanceApi } from '@/api/maintenance.api';
 import { MaintenanceWindowModal } from './MaintenanceWindowModal';
 import { cn } from '@/utils/cn';
 import { TenantBadge } from '@/components/common/TenantBadge';
+import { IconButton } from '@/components/common/IconButton';
+import { useConfirm } from '@/components/common/ConfirmDialog';
+import { useCanHover } from '@/hooks/useMediaQuery';
 
 // ScopeOption kept only for the optional backward-compat prop
 interface ScopeOption {
@@ -105,6 +108,10 @@ function WindowRow({
  expired?: boolean;
 }) {
  const { t } = useTranslation();
+ const confirm = useConfirm();
+ // Touch-only delete confirm (mis-tap guard); desktop with a mouse keeps
+ // the historic one-click delete.
+ const canHover = useCanHover();
  const isDisabled = w.isDisabledHere;
  return (
  <div
@@ -121,7 +128,7 @@ function WindowRow({
  >
  <div className="flex-1 min-w-0">
  <div className="flex items-center gap-2 flex-wrap">
- <span className={cn('text-sm font-medium truncate', isDisabled || expired ? 'text-text-muted line-through' : 'text-text-primary')}>
+ <span className={cn('text-sm font-medium truncate max-lg:whitespace-normal max-lg:break-words', isDisabled || expired ? 'text-text-muted line-through' : 'text-text-primary')}>
  {w.name}
  </span>
  <TenantBadge tenantId={w.tenantId} />
@@ -136,39 +143,42 @@ function WindowRow({
  <SourceBadge source={w.source} sourceName={w.sourceName} />
  )}
  </div>
- <div className="mt-0.5 flex items-center gap-1.5 text-xs text-text-muted">
- {w.scheduleType === 'one_time' ? <Clock size={11} /> : <RefreshCw size={11} />}
- <span className="truncate">{formatSchedule(w, t)}</span>
+ <div className="mt-0.5 flex items-center gap-1.5 text-xs text-text-muted max-lg:items-start">
+ {w.scheduleType === 'one_time' ? <Clock size={11} className="max-lg:mt-0.5 max-lg:shrink-0" /> : <RefreshCw size={11} className="max-lg:mt-0.5 max-lg:shrink-0" />}
+ <span className="truncate max-lg:whitespace-normal max-lg:break-words">{formatSchedule(w, t)}</span>
  </div>
  </div>
 
  <div className="flex items-center gap-1 shrink-0">
  {/* Local window actions */}
  {w.canEdit && onEdit && !expired && (
- <button
+ <IconButton
  onClick={() => onEdit(w)}
- className="p-1.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
- title={t('common.edit')}
- >
- <Pencil size={13} />
- </button>
+ label={t('common.edit')}
+ icon={<Pencil size={13} />}
+ />
  )}
  {w.canDelete && onDelete && (
- <button
- onClick={() => onDelete(w.id)}
+ <IconButton
+ onClick={async () => {
+ if (!canHover && !(await confirm({
+ message: t('maintenance.deleteConfirm', { defaultValue: 'Delete the maintenance window "{{name}}"?', name: w.name }),
+ danger: true,
+ }))) return;
+ onDelete(w.id);
+ }}
  disabled={deleting === w.id}
- className="p-1.5 rounded text-text-muted hover:text-red-400 hover:bg-bg-hover transition-colors disabled:opacity-50"
- title={t('common.delete')}
- >
- <Trash2 size={13} />
- </button>
+ className="hover:text-red-400 disabled:opacity-50"
+ label={t('common.delete')}
+ icon={<Trash2 size={13} />}
+ />
  )}
  {/* Inherited window actions */}
  {w.canDisable && onDisable && (
  <button
  onClick={() => onDisable(w.id)}
  disabled={disabling === w.id}
- className="px-2 py-1 rounded text-xs font-medium text-text-muted hover:text-red-400 hover:bg-bg-hover border border-transparent transition-colors disabled:opacity-50"
+ className="px-2 py-1 rounded text-xs font-medium text-text-muted hover:text-red-400 hover:bg-bg-hover border border-transparent transition-colors disabled:opacity-50 coarse:min-h-10"
  >
  {t('maintenance.disableBtn')}
  </button>
@@ -177,7 +187,7 @@ function WindowRow({
  <button
  onClick={() => onEnable(w.id)}
  disabled={disabling === w.id}
- className="px-2 py-1 rounded text-xs font-medium text-text-muted hover:text-status-up hover:bg-bg-hover border border-transparent transition-colors disabled:opacity-50"
+ className="px-2 py-1 rounded text-xs font-medium text-text-muted hover:text-status-up hover:bg-bg-hover border border-transparent transition-colors disabled:opacity-50 coarse:min-h-10"
  >
  {t('maintenance.enableBtn')}
  </button>
@@ -280,7 +290,7 @@ function EffectiveList({
  {showAdd && (
  <button
  onClick={() => { setEditing(null); setModalOpen(true); }}
- className="flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium bg-accent text-white hover:bg-accent-hover transition-colors"
+ className="flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium bg-accent text-white hover:bg-accent-hover transition-colors coarse:min-h-10 coarse:px-3"
  >
  <Plus size={11} />
  {t('maintenance.add')}
@@ -395,6 +405,9 @@ function FlatList({
  }
 
  const { t } = useTranslation();
+ const confirm = useConfirm();
+ // Touch-only delete confirm (see WindowRow).
+ const canHover = useCanHover();
  const channelOptions = channels.map((ch) => ({ id: ch.id, name: ch.name, type: ch.type }));
 
  const scopeFilterLabels: Record<string, string> = {
@@ -427,7 +440,7 @@ function FlatList({
  >
  <div className="flex-1 min-w-0">
  <div className="flex items-center gap-2 flex-wrap">
- <span className={cn('text-sm font-medium truncate', exp ? 'text-text-muted line-through' : 'text-text-primary')}>
+ <span className={cn('text-sm font-medium truncate max-lg:whitespace-normal max-lg:break-words', exp ? 'text-text-muted line-through' : 'text-text-primary')}>
  {w.name}
  </span>
  <TenantBadge tenantId={w.tenantId} />
@@ -439,32 +452,35 @@ function FlatList({
  </span>
  )}
  </div>
- <div className="mt-0.5 flex items-center gap-1.5 text-xs text-text-muted">
- {w.scheduleType === 'one_time' ? <Clock size={11} /> : <RefreshCw size={11} />}
- <span className="truncate">{formatSchedule(w, t)}</span>
+ <div className="mt-0.5 flex items-center gap-1.5 text-xs text-text-muted max-lg:items-start">
+ {w.scheduleType === 'one_time' ? <Clock size={11} className="max-lg:mt-0.5 max-lg:shrink-0" /> : <RefreshCw size={11} className="max-lg:mt-0.5 max-lg:shrink-0" />}
+ <span className="truncate max-lg:whitespace-normal max-lg:break-words">{formatSchedule(w, t)}</span>
  </div>
  {w.scopeName && w.scopeType !== 'global' && (
- <div className="mt-0.5 text-xs text-text-muted">
+ <div className="mt-0.5 text-xs text-text-muted break-words">
  {w.scopeType.charAt(0).toUpperCase() + w.scopeType.slice(1)}: <span className="text-text-secondary">{w.scopeName}</span>
  </div>
  )}
  </div>
  <div className="flex items-center gap-1 shrink-0">
- <button
+ <IconButton
  onClick={() => { setEditing(w); setModalOpen(true); }}
- className="p-1.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
- title={t('common.edit')}
- >
- <Pencil size={13} />
- </button>
- <button
- onClick={() => handleDelete(w.id)}
+ label={t('common.edit')}
+ icon={<Pencil size={13} />}
+ />
+ <IconButton
+ onClick={async () => {
+ if (!canHover && !(await confirm({
+ message: t('maintenance.deleteConfirm', { defaultValue: 'Delete the maintenance window "{{name}}"?', name: w.name }),
+ danger: true,
+ }))) return;
+ handleDelete(w.id);
+ }}
  disabled={deleting === w.id}
- className="p-1.5 rounded text-text-muted hover:text-red-400 hover:bg-bg-hover transition-colors disabled:opacity-50"
- title={t('common.delete')}
- >
- <Trash2 size={13} />
- </button>
+ className="hover:text-red-400 disabled:opacity-50"
+ label={t('common.delete')}
+ icon={<Trash2 size={13} />}
+ />
  </div>
  </div>
  );
@@ -479,7 +495,7 @@ function FlatList({
  key={s}
  onClick={() => setFilterScope(s)}
  className={cn(
- 'px-3 py-1 rounded-full text-xs font-medium border transition-colors',
+ 'px-3 py-1 rounded-full text-xs font-medium border transition-colors coarse:min-h-9',
  filterScope === s
  ? 'bg-accent border-accent text-white'
  : 'border-transparent text-text-secondary hover:border-accent',
@@ -490,7 +506,7 @@ function FlatList({
  ))}
  <button
  onClick={() => { setEditing(null); setModalOpen(true); }}
- className="ml-auto flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium bg-accent text-white hover:bg-accent-hover transition-colors"
+ className="ml-auto flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium bg-accent text-white hover:bg-accent-hover transition-colors coarse:min-h-10 coarse:px-3"
  >
  <Plus size={12} />
  {t('maintenance.addWindow')}
@@ -544,12 +560,13 @@ function FlatList({
 // ── Public component ─────────────────────────────────────────────────────────
 
 export function MaintenanceWindowList({ scopeType, scopeId, channels, title, defaultScopeType, defaultScopeId }: Props) {
+ const { t } = useTranslation();
  return (
  <div>
  <div className="flex items-center gap-1.5 mb-3">
  <CalendarClock size={12} className="text-text-muted" />
  <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wide">
- {title ?? 'Maintenance Windows'}
+ {title ?? t('maintenance.title', 'Maintenance Windows')}
  </h3>
  </div>
 

@@ -1,0 +1,548 @@
+{
+ "area": "admin",
+ "filesReviewed": [
+  "D:\\Obliance\\client\\src\\pages\\AdminUsersPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\AdminTenantsPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\AdminMaintenancePage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\SettingsPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\SecurityPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\TenantThresholdsTab.tsx",
+  "D:\\Obliance\\client\\src\\pages\\NotificationsPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\ProfilePage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\AuditLogPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\ImportExportPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\EnrollmentPage.tsx",
+  "D:\\Obliance\\client\\src\\components\\settings\\SettingsPanel.tsx",
+  "D:\\Obliance\\client\\src\\components\\settings\\SettingField.tsx",
+  "D:\\Obliance\\client\\src\\components\\settings\\InheritanceBadge.tsx",
+  "D:\\Obliance\\client\\src\\components\\settings\\QuickReplyTemplatesSection.tsx",
+  "D:\\Obliance\\client\\src\\components\\settings\\SshBastionAdminSection.tsx",
+  "D:\\Obliance\\client\\src\\components\\notifications\\NotificationBindingsPanel.tsx",
+  "D:\\Obliance\\client\\src\\components\\profile\\SshKeysSection.tsx",
+  "D:\\Obliance\\client\\src\\components\\profile\\SshConfigGenerator.tsx",
+  "D:\\Obliance\\client\\src\\components\\PermissionSetsTab.tsx",
+  "D:\\Obliance\\client\\src\\components\\ThemePicker.tsx",
+  "D:\\Obliance\\client\\src\\components\\common\\Button.tsx (context)",
+  "D:\\Obliance\\client\\src\\components\\common\\Input.tsx (context)",
+  "D:\\Obliance\\client\\src\\components\\common\\ToggleSwitch.tsx (context)",
+  "D:\\Obliance\\client\\src\\components\\common\\ThresholdsEditor.tsx (context)",
+  "D:\\Obliance\\client\\src\\components\\layout\\AppLayout.tsx (context)",
+  "D:\\Obliance\\client\\src\\store\\uiStore.ts (context)",
+  "D:\\Obliance\\client\\tailwind.config.ts (context)",
+  "D:\\Obliance\\client\\index.html (context)"
+ ],
+ "globalFindings": [
+  {
+   "problem": "How severity was sized: the default pinned sidebar is 280px wide (uiStore.ts:38, AppLayout.tsx:166-176). There is no breakpoint or auto-collapse, and no matchMedia, pointer or hover detection anywhere in the client. A 768px portrait tablet therefore leaves about 440px of content width after the page p-6, and a phone leaves about 80px. The floating sidebar opens only through an onMouseEnter hover strip (AppLayout.tsx:137-150), which cannot be used on touch. So many 'phone' layout bugs below also hit portrait tablets. This belongs to the layout area; it is noted here because it drives the admin-page ratings.",
+   "fix": "Owned by the layout area: below lg, collapse the sidebar to an off-canvas drawer (hamburger in Header). Add Tailwind custom variants in tailwind.config.ts (plugin addVariant): 'touch' = @media (pointer: coarse), 'can-hover' = @media (hover: hover) and (pointer: fine). The per-component fixes below use these variants.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\layout\\AppLayout.tsx",
+    "D:\\Obliance\\client\\src\\store\\uiStore.ts",
+    "D:\\Obliance\\client\\tailwind.config.ts"
+   ]
+  },
+  {
+   "problem": "Row actions that appear only on hover ('opacity-0 group-hover:opacity-100'), with labels only in title=. Found in 3 files in this area and 6 app-wide. On touch the buttons are invisible, yet a tap on the empty area still triggers them because Android keeps hover sticky. Tailwind 3.4 runs without future.hoverOnlyWhenSupported, so hover styles also stick after a tap.",
+   "fix": "Create components/common/RowActions.tsx (or an IconButton plus a variant). Keep actions always visible on coarse pointers with 'opacity-100 can-hover:opacity-0 can-hover:group-hover:opacity-100'. When a row has more than 3 actions, fold them into a kebab (MoreVertical) menu or bottom action sheet on touch. Set future.hoverOnlyWhenSupported: true in tailwind.config.ts to stop sticky hover colours; apply it only after the opacity inversion is in place, otherwise touch devices keep opacity-0.",
+   "files": [
+    "D:\\Obliance\\client\\src\\pages\\AdminUsersPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\NotificationsPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\ProfilePage.tsx"
+   ]
+  },
+  {
+   "problem": "There is no shared IconButton. Every page builds its own icon-only buttons: 'p-0.5'/'p-1'/'p-1.5' with 10-14px lucide icons (tap targets of 14-28px), bare <X size={10-13}/> buttons with no padding, and labels only in title=, which touch devices never show. These appear in nearly every file audited.",
+   "fix": "Create components/common/IconButton.tsx with a required aria-label and a visible-on-touch tooltip or long-press label. Give it a minimum hit area of 40x40 on touch: 'touch:min-h-10 touch:min-w-10', or an invisible ::before inset for dense tables. Migrate the ad-hoc buttons listed in the issues.",
+   "files": [
+    "D:\\Obliance\\client\\src\\pages\\AdminUsersPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\AdminTenantsPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\SettingsPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\NotificationsPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\ProfilePage.tsx",
+    "D:\\Obliance\\client\\src\\components\\PermissionSetsTab.tsx",
+    "D:\\Obliance\\client\\src\\components\\settings\\SshBastionAdminSection.tsx",
+    "D:\\Obliance\\client\\src\\components\\profile\\SshKeysSection.tsx",
+    "D:\\Obliance\\client\\src\\components\\settings\\QuickReplyTemplatesSection.tsx"
+   ]
+  },
+  {
+   "problem": "At least 8 hand-rolled toggle switches exist alongside the shared ToggleSwitch: SettingsPage.tsx:387/413/521, SettingField.tsx:85, ImportExportPage.tsx:35 (Toggle), AdminUsersPage.tsx:1057, EnrollmentPage.tsx:200, ProfilePage.tsx:414, SshBastionAdminSection.tsx:147. They are 20x36 or 24x44, and usually only the track is tappable, not the row. The shared ToggleSwitch is 16x32 (sm) or 20x40 (md).",
+   "fix": "Make every switch use components/common/ToggleSwitch.tsx. Add a transparent 44px hit area there (e.g. 'relative after:absolute after:-inset-3'). Encourage the label/description props so the whole row is one <label> tap target.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\common\\ToggleSwitch.tsx",
+    "D:\\Obliance\\client\\src\\pages\\SettingsPage.tsx",
+    "D:\\Obliance\\client\\src\\components\\settings\\SettingField.tsx",
+    "D:\\Obliance\\client\\src\\pages\\ImportExportPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\AdminUsersPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\EnrollmentPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\ProfilePage.tsx",
+    "D:\\Obliance\\client\\src\\components\\settings\\SshBastionAdminSection.tsx"
+   ]
+  },
+  {
+   "problem": "Files are downloaded by building a blob URL, clicking an <a download>, and revoking the URL immediately: SettingsPage.tsx:795-801, AuditLogPage.tsx:174-180, ImportExportPage.tsx:223-228, plus static <a download> at ImportExportPage.tsx:351-358. That is 11 files app-wide. An Android WebView ignores the download attribute, and DownloadManager cannot fetch blob: URLs, so every export silently does nothing inside the app.",
+   "fix": "Create one utility, utils/download.ts, exposing saveBlob(blob, filename, mime). When window.ObliNative?.saveFile exists (a JS bridge from the Android shell), send it base64 content plus filename and mime, and have the shell write to MediaStore Downloads or open the share sheet. Otherwise keep the anchor path but delay revokeObjectURL with setTimeout. Better still for big exports: add server GET endpoints that return Content-Disposition, so the shell's DownloadListener can fetch them with the session cookie.",
+   "files": [
+    "D:\\Obliance\\client\\src\\pages\\SettingsPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\AuditLogPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\ImportExportPage.tsx"
+   ]
+  },
+  {
+   "problem": "Hidden <input type=file> fields opened with .click() (SettingsPage.tsx:869-875 bulk scenario import, ImportExportPage.tsx:450-456 config import, ProfilePage.tsx:228-250 avatar). In a WebView nothing opens unless the shell implements WebChromeClient.onShowFileChooser. ImportExportPage also uses an extension-only accept='.json', which FileChooserParams.createIntent() cannot map to a MIME type.",
+   "fix": "The Android shell must implement onShowFileChooser, using fileChooserParams.createIntent() plus ActivityResult. On the web side, always put a MIME type in accept (accept='application/json,.json', accept='image/*'), and wrap the pattern in one shared <FilePickerButton> component (components/common) so drag-and-drop zones always have a visible 'Choose file' button.",
+   "files": [
+    "D:\\Obliance\\client\\src\\pages\\SettingsPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\ImportExportPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\ProfilePage.tsx"
+   ]
+  },
+  {
+   "problem": "Every destructive action uses window.confirm(): 15 calls in this area (AdminUsersPage 249/260/337, AdminTenantsPage 140/277, SettingsPage 150, NotificationsPage 312, ProfilePage 758/763, AuditLogPage 217, SshBastionAdminSection 48/76/84, SshKeysSection 83, PermissionSetsTab 104), 29 files app-wide. A WebView with no WebChromeClient suppresses JS dialogs. With the default one they appear as unstyled native dialogs titled with the page URL, and they cannot be translated (several prompts are hardcoded English).",
+   "fix": "Create components/common/ConfirmDialog.tsx plus a promise-based useConfirm() hook (touch-sized buttons, i18n keys, a danger variant, optional type-to-confirm for 'Clear audit log'). Replace all confirm() calls. As a safety net, the shell should still set a WebChromeClient that implements onJsConfirm and onJsAlert.",
+   "files": [
+    "D:\\Obliance\\client\\src\\pages\\AdminUsersPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\AdminTenantsPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\SettingsPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\NotificationsPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\ProfilePage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\AuditLogPage.tsx",
+    "D:\\Obliance\\client\\src\\components\\settings\\SshBastionAdminSection.tsx",
+    "D:\\Obliance\\client\\src\\components\\profile\\SshKeysSection.tsx",
+    "D:\\Obliance\\client\\src\\components\\PermissionSetsTab.tsx"
+   ]
+  },
+  {
+   "problem": "There is no shared Modal or Drawer: 31 files build their own 'fixed inset-0 flex items-center justify-center' overlay. They are inconsistent: some lack max-h or overflow (SettingsPage SMTP modal), some lack an overlay gutter (AdminTenantsPage MembersPanel), the tenant drawer has a fixed w-96 (AdminUsersPage), and close buttons are 16-24px. Once the Android soft keyboard shrinks the viewport, a vertically centred dialog taller than the viewport cannot be scrolled.",
+   "fix": "Create components/common/Modal.tsx and Drawer.tsx. Overlay: 'fixed inset-0 overflow-y-auto p-4 flex items-start sm:items-center justify-center'. Dialog: 'w-full max-w-* max-h-[calc(100dvh-2rem)] flex flex-col' with a scrollable body and a sticky footer. Below sm, render as a full-screen sheet. Close button 40px. Drawer width 'w-full sm:w-96'. Handle Escape and the Android back button (popstate) to close.",
+   "files": [
+    "D:\\Obliance\\client\\src\\pages\\SettingsPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\AdminTenantsPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\AdminUsersPage.tsx",
+    "D:\\Obliance\\client\\src\\components\\settings\\QuickReplyTemplatesSection.tsx"
+   ]
+  },
+  {
+   "problem": "Data tables sit inside overflow-hidden wrappers with no mobile strategy (SettingsPage SMTP table, AuditLogPage). Columns overflowing the card are clipped with no way to scroll to them. PermissionSetsTab does use overflow-x-auto, but its label column is not sticky.",
+   "fix": "Build one shared table pattern, e.g. components/common/ResponsiveTable.tsx: an 'overflow-x-auto overscroll-x-contain' wrapper with an optional sticky first column ('sticky left-0 bg-bg-secondary'), and a renderCard(row) fallback below md that stacks key/value pairs with the actions in a footer row.",
+   "files": [
+    "D:\\Obliance\\client\\src\\pages\\SettingsPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\AuditLogPage.tsx",
+    "D:\\Obliance\\client\\src\\components\\PermissionSetsTab.tsx"
+   ]
+  },
+  {
+   "problem": "A recurring 'label flex-1 min-w-0 truncate + N shrink-0 controls' row layout that never wraps. The label shrinks to nothing on narrow screens (SettingField, Restrictions matrix, Notification channel rows, permission tree rows, TenantThresholdsTab header, TenantForm). On top of that, every page uses p-6, and nested cards add p-5/p-6 more: Settings → ImportExport totals 68px of padding per side.",
+   "fix": "Add components/common/SettingRow.tsx (label and description, then controls). It uses 'flex flex-col gap-2 sm:flex-row sm:items-center' and puts the controls on their own full-width line below sm. Add a PageContainer that uses 'p-4 md:p-6', and switch card padding to 'p-4 sm:p-5'. Embedded pages (ImportExportPage embedded, NotificationsPage embedded) should drop their outer card padding.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\settings\\SettingField.tsx",
+    "D:\\Obliance\\client\\src\\pages\\AdminUsersPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\NotificationsPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\TenantThresholdsTab.tsx",
+    "D:\\Obliance\\client\\src\\pages\\AdminTenantsPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\SettingsPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\ImportExportPage.tsx"
+   ]
+  },
+  {
+   "problem": "External and non-http links: target=_blank links to Obligate (SettingsPage.tsx:466, ProfilePage.tsx:197-204), and TOTP setup offers no otpauth:// link at all. A WebView ignores target=_blank unless the shell supports multiple windows (onCreateWindow), and non-http schemes produce ERR_UNKNOWN_URL_SCHEME.",
+   "fix": "Create utils/openExternal.ts, which calls a native bridge (Custom Tabs) when available and falls back to window.open. In the shell: shouldOverrideUrlLoading sends foreign hosts to Custom Tabs, and otpauth:, mailto: and intent: to Intent.ACTION_VIEW. Enable setSupportMultipleWindows plus onCreateWindow for any remaining _blank.",
+   "files": [
+    "D:\\Obliance\\client\\src\\pages\\SettingsPage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\ProfilePage.tsx",
+    "D:\\Obliance\\client\\src\\pages\\EnrollmentPage.tsx"
+   ]
+  },
+  {
+   "problem": "Clipboard: SshKeysSection.copyText (exported and reused) calls only navigator.clipboard.writeText and swallows failures silently. Inside a WebView, or on a self-hosted plain-http origin, that call is often rejected, so the user gets no feedback, and the text it copies is shown truncated.",
+   "fix": "Create utils/clipboard.ts: try navigator.clipboard, then a hidden-textarea execCommand('copy') fallback, then the native bridge (ClipboardManager). Show a toast on both success and failure. Use it everywhere text gets copied.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\profile\\SshKeysSection.tsx",
+    "D:\\Obliance\\client\\src\\components\\profile\\SshConfigGenerator.tsx"
+   ]
+  },
+  {
+   "problem": "Inputs use text-sm (14px) in the shared Input.tsx and text-xs (12px) in many raw inputs (AuditLog filters, PermissionSets rename, SshConfigGenerator, NotificationsPage tenant select). iOS zooms on focus below 16px; Android Chrome/WebView does not, so the priority is low. Separately, several edits save only on blur or Enter (SettingField number inputs, SettingsPage Obligate URL/API key, PermissionSets rename). On Android, closing the keyboard with Back does not blur the field, so navigating away can lose the edit.",
+   "fix": "In Input.tsx use 'text-base sm:text-sm' (and the same for the raw inputs). Where saving happens on blur, add an explicit Save/Apply button or a debounced autosave that also runs on unmount.",
+   "files": [
+    "D:\\Obliance\\client\\src\\components\\common\\Input.tsx",
+    "D:\\Obliance\\client\\src\\components\\settings\\SettingField.tsx",
+    "D:\\Obliance\\client\\src\\pages\\SettingsPage.tsx",
+    "D:\\Obliance\\client\\src\\components\\PermissionSetsTab.tsx"
+   ]
+  }
+ ],
+ "issues": [
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\AdminUsersPage.tsx",
+   "loc": "672-712",
+   "severity": "blocker",
+   "problem": "The user row actions (Reset MFA, change password, enable/disable, edit, tenant access, delete) are all 'opacity-0 group-hover:opacity-100', 13px icons with p-1 (about 21px targets), labelled only by title=. On a tablet they are invisible, so these admin operations cannot be discovered, and blind taps on the empty right side of a row fire them anyway (sticky hover).",
+   "fix": "Show them always on touch ('opacity-100 can-hover:opacity-0 can-hover:group-hover:opacity-100'), or on touch fold them into one kebab / action sheet per row. Use a 40px IconButton with an aria-label."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\AdminUsersPage.tsx",
+   "loc": "829-866",
+   "severity": "blocker",
+   "problem": "Team edit and delete buttons are also hover-only (opacity-0 group-hover), with no title or aria-label, and they sit inside a row whose onClick selects the team. On touch you cannot see them, and a tap near the row's right edge opens edit or triggers delete (then confirm) instead of selecting the team.",
+   "fix": "Same row-actions fix: visible on coarse pointers or placed in a kebab menu, 40px targets, aria-labels. Keep stopPropagation."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\AdminUsersPage.tsx",
+   "loc": "532-534, 877-993, 1189-1200, 1227-1279, 1357-1395, 1411-1454",
+   "severity": "blocker",
+   "problem": "The Teams tab uses a fixed two-pane layout ('flex gap-6 p-6', list flex-1 and detail flex-[2]) with no breakpoint. On a portrait tablet (about 440px of content with the default sidebar) the list gets about 140px and the detail about 277px. Each permission-tree row has shrink-0 controls (RO/RW button, CapabilityIcons with 4 toggles + labels at gap-3, trash) beside a 'flex-1 truncate' name, so the group/device name shrinks to 0px. The admin cannot see which group or device they are granting. Indentation (depth*20px) makes it worse.",
+   "fix": "Below lg, stack the panes ('flex-col lg:flex-row'), or show the team detail full-width with a Back button. Split each permission row in two: name on the first line, controls on a wrapping second line ('flex-wrap', controls 'basis-full sm:basis-auto'). Show capabilities as a 2x2 grid of labelled toggles. Cap indentation at about 12px per level on small screens."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\SettingsPage.tsx",
+   "loc": "322-370",
+   "severity": "blocker",
+   "problem": "The SMTP servers table (Name / Host:port / From / Actions) sits in an 'overflow-hidden' wrapper. host:port and the from-email are unbreakable strings, so the table needs about 650px, against about 400px of content on a portrait tablet and about 270px on a phone. The Actions column (Test, Edit, Delete) is clipped and cannot be reached.",
+   "fix": "At minimum use 'overflow-x-auto'. Better: below md render each server as a card (name + TLS badge / host:port / from with break-all / action row of 40px buttons)."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\AuditLogPage.tsx",
+   "loc": "46-97, 342-366",
+   "severity": "blocker",
+   "problem": "The audit table has 6-7 columns: When (nowrap), Tenant, Action pill (nowrap), User, Device, Resource (max-w 260), IP. It sits in 'rounded bg-bg-secondary overflow-hidden', so on a portrait tablet and on phones the Resource and IP columns are clipped with no scroll. The full resource path exists only in title= (line 78).",
+   "fix": "Use an overflow-x-auto wrapper with a sticky When column, or below md a card per entry: time + action pill, then user · device link, then resource and IP wrapping. Move the full resource path into the expandable details row instead of title=."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\ImportExportPage.tsx",
+   "loc": "219-228, 351-358",
+   "severity": "blocker",
+   "problem": "The configuration export (the backup feature) downloads through a blob URL, a.download and an immediate revokeObjectURL, and the example template uses <a download>. Inside the Android WebView neither produces a file, so the export is unreachable from the app.",
+   "fix": "Route through the shared utils/download.ts saveBlob() with a native bridge (see global findings), or have the server serve the export via GET with Content-Disposition so DownloadListener can fetch it."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\ImportExportPage.tsx",
+   "loc": "419-456",
+   "severity": "blocker",
+   "problem": "Import relies on a hidden <input type=file accept='.json'> opened by clicking a zone labelled for drag-and-drop. The WebView opens no picker without onShowFileChooser, and the extension-only accept gives createIntent() no usable MIME type. Drag-and-drop does not exist on touch.",
+   "fix": "Use accept='application/json,.json'. Put a visible 'Choose file' button inside the zone, reword the text for touch ('Tap to choose a JSON file'), and use the shared FilePickerButton. The shell must implement onShowFileChooser."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\SettingsPage.tsx",
+   "loc": "789-801, 869-883",
+   "severity": "blocker",
+   "problem": "Scenario bulk export uses the blob-URL + a.download pattern, and bulk import uses a hidden file input with .click(). In the Android WebView both are dead unless handled natively, so this backup/restore flow cannot be used.",
+   "fix": "Use the shared saveBlob() and FilePickerButton utilities and the native bridge / onShowFileChooser (see global findings)."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\NotificationsPage.tsx",
+   "loc": "590-617",
+   "severity": "blocker",
+   "problem": "The channel Test, Edit and Delete buttons are 'opacity-0 group-hover:opacity-100' with title-only labels. On a tablet you cannot see how to edit, test or delete a notification channel.",
+   "fix": "Show them always on coarse pointers, or use a kebab menu. 40px IconButtons with aria-labels."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\AuditLogPage.tsx",
+   "loc": "161-181",
+   "severity": "blocker",
+   "problem": "The CSV export uses a blob URL, a.download and an immediate revokeObjectURL, so it silently does nothing inside the Android WebView.",
+   "fix": "Use the shared saveBlob() utility with the native bridge (global finding)."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\ProfilePage.tsx",
+   "loc": "589-625",
+   "severity": "major",
+   "problem": "TOTP setup shows only a QR image (w-40) and the raw secret. On a phone the user cannot scan their own screen. There is no 'open in authenticator' otpauth:// link and no copy-secret button, so they must type a 32-character base32 secret by hand. When force_2fa or requires2faSetup is on, a phone-only user is stuck.",
+   "fix": "Add an 'Open in authenticator app' button (otpauth:// URI, which the server already encodes in the QR; the shell forwards the scheme to Intent.ACTION_VIEW) and a 'Copy secret' button using the shared clipboard util. Show the secret grouped in 4-character blocks."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\EnrollmentPage.tsx",
+   "loc": "372-386",
+   "severity": "major",
+   "problem": "The enrollment security step has the same limitation: QR (w-44) and secret text only, no otpauth:// link or copy button. First-login enrollment on a phone cannot complete TOTP without typing the secret by hand.",
+   "fix": "Same fix as ProfilePage: an otpauth:// deep-link button and a copy-secret button. Consider extracting a shared <TotpSetup> component used by both pages."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\EnrollmentPage.tsx",
+   "loc": "50-73",
+   "severity": "major",
+   "problem": "The stepper is a non-wrapping 'flex justify-center' of 6 × 32px circles plus 5 × (w-10 + mx-1) connectors, about 432px, inside a p-4 page (about 328px usable on a 360px phone). Centred overflow clips the first step(s) on the left and cannot be scrolled.",
+   "fix": "Use 'w-3 sm:w-16' connectors with 'h-6 w-6 sm:h-8 sm:w-8' circles, or below sm replace the stepper with a progress bar plus 'Step n / N'."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\AdminUsersPage.tsx",
+   "loc": "1005-1021, 1057-1097",
+   "severity": "major",
+   "problem": "The tenant assignment drawer is 'fixed right-0 w-96' (384px), wider than 360-412px phones, so its left edge (title, username) is off-screen. The close button is p-1 X16 (about 24px), the member switch 20x36, and the Member/Admin role buttons 'px-2 py-0.5 text-[11px]' (about 20px tall).",
+   "fix": "Use 'w-full sm:w-96 max-w-full' (shared Drawer), a 40px close button, the shared ToggleSwitch with a hit area, and a role segmented control at least 36px tall."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\AdminUsersPage.tsx",
+   "loc": "913-926",
+   "severity": "major",
+   "problem": "Team membership: the only toggle is a 16x16 <div onClick> inside a <label> that has no associated control, so tapping the username or row does nothing. Touch users must hit a 16px box.",
+   "fix": "Put onClick on the whole row (or use a real <input type=checkbox> inside the label), with row min-height 44px and a 20-24px checkbox."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\AdminUsersPage.tsx",
+   "loc": "1234-1238, 1249-1276, 1261-1263, 1365-1392, 1424-1451",
+   "severity": "major",
+   "problem": "Permission-tree tap targets are tiny and packed together. Expand chevron: p-0.5 with a 12px icon (16px). Trash: p-0.5 with 11px (15px). The 'RO'/'RW' add buttons are 'px-1.5 py-0.5 text-[10px]' (about 18px tall) and only 6px apart, so a touch mis-tap grants RW instead of RO. Capability toggles are ToggleSwitch size 'sm' (16x32). Hints exist only in title=.",
+   "fix": "Use 36-40px minimum targets (IconButton / touch:min-h-10), gap-3 between the RO and RW buttons (or one segmented control with explicit labels), md-size toggles on touch, and give the Trash button an aria-label plus a confirm."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\AdminUsersPage.tsx",
+   "loc": "1579-1629",
+   "severity": "major",
+   "problem": "In the Restrictions matrix each row has 3 level buttons plus a 'Scope: …' button, all shrink-0 (about 320px), next to a 'truncate' label. At portrait-tablet width the action label is cut to a few characters; on a phone it disappears. There is no title fallback, and the buttons are 'px-2.5 py-1 text-[11px]' (about 24px).",
+   "fix": "Stack below md: label and key on a full-width line, then a wrapping line with a None/Restricted/Sensitive segmented control (at least 36px) and the Scope button. Remove truncate on small screens."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\AdminUsersPage.tsx",
+   "loc": "1689, 1720-1771",
+   "severity": "major",
+   "problem": "Scope modal: the three mode buttons ('All devices (default)' / 'Only these' / 'All except these') sit in a non-wrapping 'flex gap-2' of about 320px and overflow the modal on phones. Group and device chips are 'px-1.5 py-0.5 text-[11px]' (about 20px). The modal renders up to 10,000 devices as chips (pageSize 10000), which is a heavy DOM for a mobile WebView.",
+   "fix": "Use flex-wrap or 'grid grid-cols-1 sm:grid-cols-3' for the mode buttons. Replace the chip clouds with a searchable checklist (40px rows, virtualised or search-first, limited results)."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\AdminTenantsPage.tsx",
+   "loc": "58-86",
+   "severity": "major",
+   "problem": "TenantForm is one 'flex items-end gap-2' row: name input flex-1, slug fixed 'w-40', two icon-only Save/Cancel buttons, and an inline error <p> in the same row. On a phone (about 250px inside the card) the name input collapses to about 0-40px and the error text is squeezed into the row.",
+   "fix": "Use 'flex flex-col sm:flex-row', slug 'w-full sm:w-40', the error on its own line below, and labelled Save/Cancel buttons (or 40px icon buttons with aria-labels)."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\AdminTenantsPage.tsx",
+   "loc": "151-221",
+   "severity": "major",
+   "problem": "MembersPanel modal: the overlay has no padding, so the rounded dialog runs edge to edge on a phone. The close button is a bare X16 with no padding. Remove-member is a bare X13 (about 13px target). The role toggle is 'text-xs px-2 py-0.5' (about 20px). Only the list has max-h-80; the add row is not in a scroll container.",
+   "fix": "Use the shared Modal (overlay p-4, dialog max-h-[calc(100dvh-2rem)] with a scrollable body), 40px IconButtons for close and remove, and a role control at least 32px tall."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\SettingsPage.tsx",
+   "loc": "540-621",
+   "severity": "major",
+   "problem": "The SMTP add/edit modal is centred ('fixed inset-0 flex items-center p-4') and the dialog has no max-height or overflow. The form is about 520px tall (name, host/port, TLS, user, password, from, buttons). With the soft keyboard open (phone portrait, or tablet landscape at about 450px left) the dialog overflows at both top and bottom and cannot be scrolled, so the title/Name field and the Save/Cancel buttons are unreachable while typing.",
+   "fix": "Use the shared Modal: overlay 'overflow-y-auto items-start sm:items-center', dialog 'max-h-[calc(100dvh-2rem)] flex flex-col', scrollable body, sticky footer; full-screen sheet below sm."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\SettingsPage.tsx",
+   "loc": "718-733",
+   "severity": "major",
+   "problem": "Editable-extensions chips: the remove control is an X 'w-3 h-3' (12px) with no padding, in a dense 'flex-wrap gap-1.5' cloud of dozens of chips. On touch it is easy to remove the wrong extension, and there is no undo until Save.",
+   "fix": "Give the remove button a 32-40px hit area (padding or ::before inset), use gap-2, and consider an undo toast."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\SettingsPage.tsx",
+   "loc": "466",
+   "severity": "major",
+   "problem": "The 'Open ↗' link to the Obligate gateway uses target=_blank, which the WebView ignores or handles unpredictably without multi-window support.",
+   "fix": "Use utils/openExternal() (Custom Tabs via the bridge) and have the shell route foreign hosts in shouldOverrideUrlLoading."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\ProfilePage.tsx",
+   "loc": "189-208",
+   "severity": "major",
+   "problem": "For SSO (Obligate) users the whole profile page is replaced by one 'Open Obligate Profile' link with target=_blank. In the WebView that link may do nothing, and it is their only way to manage their profile or password.",
+   "fix": "Use utils/openExternal() (Custom Tabs) and native handling of foreign hosts."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\ProfilePage.tsx",
+   "loc": "218-257",
+   "severity": "major",
+   "problem": "Avatar change works through an invisible full-avatar <label> overlay whose Camera icon only appears on hover. On touch nothing signals that tapping the avatar uploads a photo, and the underlying file input needs WebView onShowFileChooser.",
+   "fix": "Add a visible 'Change photo' button next to 'Remove' (shared FilePickerButton, accept='image/*'), and keep the overlay only for can-hover devices."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\NotificationsPage.tsx",
+   "loc": "534-619",
+   "severity": "major",
+   "problem": "Channel row: the global-binding text button, the 'Workspaces' toggle and 3 icon buttons are all shrink-0 beside the name column. On phones the name and badges get about 0-70px, and even with hover fixed the row cannot fit.",
+   "fix": "Put the name and badges on the first line and a wrapping action row (40px targets) below it under sm, or move Test/Edit/Delete into a kebab menu."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\NotificationsPage.tsx",
+   "loc": "114-156, 196-205",
+   "severity": "major",
+   "problem": "The shared-tenant chip remove button is a bare X size 10 (about 10px), and the tenant select / 'Grant access' button are 'text-xs py-1' (about 24px). EmailChips' remove X is size 11 with no padding. These tap targets are unusable.",
+   "fix": "40px IconButtons, or a ::before hit area around the chip X; controls at least 36px tall on touch."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\settings\\SettingField.tsx",
+   "loc": "64-148",
+   "severity": "major",
+   "problem": "Each setting is a single row: label + description (flex-1) next to a w-24 number input, a w-12 unit and (outside global scope) an Override/Reset button. On a phone the description column is about 20-100px wide (one word per line); in GroupEditPage/GroupManagePage (override button present) it is worse. The switch is 20x36, the Override/Reset meaning lives only in title=, and values save only on blur or Enter.",
+   "fix": "Stack below sm (description full width, then a controls line), switch to the shared ToggleSwitch with a hit area, and add an explicit save or debounced save that also runs on unmount."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\settings\\QuickReplyTemplatesSection.tsx",
+   "loc": "107-112",
+   "severity": "major",
+   "problem": "Delete template fires immediately with no confirmation, from a 26px icon button next to Edit. An accidental tap on touch permanently deletes a multilingual template (18 translations).",
+   "fix": "Add the shared ConfirmDialog (or an undo toast) and 40px IconButtons with aria-labels."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\ProfilePage.tsx",
+   "loc": "512-518",
+   "severity": "major",
+   "problem": "The quick-reply remove button is a bare X14 with no padding (about 14px target), and it removes and persists instantly with no confirmation or undo.",
+   "fix": "40px IconButton plus an undo toast (or confirm)."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\TenantThresholdsTab.tsx",
+   "loc": "88-107",
+   "severity": "major",
+   "problem": "The header is 'flex justify-between' with Cancel and Save (shrink-0, about 210px) beside the title and description. On a phone the description is squeezed into a narrow column (about 60px), making a very tall block.",
+   "fix": "Use 'flex-col sm:flex-row', or move the buttons below the editor as GlobalThresholdsSection does (SettingsPage.tsx:965-974)."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\settings\\SshBastionAdminSection.tsx",
+   "loc": "122-127",
+   "severity": "major",
+   "problem": "The host-key fingerprint (a 'SHA256:…' string of about 50 monospace characters) sits in a span that cannot break. On a phone it overflows the card and causes horizontal page scroll.",
+   "fix": "Add 'break-all' (or truncate plus a copy button)."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\profile\\SshKeysSection.tsx",
+   "loc": "221-226",
+   "severity": "major",
+   "problem": "The server fingerprint is in a select-all monospace span with no breaking. At about 264px (page p-6 + card p-6) it overflows and causes horizontal page scroll on phones.",
+   "fix": "Add 'break-all', and give the page and card responsive padding (p-4 sm:p-6)."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\PermissionSetsTab.tsx",
+   "loc": "182-270",
+   "severity": "major",
+   "problem": "The permission-set matrix scrolls horizontally (good), but the Capability column is not sticky, so row labels disappear when scrolling on a phone or tablet. Cell toggles are 20x20 buttons. The rename and delete header buttons are p-0.5 with 10px icons (about 14px) and title-only labels. Rename commits on blur and can be cancelled only with the Escape key, which touch users do not have.",
+   "fix": "Make the first column 'sticky left-0 z-10 bg-bg-secondary'. Give cells 36-40px buttons, header actions as 40px IconButtons (or a kebab), and explicit ✓/✕ buttons on the rename input."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\ImportExportPage.tsx",
+   "loc": "35-69, 104-131, 339, 363, 409",
+   "severity": "major",
+   "problem": "Section toggles are 20x36 and are the only tap target (the row and label are not clickable). Embedded in SettingsPage (p-6 page, p-5 card, and this component's own p-6 cards), padding totals 68px per side, leaving about 224px of content on a phone.",
+   "fix": "Make each section row a <label> or button around the toggle (shared ToggleSwitch with label). In embedded mode drop the inner card padding or use 'p-4 sm:p-6'."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\AdminUsersPage.tsx",
+   "loc": "536-581",
+   "severity": "minor",
+   "problem": "The top tab switcher has 4 'flex-1 px-4' buttons with icon and label. At phone and portrait-tablet widths 'Permissions' and 'Restrictions' wrap or overflow.",
+   "fix": "Make the tab bar 'overflow-x-auto' with shrink-0 tabs, or show icon + short label below sm."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\AdminUsersPage.tsx",
+   "loc": "879, 907, 935",
+   "severity": "minor",
+   "problem": "The detail panel is 'sticky top-6' with inner 'max-h-[60vh]' / 'max-h-[70vh] overflow-y-auto' lists, which nests scroll areas inside the main scroll. On touch, scroll chaining traps the user.",
+   "fix": "Below lg, drop sticky and the inner max-h so the page scrolls as one; if nested scroll stays, add overscroll-contain."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\AdminUsersPage.tsx",
+   "loc": "1193",
+   "severity": "minor",
+   "problem": "Capability descriptions (Execute: scripts/scans…, Remote: Reach/RDP/SSH, Files…, Power…) exist only as title= tooltips, which touch users cannot read.",
+   "fix": "Show descriptions inline under the toggles on touch, or add an info (i) popover opened by tap."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\AdminTenantsPage.tsx",
+   "loc": "338-383",
+   "severity": "minor",
+   "problem": "Row actions are icon-only (p-1.5 with 13px icons, about 25px) and labelled only by title=. The two-step-approval checkbox is native size (about 13px), though its label is tappable.",
+   "fix": "40px IconButtons with aria-labels; the shared ToggleSwitch for the two-step setting."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\SettingsPage.tsx",
+   "loc": "387-424, 496-502, 597-603",
+   "severity": "minor",
+   "problem": "The hand-rolled 2FA switches are 20x36, and the password / API-key show-hide toggles are bare 14px icons positioned absolutely inside the input.",
+   "fix": "Shared ToggleSwitch with hit area; make the eye toggle a 40px IconButton (right-0 inset-y-0 w-10)."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\SettingsPage.tsx",
+   "loc": "469-495",
+   "severity": "minor",
+   "problem": "Obligate URL and API key save only onBlur. On Android, closing the keyboard with Back does not blur the input, so navigating away can drop the change silently. There is no explicit Save button.",
+   "fix": "Add an explicit 'Save' button (or debounce plus save on unmount)."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\AuditLogPage.tsx",
+   "loc": "196-245, 370-389",
+   "severity": "minor",
+   "problem": "The header CSV/Clear buttons are 'text-xs px-2.5 py-1' (about 24px), Refresh is p-1.5 with a 16px icon, and pagination Prev/Next are 'px-2 py-1 text-xs' (about 24px). The destructive 'Clear' sits right next to CSV.",
+   "fix": "36-40px buttons on touch, more spacing (or move Clear into an overflow menu), and use ConfirmDialog for Clear."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\AuditLogPage.tsx",
+   "loc": "415-446",
+   "severity": "minor",
+   "problem": "UserCombobox closes on outside 'mousedown' only, so a touch scroll does not close it. Its search input has autoFocus, so on a phone the soft keyboard pops up and covers the list the moment it opens. Options are 'py-1.5 text-xs' (about 26px).",
+   "fix": "Use 'pointerdown' for outside-close, skip autoFocus on coarse pointers, 40px option rows; or use a native <select> or a bottom sheet on touch."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\NotificationsPage.tsx",
+   "loc": "212-216",
+   "severity": "minor",
+   "problem": "EmailChips deletes the last chip on the Backspace keydown in an empty draft. Gboard and other Android IMEs often send keyCode 229 or nothing on an empty field, so this shortcut does not work on Android. The chip X (tiny) is the only other way.",
+   "fix": "Keep the shortcut but enlarge the chip remove buttons (40px hit area); optionally handle 'beforeinput' with inputType 'deleteContentBackward'."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\ProfilePage.tsx",
+   "loc": "630-640",
+   "severity": "minor",
+   "problem": "The Email OTP header puts the enrolled email address (not truncated) in a non-wrapping flex with the Disable button, so a long address overflows on a phone.",
+   "fix": "Add min-w-0 + truncate (or break-all) on the email, and 'flex-wrap' on the header."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\ProfilePage.tsx",
+   "loc": "778-812",
+   "severity": "minor",
+   "problem": "Trusted IPs: the 'Revoke all' / 'Revoke' buttons are 'text-xs px-2 py-0.5/1' (about 20-24px), and revocation goes through window.confirm.",
+   "fix": "36-40px buttons, and the shared ConfirmDialog."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\profile\\SshKeysSection.tsx",
+   "loc": "24-29, 170, 174-199, 208",
+   "severity": "minor",
+   "problem": "copyText uses navigator.clipboard only and fails silently (often rejected in a WebView or on http origins). The connect commands are 'truncate'd, so if copying fails they cannot be read either. The key fingerprint is truncated with title-only full text. Trash and copy buttons are p-1 / p-1.5 with 13px icons.",
+   "fix": "Shared utils/clipboard.ts with fallback and error toast, 'break-all' instead of truncate below sm, 40px IconButtons."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\profile\\SshConfigGenerator.tsx",
+   "loc": "95-117",
+   "severity": "minor",
+   "problem": "The format tabs (config / PowerShell / bash) are 'px-2 py-0.5 text-[11px]' (about 18px tall), and the copy button is p-1.5 with a 13px icon inside the pre.",
+   "fix": "Tabs at least 32-36px tall on touch; 40px copy IconButton."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\settings\\SshBastionAdminSection.tsx",
+   "loc": "147-158, 178-184, 224-230",
+   "severity": "minor",
+   "problem": "The enforce switch is 20x36, and the allow-list trash and bans refresh buttons are p-1 with 13px icons (about 21px) and title-only labels.",
+   "fix": "Shared ToggleSwitch; 40px IconButtons with aria-labels."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\notifications\\NotificationBindingsPanel.tsx",
+   "loc": "124-158, 244-252",
+   "severity": "minor",
+   "problem": "The Merge/Replace segmented control ('px-2 py-0.5 text-xs', about 20px) sits in a non-wrapping header next to the title. The Bind/Unbind/Bound pills are 'px-3 py-1 text-xs' (about 24px), and tapping a 'Bound' pill unbinds with no feedback other than a toast.",
+   "fix": "Put 'flex-wrap gap-2' on the header, and make the segmented control and pills at least 32-36px tall on touch."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\EnrollmentPage.tsx",
+   "loc": "85, 621-627",
+   "severity": "minor",
+   "problem": "The language grid is a nested 'max-h-72 overflow-y-auto' scroll inside the page, and the '← Back' button is bare text-sm with no padding (about 20px tall).",
+   "fix": "Drop max-h on small screens (the page scrolls anyway) or add overscroll-contain; make Back a secondary Button of at least 40px."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\components\\ThemePicker.tsx",
+   "loc": "355-393",
+   "severity": "minor",
+   "problem": "On phones (grid-cols-1) the 4 theme cards stack as full-width SVG previews of about 220px each, which makes the Profile and Enrollment appearance sections very long.",
+   "fix": "Use 'grid-cols-2' on phones too, with a smaller preview, or a horizontal snap-scroll row."
+  },
+  {
+   "file": "D:\\Obliance\\client\\src\\pages\\AdminMaintenancePage.tsx",
+   "loc": "14-104",
+   "severity": "minor",
+   "problem": "This page has no route in App.tsx and it still calls Obliview-era endpoints (/api/monitors, /api/agent/devices), so it cannot be reached in the app at all. Nothing mobile-specific needs doing, but it should not be counted as a surface to port.",
+   "fix": "Delete it or leave it out of the mobile work. The maintenance UI lives in MaintenanceWindowList, which GroupEditPage/GroupManagePage embed, so it should be audited in that area."
+  }
+ ]
+}

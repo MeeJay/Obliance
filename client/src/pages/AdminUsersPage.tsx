@@ -47,7 +47,7 @@ import { Modal } from '@/components/common/Modal';
 import { SegmentedTabs, type SegmentedTab } from '@/components/common/SegmentedTabs';
 import { Tip } from '@/components/common/Tip';
 import { useConfirm } from '@/components/common/ConfirmDialog';
-import { MEDIA, useIsCoarsePointer, useMediaQuery } from '@/hooks/useMediaQuery';
+import { MEDIA, matchesMedia, useCanHover, useIsCoarsePointer, useMediaQuery } from '@/hooks/useMediaQuery';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 // `NotificationsPage` is now rendered from /policies (see PoliciesPage).
@@ -73,6 +73,9 @@ export function AdminUsersPage() {
  const { t } = useTranslation();
  const confirm = useConfirm();
  const isWide = useMediaQuery(MEDIA.lg);
+ // Touch: team-member rows toggle from anywhere in the row (mouse keeps
+ // the original box-only click).
+ const coarse = useIsCoarsePointer();
  const { user: currentUser } = useAuthStore();
  const isPlatformAdmin = currentUser?.role === 'admin';
  const currentTenantId = useTenantStore((s) => s.currentTenantId);
@@ -170,6 +173,13 @@ export function AdminUsersPage() {
  const selectTeam = (teamId: number) => {
  setSelectedTeamId(teamId);
  loadTeamDetails(teamId);
+ // Narrow screens: the detail replaces the (possibly long, scrolled) list —
+ // bring its back bar into view instead of landing mid-page.
+ if (!matchesMedia(MEDIA.lg)) {
+ requestAnimationFrame(() => {
+ document.getElementById('admin-users-top')?.scrollIntoView({ block: 'start' });
+ });
+ }
  };
 
  // Tenants the platform admin can act on. Master tenant (id=1) is the
@@ -587,6 +597,8 @@ export function AdminUsersPage() {
 
  return (
  <>
+ {/* Scroll anchor (narrow screens: list → team detail). */}
+ <div id="admin-users-top" aria-hidden="true" />
  {/* Users/Teams list (master) + team detail. Side by side from lg
      (unchanged desktop layout: gap-6, 1:2 ratio, sticky detail);
      one pane at a time below lg, with a back button. */}
@@ -600,7 +612,10 @@ export function AdminUsersPage() {
  master={
  <>
  {/* Tab switcher */}
- <SegmentedTabs tabs={mainTabs} value={tab} onChange={setTab} className="mb-4" tabClassName="gap-1.5" />
+ {/* lg+: wrap instead of scrolling behind a hidden scrollbar — with a
+     team open this bar sits in the 1/3-wide master pane, too narrow
+     for the four tabs (they used to overflow, all still visible). */}
+ <SegmentedTabs tabs={mainTabs} value={tab} onChange={setTab} className="mb-4 lg:flex-wrap" tabClassName="gap-1.5 lg:whitespace-normal" />
 
  {tab === 'restrictions' && <RestrictionsTab />}
 
@@ -626,7 +641,7 @@ export function AdminUsersPage() {
  {userFormMode === 'create' ? t('users.newUser') : t('users.editUser', { username: editingUser?.username })}
  </h3>
  <form onSubmit={userFormMode === 'create' ? handleCreateUser : handleEditUser} className="space-y-3">
- <Input label={t('users.usernameLabel')} value={formUsername} onChange={(e) => setFormUsername(e.target.value)} required pattern="[a-zA-Z0-9_.\-]+" />
+ <Input label={t('users.usernameLabel')} value={formUsername} onChange={(e) => setFormUsername(e.target.value)} required pattern="[a-zA-Z0-9_.\-]+" autoCapitalize="off" autoCorrect="off" spellCheck={false} autoComplete="off" />
  <Input label={t('users.displayNameLabel')} value={formDisplayName} onChange={(e) => setFormDisplayName(e.target.value)} />
  {userFormMode === 'create' && (
  <Input label={t('users.passwordLabel')} type="password" value={formPassword} onChange={(e) => setFormPassword(e.target.value)} required minLength={6} />
@@ -971,24 +986,27 @@ export function AdminUsersPage() {
 
  {/* Members panel */}
  {rightTab === 'members' && (
- <div className="rounded-lg bg-bg-secondary divide-y divide-border lg:max-h-[60vh] lg:max-h-[60dvh] lg:overflow-y-auto">
+ <div className="rounded-lg bg-bg-secondary divide-y divide-border lg:max-h-[60dvh] lg:supports-[not(height:100dvh)]:max-h-[60vh] lg:overflow-y-auto">
  {users.filter((u) => u.role !== 'admin').length === 0 ? (
  <p className="p-4 text-sm text-text-muted text-center">{t('users.teams.noUsers')}</p>
  ) : (
  users.filter((u) => u.role !== 'admin').map((user) => {
  const isMember = teamMembers.includes(user.id);
  return (
- // The whole row toggles membership (was: only the 16px box).
+ // Touch: the whole row toggles membership. Mouse: only the
+ // 16px box, as before (a click / text selection on the
+ // username must not add or remove the user).
  <div
  key={user.id}
  role="checkbox"
  aria-checked={isMember}
  tabIndex={0}
- onClick={() => toggleMember(user.id)}
+ onClick={coarse ? () => toggleMember(user.id) : undefined}
  onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleMember(user.id); } }}
  className="flex items-center gap-3 px-3 py-2 coarse:min-h-11 hover:bg-bg-hover cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/60"
  >
  <div
+ onClick={coarse ? undefined : () => toggleMember(user.id)}
  className={`flex h-4 w-4 coarse:h-5 coarse:w-5 items-center justify-center rounded border shrink-0 ${
  isMember ? 'border-accent bg-accent' : 'border-transparent bg-bg-tertiary'
  }`}
@@ -1007,7 +1025,7 @@ export function AdminUsersPage() {
 
  {/* Permissions panel — Hierarchical tree */}
  {rightTab === 'permissions' && (
- <div className="rounded-lg bg-bg-secondary lg:max-h-[70vh] lg:max-h-[70dvh] lg:overflow-y-auto">
+ <div className="rounded-lg bg-bg-secondary lg:max-h-[70dvh] lg:supports-[not(height:100dvh)]:max-h-[70vh] lg:overflow-y-auto">
  {tree.length === 0 && ungroupedDevices.length === 0 ? (
  <p className="p-4 text-sm text-text-muted text-center">{t('users.teams.noResources')}</p>
  ) : (
@@ -1244,21 +1262,28 @@ function ToggleSwitch({ on, onChange, title }: { on: boolean; onChange: () => vo
 
 function CapabilityIcons({ perm, onToggle }: { perm: TeamPermission; onToggle: (cap: Capability) => void }) {
  const { t } = useTranslation();
+ const canHover = useCanHover();
  if (perm.level === 'ro') return null; // RO only gets monitor, no toggles
  const caps = perm.capabilities ?? [];
  return (
- <span className="flex items-center gap-3 shrink-0 max-md:flex-wrap max-md:shrink max-md:min-w-0 max-md:gap-y-2">
+ // Wraps under the name on phones and on touch (tablet panes are too
+ // narrow for the enlarged toggles on one line).
+ <span className="flex items-center gap-3 shrink-0 max-md:flex-wrap max-md:shrink max-md:min-w-0 max-md:gap-y-2 coarse:flex-wrap coarse:shrink coarse:min-w-0 coarse:gap-y-2">
  {CAPABILITY_CATEGORIES.map((cat) => (
  <span key={cat.name} className="flex items-center gap-1.5">
- {cat.capabilities.map(({ key, label, description }) => (
- <span key={key} className="flex items-center gap-1">
+ {cat.capabilities.map(({ key, label, description }) => {
+ const desc = `${t(`users.capabilities.${key}.label`, label)} — ${t(`users.capabilities.${key}.description`, description)}`;
+ return (
+ // Mouse: native title over the switch + label, as before.
+ // Touch: tap the label for the description popover.
+ <span key={key} className="flex items-center gap-1" title={canHover ? desc : undefined}>
  <ToggleSwitch on={caps.includes(key)} onChange={() => onToggle(key)} />
- {/* Description: hover tooltip with a mouse, tap popover on touch. */}
- <Tip content={`${t(`users.capabilities.${key}.label`, label)} — ${t(`users.capabilities.${key}.description`, description)}`}>
+ <Tip content={desc} disabled={canHover}>
  <span className="text-[10px] uppercase tracking-wider text-text-muted">{t(`users.capabilities.${key}.label`, label)}</span>
  </Tip>
  </span>
- ))}
+ );
+ })}
  </span>
  ))}
  </span>
@@ -1267,9 +1292,11 @@ function CapabilityIcons({ perm, onToggle }: { perm: TeamPermission; onToggle: (
 
 /**
  * Right-hand controls of a permission-tree row (group / device / ungrouped).
- * Assigned rows: RO/RW level + capability toggles + remove — on phones they
- * move to their own wrapping line under the name (`contents` keeps the
- * desktop single-row layout untouched). Unassigned rows: RO / RW add buttons.
+ * Assigned rows: RO/RW level + capability toggles + remove — on phones and
+ * on touch screens (tablet panes are 450-550 px wide, too narrow for the
+ * enlarged controls) they move to their own wrapping line under the name
+ * (`contents` keeps the mouse desktop single-row layout untouched).
+ * Unassigned rows: RO / RW add buttons.
  */
 function PermControls({
  perm,
@@ -1289,7 +1316,7 @@ function PermControls({
  const { t } = useTranslation();
  if (perm) {
  return (
- <div className="contents max-md:flex max-md:basis-full max-md:flex-wrap max-md:items-center max-md:gap-2 max-md:pl-5">
+ <div className="contents max-md:flex max-md:basis-full max-md:flex-wrap max-md:items-center max-md:gap-2 max-md:pl-5 coarse:flex coarse:basis-full coarse:flex-wrap coarse:items-center coarse:gap-2 coarse:pl-5">
  <button
  onClick={() => togglePermissionLevel(perm)}
  className={`px-2 py-0.5 coarse:px-3 coarse:py-1.5 rounded text-[11px] font-medium transition-colors shrink-0 ${
@@ -1320,11 +1347,11 @@ function PermControls({
  return (
  <>
  <button onClick={() => onAdd('ro')}
- className="px-1.5 py-0.5 coarse:px-3 coarse:py-1.5 text-[10px] rounded bg-bg-tertiary text-text-muted hover:bg-bg-hover shrink-0" title={t('users.teams.readOnly', 'Read Only')}>
+ className="px-1.5 py-0.5 coarse:px-3 coarse:py-1.5 text-[10px] rounded bg-bg-tertiary text-text-muted hover:bg-bg-hover shrink-0" title={t('users.teams.readOnly', 'Read Only')} aria-label={t('users.teams.readOnly', 'Read Only')}>
  {t('users.teams.roLabel')}
  </button>
  <button onClick={() => onAdd('rw')}
- className="px-1.5 py-0.5 coarse:px-3 coarse:py-1.5 coarse:ml-1.5 text-[10px] rounded bg-accent/10 text-accent hover:bg-accent/20 shrink-0" title={t('users.teams.readWrite', 'Read/Write')}>
+ className="px-1.5 py-0.5 coarse:px-3 coarse:py-1.5 coarse:ml-1.5 text-[10px] rounded bg-accent/10 text-accent hover:bg-accent/20 shrink-0" title={t('users.teams.readWrite', 'Read/Write')} aria-label={t('users.teams.readWrite', 'Read/Write')}>
  {t('users.teams.rwLabel')}
  </button>
  </>
@@ -1357,7 +1384,7 @@ function PermTreeNode({
  <div>
  {/* Group row */}
  <div
- className={`flex flex-wrap md:flex-nowrap items-center gap-1.5 px-2 py-1.5 hover:bg-bg-hover transition-colors ${
+ className={`flex flex-wrap md:flex-nowrap md:coarse:flex-wrap items-center gap-1.5 px-2 py-1.5 hover:bg-bg-hover transition-colors ${
  perm ? 'bg-accent/5' : isCovered ? 'bg-accent/[0.02]' : ''
  }`}
  style={{ paddingLeft: `${depth * (md ? 20 : 12) + 8}px` }}
@@ -1467,7 +1494,7 @@ function PermUngroupedRow({
 }: PermUngroupedRowProps) {
  const { t } = useTranslation();
  return (
- <div className={`flex flex-wrap md:flex-nowrap items-center gap-1.5 px-2 py-1.5 hover:bg-bg-hover transition-colors ${perm ? 'bg-accent/5' : ''}`} style={{ paddingLeft: '8px' }}>
+ <div className={`flex flex-wrap md:flex-nowrap md:coarse:flex-wrap items-center gap-1.5 px-2 py-1.5 hover:bg-bg-hover transition-colors ${perm ? 'bg-accent/5' : ''}`} style={{ paddingLeft: '8px' }}>
  <span className="shrink-0 w-4" />
  <FolderX size={13} className={`shrink-0 ${perm ? 'text-accent' : 'text-text-muted'}`} />
  <span className={`flex-1 min-w-0 text-sm truncate ${perm ? 'text-text-primary font-medium' : 'text-text-primary'}`}>
@@ -1498,7 +1525,7 @@ function PermDeviceRow({
  const md = useMediaQuery(MEDIA.md);
  return (
  <div
- className={`flex flex-wrap md:flex-nowrap items-center gap-1.5 px-2 py-1.5 hover:bg-bg-hover transition-colors ${
+ className={`flex flex-wrap md:flex-nowrap md:coarse:flex-wrap items-center gap-1.5 px-2 py-1.5 hover:bg-bg-hover transition-colors ${
  perm ? 'bg-accent/5' : ''
  }`}
  style={{ paddingLeft: `${depth * (md ? 20 : 12) + 28}px` }}

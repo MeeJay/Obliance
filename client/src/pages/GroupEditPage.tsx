@@ -16,6 +16,8 @@ import { MaintenanceWindowList } from '@/components/maintenance/MaintenanceWindo
 import { ThresholdsEditor } from '@/components/common/ThresholdsEditor';
 import type { MetricThresholds } from '@obliance/shared';
 import { cn } from '@/utils/cn';
+import { PageContainer } from '@/components/common/PageContainer';
+import { IconButton } from '@/components/common/IconButton';
 import toast from 'react-hot-toast';
 
 function findNodeById(nodes: DeviceGroupTreeNode[], id: number): DeviceGroupTreeNode | null {
@@ -104,7 +106,7 @@ export function GroupEditPage() {
  if (!group || !canWriteGroup(groupId)) {
  return (
  <div className="flex h-full flex-col items-center justify-center">
- <p className="text-text-muted">Group not found or access denied</p>
+ <p className="text-text-muted">{t('groups.notFoundOrDenied', 'Group not found or access denied')}</p>
  <Link to="/" className="mt-4">
  <Button variant="secondary">{t('monitors.backToDashboard')}</Button>
  </Link>
@@ -177,16 +179,16 @@ export function GroupEditPage() {
  const admin = isAdmin();
 
  return (
- <div className="p-6">
+ <PageContainer>
  <Link
  to={`/group/${groupId}`}
- className="inline-flex items-center gap-1 text-sm text-text-secondary hover:text-text-primary mb-4"
+ className="inline-flex items-center gap-1 text-sm text-text-secondary hover:text-text-primary mb-4 max-w-full coarse:min-h-10"
  >
- <ArrowLeft size={14} />
- {t('groups.backToGroup', { name: group.name })}
+ <ArrowLeft size={14} className="shrink-0" />
+ <span className="truncate">{t('groups.backToGroup', { name: group.name })}</span>
  </Link>
 
- <div className="flex items-center gap-3 mb-6">
+ <div className="flex items-center gap-3 mb-6 max-sm:flex-wrap max-sm:gap-y-2">
  <h1 className="text-2xl font-semibold text-text-primary">{t('groups.edit')}</h1>
  <span className="inline-flex items-center gap-1 rounded-full bg-bg-tertiary border border-transparent px-2.5 py-0.5 text-xs font-medium text-text-muted">
  <FolderTree size={11} />
@@ -195,7 +197,7 @@ export function GroupEditPage() {
  </div>
 
  {/* General */}
- <div className="rounded-lg bg-bg-secondary p-5 mb-6">
+ <div className="rounded-lg bg-bg-secondary p-5 mb-6 max-sm:p-4">
  <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide mb-4">{t('monitors.form.sectionGeneral')}</h2>
  <form onSubmit={handleSubmit} className="space-y-4">
  <Input
@@ -256,8 +258,8 @@ export function GroupEditPage() {
 
  {/* Position (admin only) */}
  {admin && (
- <div className="rounded-lg bg-bg-secondary p-5 mb-6">
- <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide mb-4">Position</h2>
+ <div className="rounded-lg bg-bg-secondary p-5 mb-6 max-sm:p-4">
+ <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide mb-4">{t('groups.position', 'Position')}</h2>
 
  {/* Parent group */}
  <div className="mb-5">
@@ -270,7 +272,7 @@ export function GroupEditPage() {
  excludeId={groupId}
  />
  {pendingParentId !== undefined && (
- <div className="flex items-center gap-2 mt-2">
+ <div className="flex items-center gap-2 mt-2 flex-wrap">
  <Button size="sm" onClick={handleMove} loading={movingSaving}>
  {t('groups.applyMove')}
  </Button>
@@ -301,32 +303,35 @@ export function GroupEditPage() {
  <span className="w-5 shrink-0 text-right text-xs text-text-muted">{idx + 1}</span>
  <span className="flex-1 truncate">{sibling.name}</span>
  {sibling.id === groupId && (
- <div className="flex items-center gap-0.5">
- <button
- type="button"
+ /* Drag-and-drop in the groups panel needs a long-press on
+ touch: these arrows are the direct tap path to reorder —
+ 40px targets on touch, meaning in aria-label (docs §5.3/5.4). */
+ <div className="flex items-center gap-0.5 coarse:gap-1">
+ <IconButton
+ label={t('groups.form.moveUp')}
+ icon={<ChevronUp size={14} className="coarse:h-5 coarse:w-5" />}
+ size="xs"
+ variant="plain"
  onClick={() => moveSibling(idx, -1)}
  disabled={idx === 0}
- className="rounded p-0.5 text-text-muted hover:text-text-primary disabled:opacity-30"
- title={t('groups.form.moveUp')}
- >
- <ChevronUp size={14} />
- </button>
- <button
- type="button"
+ className="disabled:opacity-30"
+ />
+ <IconButton
+ label={t('groups.form.moveDown')}
+ icon={<ChevronDown size={14} className="coarse:h-5 coarse:w-5" />}
+ size="xs"
+ variant="plain"
  onClick={() => moveSibling(idx, 1)}
  disabled={idx === siblingsOrder.length - 1}
- className="rounded p-0.5 text-text-muted hover:text-text-primary disabled:opacity-30"
- title={t('groups.form.moveDown')}
- >
- <ChevronDown size={14} />
- </button>
+ className="disabled:opacity-30"
+ />
  </div>
  )}
  </div>
  ))}
  </div>
  {reorderDirty && (
- <div className="flex items-center gap-2 mt-2">
+ <div className="flex items-center gap-2 mt-2 flex-wrap">
  <Button size="sm" onClick={handleReorder} loading={reorderSaving}>
  {t('groups.saveOrder')}
  </Button>
@@ -381,7 +386,7 @@ export function GroupEditPage() {
  {/* Lot D.2 — group-level metric thresholds. Saved via groupsApi.update,
  inherited by every device that does not set its own override. */}
  <GroupThresholdsCard groupId={groupId} initial={group.thresholds} groupName={group.name} onSaved={(next) => setGroup((g) => g ? { ...g, thresholds: next } : g)} />
- </div>
+ </PageContainer>
  );
 }
 

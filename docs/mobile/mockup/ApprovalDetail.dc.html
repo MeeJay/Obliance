@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Approbation — téléphone</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Rajdhani:wght@600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+body{margin:0;font-family:Inter,system-ui,sans-serif;background:#0b0d1a;color:#f0f4fc;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+a{color:inherit;text-decoration:none}a:hover{color:inherit}
+::placeholder{color:#828caf;opacity:1}
+@keyframes obliPulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes obliSpin{to{transform:rotate(360deg)}}
+@keyframes obliSkeleton{0%,100%{opacity:.55}50%{opacity:1}}
+</style>
+</helmet>
+<div style="position:relative;width:390px;height:844px;box-sizing:border-box;display:flex;flex-direction:column;background:#0B0D1A;overflow:hidden">
+
+  <header style="flex:none;display:flex;align-items:center;gap:4px;height:64px;padding:0 4px;background:#0F1220">
+    <a href="Main.dc.html" aria-label="Retour à À traiter" style="display:flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:24px;color:#F0F4FC"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg></a>
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+      <span style="font:600 24px/28px Rajdhani,Inter,sans-serif;letter-spacing:.025em;color:#F0F4FC;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Demande d'approbation</span>
+      <span style="font:400 12px/16px Inter,system-ui,sans-serif;color:#828CAF;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">BASH · reçue à 03:21</span>
+    </div>
+    <button type="button" aria-label="Plus d'options" style="display:flex;align-items:center;justify-content:center;width:48px;height:48px;padding:0;border:0;border-radius:24px;background:transparent;color:#B4BCD7;cursor:pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg></button>
+  </header>
+
+  <main style="flex:1;min-height:0;overflow-x:hidden;overflow-y:auto;scrollbar-width:none;display:flex;flex-direction:column;gap:12px;padding:12px 16px 24px;box-sizing:border-box">
+
+    <section aria-label="Demande" style="flex:none;display:flex;align-items:center;gap:14px;padding:16px 16px 16px 18px;border-radius:12px;background:#131728;box-shadow:0 6px 24px -8px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.03)">
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+        <span style="display:flex;align-items:center;gap:6px;font:400 11px/14px 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:#828CAF"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><polyline points="16 11 18 13 22 9"></polyline></svg>Approbation à deux</span>
+        <h1 style="margin:0;font:600 20px/28px Inter,system-ui,sans-serif;color:#F0F4FC">Désinstallation d'agent</h1>
+        <span style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span style="flex:none;display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px 0 8px;border-radius:999px;background:rgba(96,165,250,.12);color:#60A5FA;font:500 12px/16px Inter,system-ui,sans-serif;white-space:nowrap"><span style="flex:none;width:8px;height:8px;border-radius:50%;background:#60A5FA"></span>En attente</span>
+          <span style="font:400 12px/16px 'JetBrains Mono',ui-monospace,monospace;color:#B4BCD7;white-space:nowrap">expire à 03:51</span>
+        </span>
+      </div>
+      <span role="img" aria-label="Expire dans 27 minutes 14 secondes" style="position:relative;flex:none;display:inline-flex;width:56px;height:56px">
+        <svg width="56" height="56" viewBox="0 0 56 56" aria-hidden="true" style="display:block;transform:rotate(-90deg)"><circle cx="28" cy="28" r="24" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="4"></circle><circle cx="28" cy="28" r="24" fill="none" stroke="#60A5FA" stroke-width="4" stroke-linecap="round" stroke-dasharray="136.9 150.8"></circle></svg>
+        <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:500 12px/16px 'JetBrains Mono',ui-monospace,monospace;color:#F0F4FC">27:14</span>
+      </span>
+    </section>
+
+    <section aria-label="Demandeur et cible" style="flex:none;display:flex;flex-direction:column;gap:14px;padding:14px 16px 16px;border-radius:12px;background:#131728;box-shadow:0 6px 24px -8px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.03)">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <h2 style="margin:0;font:400 11px/14px 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:#828CAF">Demandée par</h2>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span aria-hidden="true" style="flex:none;display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;background:#2A3048;color:#F0F4FC;font:600 14px/16px Inter,system-ui,sans-serif">JM</span>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column">
+            <span style="font:600 16px/22px Inter,system-ui,sans-serif;color:#F0F4FC">Julien Moreau</span>
+            <span style="font:400 12px/16px 'JetBrains Mono',ui-monospace,monospace;color:#828CAF;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">og_julien.moreau · 03:21</span>
+          </span>
+          <span aria-label="Tenant BASH" style="flex:none;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px 0 8px;border-radius:8px;background:#1D2238;color:#F0F4FC;font:500 12px/16px Inter,system-ui,sans-serif;white-space:nowrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B4BCD7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"></path><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"></path><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"></path><path d="M10 6h4"></path><path d="M10 10h4"></path><path d="M10 14h4"></path><path d="M10 18h4"></path></svg>BASH</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <h2 style="margin:0;font:400 11px/14px 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:#828CAF">Cible</h2>
+        <button type="button" aria-label="Ouvrir PC-ATELIER-02 en lecture" style="display:flex;align-items:center;gap:10px;width:100%;min-height:72px;padding:10px 2px 10px 10px;box-sizing:border-box;border:0;border-radius:8px;background:#181C30;text-align:left;cursor:pointer">
+          <span style="position:relative;flex:none;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:6px;background:#1D2238;color:#B4BCD7"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><rect width="20" height="14" x="2" y="3" rx="2"></rect><line x1="8" x2="16" y1="21" y2="21"></line><line x1="12" x2="12" y1="17" y2="21"></line></svg><span style="position:absolute;right:-3px;bottom:-3px;width:10px;height:10px;border-radius:50%;background:#9CA3AF;box-shadow:0 0 0 2px #181C30"></span></span>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+            <span style="display:flex;align-items:center;gap:8px;min-width:0"><span style="flex:1;min-width:0;font:600 16px/22px Inter,system-ui,sans-serif;color:#F0F4FC;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">PC-ATELIER-02</span><span style="flex:none;display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 8px 0 6px;border-radius:999px;background:rgba(156,163,175,.12);color:#9CA3AF;font:500 12px/16px Inter,system-ui,sans-serif;white-space:nowrap"><span style="flex:none;width:6px;height:6px;border-radius:50%;background:#9CA3AF"></span>Hors ligne</span></span>
+            <span style="font:400 12px/16px 'JetBrains Mono',ui-monospace,monospace;color:#828CAF;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">10.0.14.22 · Windows 10 Pro 22H2</span>
+            <span style="display:flex;align-items:center;gap:6px;font:400 12px/16px Inter,system-ui,sans-serif;color:#9CA3AF;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>Hors ligne depuis 3 j · Siège › Atelier</span>
+          </span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#828CAF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="m9 18 6-6-6-6"></path></svg>
+        </button>
+      </div>
+    </section>
+
+    <section aria-label="Ce qui sera exécuté" style="flex:none;display:flex;flex-direction:column;gap:6px;padding:14px 16px 4px;border-radius:12px;background:#131728;box-shadow:0 6px 24px -8px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.03)">
+      <h2 style="margin:0;font:400 11px/14px 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:#828CAF">Ce qui sera exécuté</h2>
+      <p style="margin:0;display:flex;flex-direction:column;gap:2px"><span style="font:500 16px/24px Inter,system-ui,sans-serif;color:#F0F4FC">L'agent Obliance sera désinstallé.</span><span style="font:400 14px/20px Inter,system-ui,sans-serif;color:#B4BCD7">L'appareil disparaîtra de la flotte après 10&#8239;min.</span></p>
+      <button type="button" onClick="{{ toggleDetails }}" aria-expanded="{{detailsExpanded}}" style="display:flex;align-items:center;gap:8px;height:44px;margin:0 -8px;padding:0 8px;border:0;border-radius:8px;background:transparent;color:#60A5FA;font:500 14px/20px Inter,system-ui,sans-serif;cursor:pointer;text-align:left">Détails techniques<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none;transform:{{detailsChevron}}"><path d="m6 9 6 6 6-6"></path></svg></button>
+      <sc-if value="{{detailsOpen}}" hint-placeholder-val="{{ false }}">
+        <div style="display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:14px;row-gap:4px;margin-bottom:10px;padding:12px 14px;border-radius:8px;background:#080A14;font:400 12px/18px 'JetBrains Mono',ui-monospace,monospace;color:#D6DCEB">
+          <span style="color:#7C86A8">type</span><span>device_uninstall</span>
+          <span style="color:#7C86A8">cible</span><span>PC-ATELIER-02 (BASH)</span>
+          <span style="color:#7C86A8">route</span><span style="overflow-wrap:anywhere">POST /api/devices/:id/uninstall</span>
+          <span style="color:#7C86A8">demandeur</span><span>og_julien.moreau</span>
+          <span style="color:#7C86A8">créée</span><span>25/09 03:21</span>
+          <span style="color:#7C86A8">expire</span><span>25/09 03:51</span>
+        </div>
+      </sc-if>
+    </section>
+
+    <section aria-label="Motif" style="flex:none;display:flex;flex-direction:column;gap:8px;padding-top:4px">
+      <label style="display:block">
+        <span style="display:flex;flex-direction:column;justify-content:center;height:56px;padding:0 12px;box-sizing:border-box;border-radius:6px;background:#181C30">
+          <span style="font:400 12px/16px Inter,system-ui,sans-serif;color:#828CAF">Motif (facultatif)</span>
+          <input type="text" placeholder="Ajoutez un motif…" style="width:100%;padding:0;border:0;outline:none;background:transparent;color:#F0F4FC;font:400 16px/24px Inter,system-ui,sans-serif">
+        </span>
+        <span style="display:flex;align-items:center;gap:6px;padding:6px 12px 0;font:400 12px/16px Inter,system-ui,sans-serif;color:#828CAF"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>Obligatoire pour refuser. Visible par le demandeur.</span>
+      </label>
+      <div role="group" aria-label="Motifs rapides" style="display:flex;flex-wrap:wrap;column-gap:8px">
+        <button type="button" aria-pressed="false" style="flex:none;display:inline-flex;align-items:center;height:44px;padding:0;border:0;background:transparent;cursor:pointer"><span style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:8px;background:#181C30;color:#B4BCD7;font:500 14px/20px Inter,system-ui,sans-serif;white-space:nowrap">Validé par téléphone</span></button>
+        <button type="button" aria-pressed="false" style="flex:none;display:inline-flex;align-items:center;height:44px;padding:0;border:0;background:transparent;cursor:pointer"><span style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:8px;background:#181C30;color:#B4BCD7;font:500 14px/20px Inter,system-ui,sans-serif;white-space:nowrap">Mauvaise cible</span></button>
+        <button type="button" aria-pressed="false" style="flex:none;display:inline-flex;align-items:center;height:44px;padding:0;border:0;background:transparent;cursor:pointer"><span style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:8px;background:#181C30;color:#B4BCD7;font:500 14px/20px Inter,system-ui,sans-serif;white-space:nowrap">Hors fenêtre de maintenance</span></button>
+      </div>
+    </section>
+
+  </main>
+
+  <div style="flex:none;display:flex;flex-direction:column;gap:8px;padding:8px 16px 12px;background:#0F1220">
+    <span style="display:flex;align-items:center;justify-content:center;gap:6px;font:400 12px/16px Inter,system-ui,sans-serif;color:#828CAF"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="M2 12C2 6.5 6.5 2 12 2a10 10 0 0 1 8 4"></path><path d="M5 19.5C5.5 18 6 15 6 12c0-.7.12-1.37.34-2"></path><path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"></path><path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"></path><path d="M8.65 22c.21-.66.45-1.32.57-2"></path><path d="M14 13.12c0 2.38 0 6.38-1 8.88"></path><path d="M2 16h.01"></path><path d="M21.8 16c.2-2 .131-5.354 0-6"></path><path d="M9 6.8a6 6 0 0 1 9 5.2c0 .47 0 1.17-.02 2"></path></svg>L'approbation est confirmée par votre empreinte</span>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+      <a href="Main.dc.html" style="display:flex;align-items:center;justify-content:center;gap:8px;height:52px;padding:0 20px;box-sizing:border-box;border:0;border-radius:8px;white-space:nowrap;cursor:pointer;font:500 14px/20px Inter,system-ui,sans-serif;background:rgba(255,104,104,.12);color:#FF6868"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><circle cx="12" cy="12" r="10"></circle><path d="m15 9-6 6"></path><path d="m9 9 6 6"></path></svg>Refuser</a>
+      <a href="Main.dc.html" aria-label="Approuver la désinstallation de l'agent de PC-ATELIER-02 (BASH), confirmation par empreinte" style="display:flex;align-items:center;justify-content:center;gap:8px;height:52px;padding:0 20px;box-sizing:border-box;border:0;border-radius:8px;white-space:nowrap;cursor:pointer;font:500 14px/20px Inter,system-ui,sans-serif;background:#C83232;color:#FFFFFF;box-shadow:inset 0 1px 0 rgba(255,255,255,.10)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="M2 12C2 6.5 6.5 2 12 2a10 10 0 0 1 8 4"></path><path d="M5 19.5C5.5 18 6 15 6 12c0-.7.12-1.37.34-2"></path><path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"></path><path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"></path><path d="M8.65 22c.21-.66.45-1.32.57-2"></path><path d="M14 13.12c0 2.38 0 6.38-1 8.88"></path><path d="M2 16h.01"></path><path d="M21.8 16c.2-2 .131-5.354 0-6"></path><path d="M9 6.8a6 6 0 0 1 9 5.2c0 .47 0 1.17-.02 2"></path></svg>Approuver</a>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state || {};
+    const open = !!s.detailsOpen;
+    return {
+      detailsOpen: open,
+      detailsExpanded: open ? 'true' : 'false',
+      detailsChevron: open ? 'rotate(180deg)' : 'none',
+      toggleDetails: () => this.setState({ detailsOpen: !open })
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -63,7 +63,12 @@
     "page": "Page",
     "confirmDelete": "Are you sure?",
     "deleted": "Deleted",
-    "retry": "Retry"
+    "retry": "Retry",
+    "requiredField": "This field is required",
+    "processing": "Working…",
+    "add": "Add",
+    "device": "Device",
+    "clear": "Clear"
   },
   "status": {
     "up": "UP",
@@ -114,7 +119,29 @@
     "supervision": "Supervision",
     "discovery": "Discovery",
     "automations": "Automations",
-    "customSections": "Custom sections"
+    "customSections": "Custom sections",
+    "menu": "Menu",
+    "closeMenu": "Close menu",
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar",
+    "expandGroup": "Expand {{name}}",
+    "collapseGroup": "Collapse {{name}}",
+    "groupCounts": "{{online}} online · {{warning}} warning · {{critical}} critical · {{offline}} offline · {{total}} total",
+    "ungrouped": "Ungrouped",
+    "switchSideBySide": "Switch to side-by-side",
+    "switchStacked": "Switch to stacked",
+    "moveDeviceTitle": "Move device",
+    "moveDeviceConfirm": "Move {{device}} to {{group}}? Scenarios triggered by joining a group may run on this device.",
+    "moveDeviceAction": "Move",
+    "deviceMoved": "Device moved",
+    "deviceMoveFailed": "Failed to move device",
+    "agentConfig": "Agent config",
+    "workspace": "Workspace",
+    "collapseNav": "Collapse navigation",
+    "expandNav": "Expand navigation",
+    "collapseAdmin": "Collapse administration",
+    "expandAdmin": "Expand administration",
+    "administration": "Administration"
   },
   "login": {
     "title": "Monitoring Dashboard",
@@ -145,7 +172,8 @@
     "ssoChecking": "Checking authentication...",
     "ssoRedirecting": "Redirecting to login...",
     "clientVersion": "client v{{version}}",
-    "serverVersion": "server v{{version}}"
+    "serverVersion": "server v{{version}}",
+    "ssoFailed": "SSO authentication failed. Please try local login."
   },
   "forgotPassword": {
     "title": "Reset your password",
@@ -560,7 +588,10 @@
     },
     "allDevices": "All Devices",
     "title": "Groups",
-    "searchPlaceholder": "Search groups..."
+    "searchPlaceholder": "Search groups...",
+    "notFoundOrDenied": "Group not found or access denied",
+    "position": "Position",
+    "addSubgroup": "Add sub-group"
   },
   "notifications": {
     "title": "Notifications",
@@ -599,12 +630,17 @@
     "selectTenant": "— Select workspace —",
     "grantAccess": "Grant access",
     "removeTenantAccess": "Remove workspace access",
-    "failedTenantAssign": "Failed to update workspace access"
+    "failedTenantAssign": "Failed to update workspace access",
+    "removeRecipient": "Remove {{email}}",
+    "removeFromGlobalHint": "Remove from global",
+    "addToGlobalHint": "Add to global notifications"
   },
   "settings": {
     "obligate": {
       "description": "Connect this app to your Obligate SSO gateway for centralized authentication and cross-app navigation. Register this app in Obligate first, then paste the API key here.",
-      "warning": "When enabled, local authentication is disabled. Users must sign in through the Obligate gateway. If the gateway becomes unreachable, local authentication is automatically restored as a fallback."
+      "warning": "When enabled, local authentication is disabled. Users must sign in through the Obligate gateway. If the gateway becomes unreachable, local authentication is automatically restored as a fallback.",
+      "open": "Open ↗",
+      "enableSso": "Enable SSO"
     },
     "title": "Global Settings",
     "globalDesc": "These defaults apply to all groups and monitors unless overridden at a lower level.",
@@ -654,7 +690,8 @@
       "testOk": "Connection to \"{{name}}\" successful",
       "failedSave": "Failed to save SMTP server",
       "failedDelete": "Failed to delete server",
-      "testFailed": "Connection failed"
+      "testFailed": "Connection failed",
+      "confirmDelete": "Delete SMTP server \"{{name}}\"?"
     },
     "security": {
       "title": "Security",
@@ -666,7 +703,11 @@
       "otpSmtpDesc": "Used to send one-time codes when Email OTP is enabled.",
       "noneOption": "— None —"
     },
-    "failedUpdate": "Failed to update setting"
+    "failedUpdate": "Failed to update setting",
+    "toggleSecretVisibility": "Show / hide",
+    "extensions": {
+      "remove": "Remove .{{ext}}"
+    }
   },
   "profile": {
     "title": "My Profile",
@@ -729,7 +770,10 @@
       "failedSendCode": "Failed to send code",
       "enterCode": "Enter the code sent to {{email}}",
       "emailOtpEnabled": "Email OTP enabled",
-      "invalidCode": "Invalid code"
+      "invalidCode": "Invalid code",
+      "openAuthenticator": "Open in authenticator app",
+      "openAuthenticatorFailed": "No authenticator app could be opened. Copy the secret instead.",
+      "copySecret": "Copy secret"
     },
     "appearance": {
       "title": "APPEARANCE",
@@ -744,7 +788,18 @@
       "removed": "Profile picture removed",
       "failed": "Failed to upload picture",
       "tooLarge": "Image too large — max 375KB",
-      "remove": "Remove picture"
+      "remove": "Remove picture",
+      "change": "Change photo"
+    },
+    "quickReplies": {
+      "removed": "Quick reply removed",
+      "undo": "Undo"
+    },
+    "trustedIps": {
+      "confirmRevoke": "Revoke trust for {{ip}}? The next sensitive action from this IP will prompt for TOTP again.",
+      "revoke": "Revoke",
+      "confirmRevokeAll": "Revoke trust for ALL IPs? Every sensitive action will prompt for TOTP again until you re-opt-in.",
+      "revokeAll": "Revoke all"
     }
   },
   "users": {
@@ -798,13 +853,58 @@
       "inherited": "inherited",
       "failedAddPermission": "Failed to add permission",
       "failedUpdatePermission": "Failed to update permission",
-      "failedRemovePermission": "Failed to remove permission"
+      "failedRemovePermission": "Failed to remove permission",
+      "toggleLevelHint": "Click to toggle RO/RW",
+      "removePermission": "Remove permission",
+      "readOnly": "Read Only",
+      "readWrite": "Read/Write",
+      "collapse": "Collapse",
+      "expand": "Expand"
     },
     "resetMfa": "Reset MFA",
     "confirmResetMfa": "Disable all 2FA methods for \"{{username}}\"? They will be able to log in without a second factor.",
     "mfaReset": "MFA disabled for {{username}}",
     "failedResetMfa": "Failed to reset MFA",
-    "tabNotifications": "Notifications"
+    "tabNotifications": "Notifications",
+    "actions": {
+      "password": "Change password",
+      "tenants": "Manage tenant access"
+    },
+    "tenantPanel": {
+      "title": "Tenants",
+      "adminNotice": "Platform admins automatically access all tenants. No per-tenant assignment is needed.",
+      "none": "No tenants available",
+      "role": "Role:",
+      "member": "Member"
+    },
+    "capabilities": {
+      "execute": {
+        "label": "Execute",
+        "description": "Scripts, scans, services, install/uninstall"
+      },
+      "remote": {
+        "label": "Remote",
+        "description": "Reach, RDP, SSH shell sessions"
+      },
+      "files": {
+        "label": "Files",
+        "description": "Browse, upload, download, edit files"
+      },
+      "power": {
+        "label": "Power",
+        "description": "Reboot, shutdown, sleep, restart agent"
+      }
+    },
+    "restrictions": {
+      "scopeHint": "Configure which devices / groups this restriction applies to",
+      "scopeTitle": "Scope — {{key}}",
+      "applyScope": "Apply scope",
+      "scopeAll": "All devices (default)",
+      "scopeInclude": "Only these",
+      "scopeExclude": "All except these",
+      "searchDevices": "Search devices…",
+      "devicesTruncated": "Showing the first {{count}} devices — refine the search to find others."
+    }
   },
   "agents": {
     "tabKeys": "API Keys",
@@ -961,7 +1061,8 @@
     "dayThu": "Thu",
     "dayFri": "Fri",
     "daySat": "Sat",
-    "daySun": "Sun"
+    "daySun": "Sun",
+    "deleteConfirm": "Delete the maintenance window \"{{name}}\"?"
   },
   "importExport": {
     "title": "Import / Export",
@@ -1007,7 +1108,8 @@
     "noImportable": "No importable sections found in this file.",
     "statCreated": "{{count}} created",
     "statUpdated": "{{count}} updated",
-    "statSkipped": "{{count}} skipped"
+    "statSkipped": "{{count}} skipped",
+    "dropzoneTouch": "Tap to choose an export file (.json)"
   },
   "download": {
     "title": "Obli.tools",
@@ -1039,6 +1141,50 @@
       "noBrowserOverhead": "No browser overhead",
       "remembersUrl": "Remembers your server URL",
       "alwaysUpToDate": "Always up-to-date — no rebuilds needed"
+    },
+    "released": "released",
+    "versionUnavailable": "Version info unavailable — the server may still be building the release.",
+    "loading": "Loading version…",
+    "installerButton": "Download installer (.msi)",
+    "releaseNotes": "Release notes",
+    "whatItIs": "What you get",
+    "feature": {
+      "native": "Native Windows viewer for ObliReach sessions — no browser overhead.",
+      "notifs": "System tray + desktop notifications when remote sessions change state.",
+      "autoupdate": "In-app update prompt when a new version ships (you stay in control — no silent updates)."
+    },
+    "android": {
+      "sectionTitle": "Mobile app",
+      "title": "Android",
+      "description": "Obliance on your Android phone or tablet: native downloads, notifications and in-app updates.",
+      "loading": "Loading version…",
+      "unavailable": "The Android app is not published on this server yet.",
+      "sizeMb": "{{size}} MB",
+      "requires": "Android {{version}}+",
+      "button": "Download the app (.apk)",
+      "directLink": "Direct link",
+      "installTitle": "How to install",
+      "step1": "Open this page on your Android phone or tablet and download the APK (or send the link above to it).",
+      "step2": "Open the downloaded file. If Android asks, allow your browser or file manager to install unknown apps, then tap Install.",
+      "step3": "Launch the app and enter this server's address:",
+      "step4": "Updates are then offered directly inside the app.",
+      "releaseNotes": "What's new in v{{version}}",
+      "details": "Technical details",
+      "packageName": "Package",
+      "versionCode": "Version code",
+      "sha256": "APK SHA-256",
+      "signer": "Signing certificate SHA-256",
+      "appTitle": "Obliance for Android",
+      "inAppVersion": "You are using the app v{{version}}",
+      "serverVersion": "Latest version on this server: v{{version}}",
+      "newerOnServer": "A newer version (v{{version}}) is available on this server.",
+      "checkUpdates": "Check for updates",
+      "checking": "Checking…",
+      "updateAvailable": "Version v{{version}} is available. Follow the app's prompt to install it.",
+      "upToDate": "The app is up to date.",
+      "checkFailed": "Could not check for updates.",
+      "downloadUpdate": "Download the update",
+      "downloadStarted": "Download started"
     }
   },
   "notFound": {
@@ -1052,7 +1198,12 @@
     "enableAlerts": "Enable live alerts",
     "socketConnected": "Live — connected to server",
     "socketReconnecting": "Reconnecting to server…",
-    "socketDisconnected": "Disconnected from server — Click to reload"
+    "socketDisconnected": "Disconnected from server — Click to reload",
+    "openMenu": "Open menu",
+    "apps": "Apps",
+    "accountMenu": "Account menu",
+    "appSettings": "App settings",
+    "appUpdates": "App updates"
   },
   "tenant": {
     "pageTitle": "Workspaces",
@@ -1132,7 +1283,8 @@
       "failedCreate": "Failed to create key",
       "confirmDelete": "Delete this API key? This will prevent agents using it from registering.",
       "deleteSuccess": "API key deleted",
-      "failedDelete": "Failed to delete key"
+      "failedDelete": "Failed to delete key",
+      "copyFailed": "Could not copy — select the key and copy it manually"
     },
     "addModal": {
       "title": "Add Device",
@@ -1165,7 +1317,13 @@
       "allOs": "All OS",
       "allGroups": "All groups",
       "reset": "Reset",
-      "select": "Select"
+      "select": "Select",
+      "button": "Filters",
+      "clearAll": "Clear filters",
+      "masterSuffix": "(master)",
+      "showResults_one": "Show {{count}} device",
+      "showResults_other": "Show {{count}} devices",
+      "tenant": "Tenant"
     },
     "table": {
       "device": "Device",
@@ -1205,7 +1363,8 @@
       "runScriptOpenRunPage": "Open run page →",
       "runScriptConfirm": "Run",
       "runScriptDispatched": "Script dispatched to {{count}} devices",
-      "updateAgent": "Update agent"
+      "updateAgent": "Update agent",
+      "clearSelection": "Clear selection"
     },
     "action": {
       "updateAgent": "Update agent",
@@ -1218,6 +1377,57 @@
       "delete": "Delete",
       "uninstall": "Uninstall agent",
       "confirmUninstall": "Uninstall the agent from this device?"
+    },
+    "export": {
+      "csv": "Export CSV",
+      "pdf": "Export PDF",
+      "title": "Export filtered devices",
+      "xlsx": "Export Excel (xlsx)"
+    },
+    "list": {
+      "count_one": "{{count}} device",
+      "count_other": "{{count}} devices"
+    },
+    "metrics": {
+      "none": "No metrics"
+    },
+    "row": {
+      "airgap": "Airgap",
+      "legacyHint": "Legacy Go 1.20 agent — no remote shell, ObliReach, software compliance, or auto-update",
+      "privacyMode": "Privacy mode",
+      "rebootPending": "Reboot pending",
+      "select": "Select"
+    },
+    "sort": {
+      "ascending": "Ascending",
+      "default": "Default (by group)",
+      "descending": "Descending",
+      "label": "Sort"
+    },
+    "transfer": {
+      "bulkDone": "Transferred {{n}} device(s)",
+      "bulkFailed": "{{n}} transfer(s) failed — see audit log",
+      "bulkTitle": "Transfer {{n}} device(s) to another tenant",
+      "bulkWarning": "Group assignment, custom metrics and compliance results in the current tenant will be cleared for every selected device. Each agent is reconfigured with the target tenant's API key on its next check-in.",
+      "confirmMessage": "This will clear the device's group, drop its custom metrics and compliance results in the current tenant, and reconfigure the agent to report to the new tenant on its next check-in.",
+      "confirmTitle": "Transfer \"{{device}}\" to {{tenant}}?",
+      "failed": "Transfer failed",
+      "initiated": "Transfer initiated — agent will reconfigure on next push.",
+      "keyFallback": "Key #{{id}}",
+      "loadFailed": "Failed to load target tenants",
+      "noApiKeys": "no API keys",
+      "noCandidates": "You are not admin in any other tenant. Ask a platform admin to perform the transfer, or join the target tenant as admin first.",
+      "noCandidatesShort": "You are not admin in any other tenant.",
+      "noKeysHint": "This tenant has no API keys yet. Create one under",
+      "noKeysHintSuffix": "in that tenant first.",
+      "selectShort": "— Select —",
+      "selectTenant": "— Select a tenant —",
+      "submit": "Transfer",
+      "targetKey": "Target API key",
+      "targetTenant": "Target tenant",
+      "title": "Transfer to another tenant",
+      "warningPrefix": "This transfers",
+      "warningSuffix": "to another tenant. Group assignment, custom metrics, schedule alerts, and compliance results from the current tenant will be cleared. The agent's API key will be swapped via a queued command on its next push."
     }
   },
   "compliance": {
@@ -1381,17 +1591,55 @@
       "deleteRule": "Remove",
       "noRules": "No rules yet. Add a rule or load a preset.",
       "minOsVersion": "Min. OS version",
-      "minOsVersionPlaceholder": "e.g. Windows 10, macOS 12"
+      "minOsVersionPlaceholder": "e.g. Windows 10, macOS 12",
+      "categoryPlaceholder": "e.g. Firewall",
+      "expectedPlaceholder": "Expected value",
+      "remediationScript": "Remediation Script",
+      "remediationScriptHint": "script to fix this rule when it fails",
+      "remediationScriptPlaceholder": "PowerShell or Bash script to remediate..."
     },
     "presetsSuggest": "Start from a template",
     "presetsNote": "Selecting a preset pre-fills the rules — you can customize them freely before saving.",
-    "startWithPreset": "Start with a preset template"
+    "startWithPreset": "Start with a preset template",
+    "filterByDevice": "Filter by device",
+    "groupCount": "{{count}} group(s)",
+    "ignore": "Ignore",
+    "ignoreFailed": "Failed to ignore rules",
+    "ignoreRule": "Ignore this rule",
+    "nameRequired": "Policy name is required",
+    "noRemediableRules": "No remediable rules",
+    "refineSearch": "{{count}} more — refine the search",
+    "remediateAll": "Remediate all",
+    "remediateAllFailing": "Remediate all failing rules",
+    "remediateConfirm": "Run the remediation script for {{count}} rule(s) on this device now?",
+    "remediateConfirmTitle": "Run remediation?",
+    "remediationFailed": "Failed to send remediation",
+    "remediationSent": "Remediation sent for {{count}} rule(s)",
+    "rulesIgnored": "{{count}} rule(s) ignored",
+    "rulesUnignored": "{{count}} rule(s) unignored",
+    "syncPresets": "Sync presets",
+    "syncPresetsDone": "{{count}} policy(ies) synced with latest presets",
+    "syncPresetsFailed": "Sync failed",
+    "syncPresetsHint": "Sync existing policies with latest built-in preset rules",
+    "syncPresetsUpToDate": "All policies already up to date",
+    "unignore": "Unignore",
+    "unignoreFailed": "Failed to unignore rules",
+    "unignoreRule": "Unignore this rule"
   },
   "scripts": {
     "typeSystem": "System",
     "typeUser": "User",
     "systemBadge": "System",
-    "userBadge": "Custom"
+    "userBadge": "Custom",
+    "newScript": "New script",
+    "deleteConfirmNamed": "Delete script \"{{name}}\"?",
+    "expectedExitCodeHint": "The agent marks the execution as 'success' only when the script exits with this code (default: 0)",
+    "history": {
+      "stop": "Stop execution",
+      "stopped": "Stopped",
+      "stopFailed": "Failed to stop",
+      "fullscreen": "Full screen"
+    }
   },
   "deviceHistory": {
     "title": "History",
@@ -1428,7 +1676,91 @@
       "autoRemediation": "Auto-remediation",
       "autoRemediationDesc": "Allow compliance policies to automatically run fix scripts on this device. Disable if this device must remain in a specific state (e.g. firewall intentionally off).",
       "autoRemediationDisabledWarning": "Auto-remediation is disabled. Failing rules will be reported but no fix scripts will run on this device.",
-      "saveSettings": "Save settings"
+      "saveSettings": "Save settings",
+      "removeTag": "Remove tag {{tag}}",
+      "deleteConfirm": "Delete \"{{name}}\" from Obliance?\n\nThe agent is NOT uninstalled — it will re-register on the next push.",
+      "uninstallConfirm": "Uninstall agent on \"{{name}}\"?\n\nThe agent will be removed immediately.\nIf it doesn't confirm within 10 min, the device will reappear.",
+      "uninstall": "Uninstall"
+    },
+    "note": {
+      "placeholder": "Add a note about this device...",
+      "save": "Save (Ctrl+Enter)",
+      "cancel": "Cancel (Esc)",
+      "delete": "Delete note",
+      "edit": "Edit note",
+      "add": "Add a note"
+    },
+    "license": {
+      "delete": "Delete license",
+      "deleteConfirm": "Delete the license \"{{name}}\"?"
+    },
+    "scripts": {
+      "stop": "Stop",
+      "fullscreen": "Fullscreen"
+    },
+    "compliance": {
+      "exportCsv": "Export the CSV report",
+      "remediate": "Remediate",
+      "ignoreRule": "Ignore this rule",
+      "unignoreRule": "Unignore this rule"
+    },
+    "reason": {
+      "disablePrivacyFirst": "Disable privacy mode on the device first",
+      "agentOnline": "Agent must be online",
+      "reachChecking": "Checking Oblireach status…",
+      "reachNotInstalled": "Oblireach agent not installed — click to deploy",
+      "chatNoReach": "ObliReach is not deployed on this device — chat is unavailable",
+      "chatPrivacy": "Chat is unavailable while privacy mode is active (ObliReach service is stopped)",
+      "privacyBlocked": "Blocked by privacy mode (no privacy password set on this device)",
+      "tabPrivacyBlocked": "Blocked by privacy mode — no privacy password is set on this device"
+    },
+    "privacy": {
+      "enableConfirm": "Enable privacy mode on this device? Remote-access features will be blocked until it is turned off (locally via the tray icon or remotely from here)."
+    },
+    "remote": {
+      "chooseSession": "Choose Session",
+      "chooseContext": "Choose Context"
+    },
+    "veeam": {
+      "stopJob": "Stop job"
+    },
+    "tasks": {
+      "cancel": "Cancel task"
+    },
+    "pagination": {
+      "previous": "Previous page",
+      "next": "Next page"
+    },
+    "services": {
+      "actionsFor": "Actions for {{name}}",
+      "start": "Start",
+      "stop": "Stop",
+      "restart": "Restart"
+    },
+    "processes": {
+      "killConfirm": "Kill process \"{{name}}\" (PID {{pid}})?",
+      "kill": "Kill",
+      "user": "User",
+      "memory": "Memory",
+      "commandLine": "Command line"
+    },
+    "header": {
+      "refuseConfirm": "Refuse this device?",
+      "refuse": "Refuse",
+      "scanAll": "Scan All",
+      "restartAgent": "Restart Agent",
+      "sleep": "Suspend device (sleep)",
+      "reboot": "Reboot device",
+      "shutdown": "Shutdown device",
+      "openIn": "Open in {{app}}",
+      "rename": "Rename",
+      "legacyHint": "Legacy Go 1.20 agent — no remote shell / ObliReach / software compliance / auto-update",
+      "moreActions": "More device actions",
+      "refresh": "Refresh device + force agent metrics push"
+    },
+    "chat": {
+      "pickSessionTitle": "Select session to chat with",
+      "pickSessionHint": "Choose which user session to open the chat in."
     }
   },
   "updates": {
@@ -1482,7 +1814,10 @@
       "clear": "Clear",
       "approveAllCritical": "Approve all critical",
       "allSources": "All sources",
-      "devices": "Devices"
+      "devices": "Devices",
+      "approveAndDeploy": "Approve & Deploy",
+      "deployAllApproved": "Deploy all approved",
+      "retryFailed": "Retry failed"
     },
     "toast": {
       "approved": "Update approved",
@@ -1490,7 +1825,12 @@
       "approveFailed": "Failed to approve update",
       "installed": "installed successfully",
       "failed": "installation failed",
-      "loadFailed": "Failed to load updates"
+      "loadFailed": "Failed to load updates",
+      "approvedDispatched": "{{approved}} approved, {{dispatched}} dispatched to {{devices}} device(s)",
+      "deployFailed": "Deploy failed",
+      "deployed": "{{dispatched}} update(s) deployed to {{devices}} device(s)",
+      "retried": "{{count}} update(s) retried",
+      "retryFailed": "Retry failed"
     },
     "policy": {
       "new": "New Policy",
@@ -1528,8 +1868,21 @@
       "nameRequired": "Policy name is required",
       "updated": "Policy updated",
       "created": "Policy created",
-      "saveFailed": "Failed to save policy"
-    }
+      "saveFailed": "Failed to save policy",
+      "groups": "Groups",
+      "noGroups": "No groups available"
+    },
+    "pagination": {
+      "next": "Next page",
+      "previous": "Previous page"
+    },
+    "perPage": "{{count}} / page",
+    "requiresReboot": "Requires reboot",
+    "row": {
+      "deploying": "{{count}} deploying",
+      "failedRetry": "{{count}} failed — retry"
+    },
+    "totalCount": "{{count}} updates"
   },
   "airgap": {
     "badge": "Airgap",
@@ -1563,7 +1916,38 @@
     "disableTitle": "Disable privacy mode on this device",
     "disableSent": "Privacy disable command sent",
     "disableFailed": "Failed to send privacy disable command",
-    "locked": "Privacy mode is locked on this device"
+    "locked": "Privacy mode is locked on this device",
+    "password": {
+      "ack": "I understand this password cannot be recovered by Obliance.",
+      "changeDone": "Privacy password changed",
+      "changeSubmit": "Change password",
+      "changeTitle": "Change privacy password",
+      "confirmNew": "Confirm new password",
+      "current": "Current password",
+      "failed": "Operation failed",
+      "mismatch": "Passwords do not match",
+      "mustBeOff": "Privacy mode must be OFF on the device",
+      "new": "New password",
+      "removeDone": "Privacy password removed",
+      "removeSubmit": "Remove password",
+      "removeTitle": "Remove privacy password",
+      "setDone": "Privacy password set",
+      "setSubmit": "Set password",
+      "setTitle": "Set privacy password",
+      "setWarning": "This password is stored only on the device. Obliance cannot recover it. If you lose it, you will need local access to the machine to reset privacy mode."
+    },
+    "unlock": {
+      "disableHint": "Privacy mode will be turned off on the device.",
+      "disableSubmit": "Disable privacy",
+      "disableSubtitle": "Enter the device password to turn privacy off",
+      "disableTitle": "Disable privacy mode",
+      "hint": "Your unlock lasts 15 minutes and only applies to this feature on this device.",
+      "incorrect": "Incorrect password",
+      "submit": "Unlock",
+      "subtitle": "Enter the device password to access",
+      "title": "Privacy mode unlock",
+      "unlocked": "{{feature}} unlocked"
+    }
   },
   "fileExplorer": {
     "back": "Back",
@@ -1595,7 +1979,25 @@
     "renamed": "Renamed successfully",
     "renameFailed": "Rename failed",
     "deleted": "Deleted successfully",
-    "deleteFailed": "Delete failed"
+    "deleteFailed": "Delete failed",
+    "close": "Close",
+    "ctrlSToSave": "Ctrl+S to save",
+    "deleteConfirm": "Delete \"{{name}}\"?",
+    "discardChanges": "Discard changes",
+    "edit": "Edit",
+    "editorStats": "{{chars}} chars · {{lines}} lines",
+    "maxUploadSize": "Max 150 MB per file",
+    "notEditable": "This file is not editable as text",
+    "open": "Open",
+    "save": "Save",
+    "saveFailed": "Save failed",
+    "saved": "File saved",
+    "tooLarge": "{{count}} file(s) exceed the 150 MB limit: {{names}}",
+    "tooLargeTouch": "{{count}} file(s) exceed the {{limit}} MB upload limit on phones and tablets (the file is loaded in memory): {{names}}",
+    "unsavedBadge": "modified",
+    "unsavedChanges": "You have unsaved changes. Close anyway?",
+    "uploadFailedCount": "{{count}} file(s) failed to upload",
+    "uploadedCount": "{{count}} file(s) uploaded"
   },
   "apiKeys": {
     "defaultGroup": "Default group",
@@ -1615,7 +2017,17 @@
     "manualWizardTitle": "Obliance Install Wizard",
     "manualWizardDescription": "EXE with MSI embedded. Pre-filled with the selected API key. Run on the target — fields are editable for last-minute corrections.",
     "manualDownload": "Download wizard",
-    "pickKeyFirst": "Pick an API key first"
+    "pickKeyFirst": "Pick an API key first",
+    "copyFailed": "Could not copy — select the command and copy it manually",
+    "windowsLegacyHint": "Run in PowerShell (admin) — Server 2008 R2 / 2012",
+    "windowsOldTlsHint": "Run in PowerShell (admin) — Server 2012 / 2016 (TLS fix)",
+    "windowsVariant": "Windows version",
+    "linuxVariant": "Install method",
+    "manualOption": "Manual / offline (wizard)",
+    "linuxManualTitle": "Obliance Install Wizard (Linux)",
+    "linuxManualHint": "Download the wizard binary, copy it to the target box (scp / SFTP / USB), chmod +x and run as root. Agent is embedded — works on boxes with broken CA stores or no outbound HTTP.",
+    "linuxManualDescription": "Static Linux binary with agent embedded. Pre-filled with the selected API key. Run as root — sets up systemd or SysV init automatically, skips TLS verification for boxes with outdated CA bundles.",
+    "downloadFailed": "Download failed"
   },
   "about": {
     "title": "About",
@@ -1657,7 +2069,16 @@
       "pendingApprovalToast": "Schedule saved — privacy-bypass toggle awaiting admin approval"
     },
     "exportCsv": "Export CSV",
-    "exportHistory": "Export this run to CSV (full stdout/stderr)"
+    "exportHistory": "Export this run to CSV (full stdout/stderr)",
+    "openDevice": "Open device",
+    "enabledHint": "When off, the cron loop ignores this schedule entirely — no ticks, no history.",
+    "skipIfRunningHint": "On each tick, skip devices whose previous execution hasn't finished yet. Prevents overlapping runs on slow hosts.",
+    "catchupHint": "If the server was down during a scheduled tick, run it once the server is back (bounded by Max catchup runs).",
+    "assertPassTooltip": "When the script exits non-zero, mark the device with a \"Schedule Error\" status and fire a notification. Leave off for pure-metric scripts where a non-zero exit is expected behaviour.",
+    "notifyOnceTooltip": "Dedupe repeated failure notifications per device: one alert when it starts failing, silence until it recovers. Applies to Assert Pass alerts.",
+    "deleteConfirmNamed": "Delete schedule \"{{name}}\"?",
+    "pauseSchedule": "Pause schedule",
+    "activateSchedule": "Activate schedule"
   },
   "veeam": {
     "title": "Veeam backup jobs",
@@ -1775,14 +2196,23 @@
       "checkpoint": "Create checkpoint",
       "delete": "Delete VM"
     },
-    "columns": "Columns"
+    "columns": "Columns",
+    "consoleError": "Could not open the interactive console",
+    "consoleInstalling": "Installing the console helper on the host (~130 MB download)…",
+    "installConsoleHint": "Download the interactive console helper (~130 MB) onto this host",
+    "installConsole": "Install console",
+    "interactiveConsole": "Interactive console",
+    "consoleZoomOut": "Tap the screen to fit it to the window.",
+    "consoleZoomIn": "Tap the screen to view it at full size (scroll to pan)."
   },
   "policies": {
     "title": "Policies",
     "tabUpdates": "Updates",
     "tabCompliance": "Compliance",
     "tabSoftware": "Software",
-    "tabCves": "CVE"
+    "tabCves": "CVE",
+    "tabNotifications": "Notifications",
+    "tabThresholds": "Thresholds"
   },
   "cves": {
     "statTotal": "Total CVEs",
@@ -1830,7 +2260,21 @@
     "requiredAction": "CISA action",
     "due": "Due",
     "dismissed": "Match dismissed",
-    "dismissTooltip": "Mark as false positive (won't recreate on next scan)"
+    "dismissTooltip": "Mark as false positive (won't recreate on next scan)",
+    "dismissConfirm": "Dismiss {{cve}} as a false positive? It will not be recreated on the next scan.",
+    "dismiss": "Dismiss",
+    "confidenceMatch": "{{level}} confidence match",
+    "confidenceHigh": "High confidence match",
+    "confidenceHighShort": "High",
+    "confidenceLow": "Low confidence — verify",
+    "confidenceLowShort": "Low",
+    "confidenceMedium": "Medium confidence match",
+    "confidenceMediumShort": "Med.",
+    "openInGithub": "Open in GitHub Advisories",
+    "openInNvd": "Open in NVD",
+    "syncError": "CVE sync: {{detail}}",
+    "syncSourcesFailed": "Failed: {{list}}",
+    "syncSummary": "Sync: {{ok}}/{{total}} sources OK, {{upserted}} CVE upserted"
   },
   "supervision": {
     "title": "Supervision",
@@ -1925,7 +2369,12 @@
       "unix": "Linux / macOS",
       "other": "Other",
       "unknown": "Unknown"
-    }
+    },
+    "clearSearch": "Clear search",
+    "newBadge": "New",
+    "nextPage": "Next page",
+    "previousPage": "Previous page",
+    "selectForDeploy": "Select for deploy script"
   },
   "patchReport": {
     "title": "Patch Report",
@@ -1939,7 +2388,14 @@
     "compliance": "Compliance",
     "update": "Update",
     "severity": "Severity",
-    "ungrouped": "Ungrouped"
+    "ungrouped": "Ungrouped",
+    "colCompliance": "Compliance",
+    "colDevices": "Devices",
+    "colGroup": "Group",
+    "colPatched": "Patched",
+    "colSeverity": "Severity",
+    "colUpdate": "Update",
+    "patchedOfTotal": "{{patched}}/{{total}} devices"
   },
   "asset": {
     "title": "Asset Management",
@@ -2036,14 +2492,30 @@
     "personal": "Personal",
     "templates": "Templates",
     "noQuickReplies": "No quick replies configured",
-    "viewDevice": "View device"
+    "viewDevice": "View device",
+    "sendingFile": "Sending {{name}}...",
+    "attachFile": "Attach a file",
+    "send": "Send",
+    "openChat": "Open chat",
+    "minimize": "Minimize",
+    "closeChat": "Close chat",
+    "closeTab": "Close {{name}}"
   },
   "groupPanel": {
     "title": "Groups",
     "allDevices": "All Devices",
     "filterPlaceholder": "Filter groups...",
     "expand": "Expand groups panel",
-    "collapse": "Collapse groups panel"
+    "collapse": "Collapse groups panel",
+    "cancelEsc": "Cancel (Esc)",
+    "dragHint": "Drag to reorder or move to another group",
+    "dragToResize": "Drag to resize",
+    "moveTitle": "Move \"{{name}}\" to…",
+    "moveTo": "Move to…",
+    "newGroupName": "New group name",
+    "rootLevel": "Root level (no parent)",
+    "rootNoParent": "(root — no parent)",
+    "settings": "Group settings"
   },
   "sort": {
     "name": "Name",
@@ -2226,13 +2698,47 @@
     "noKey": "No key yet. Generate one to let scripts pull packages.",
     "copyPs": "PowerShell download command",
     "copySh": "Bash download command",
-    "snippetNeedsKey": "Generate an access key above and replace <VOTRE_CLE_DEPOT> in the command."
+    "snippetNeedsKey": "Generate an access key above and replace <VOTRE_CLE_DEPOT> in the command.",
+    "compliantCount": "{{count}}/{{total}} compliant",
+    "copyFailed": "Copy failed",
+    "entryNamePlaceholder": "e.g. Google Chrome",
+    "history": {
+      "awaiting": "Awaiting agent reply…",
+      "failed": "{{count}} failed",
+      "noOutput": "No output captured.",
+      "ok": "{{count}} OK",
+      "openDevice": "Open device",
+      "pending": "{{count}} pending",
+      "scan": "Scan"
+    },
+    "historyEmpty": "No scan or remediation history yet. Run a scan on a list to populate this view.",
+    "historyHint": "Last 20 scan & remediation batches. Click a batch to drill into device results.",
+    "keyCopyFailed": "Copy failed — select the key and copy it manually, it is only shown once.",
+    "maxVersionPlaceholder": "e.g. 120.0",
+    "minVersionPlaceholder": "e.g. 100.0",
+    "msiUrlPlaceholder": "URL, UNC path, or select from repo",
+    "optionalPlaceholder": "Optional",
+    "remediateConfirm": "Run the remediation for {{count}} entry(ies) on this device now?",
+    "scanEnqueued_one": "Scan enqueued on {{count}} device",
+    "scanEnqueued_other": "Scan enqueued on {{count}} devices",
+    "scanFailed": "Scan failed",
+    "scanNoTargets": "No online target devices",
+    "scanNow": "Scan now on all targets",
+    "scriptPlaceholder": "PowerShell or Bash script...",
+    "tabHistory": "History",
+    "tapToChoose": "Tap Browse to choose a package file"
   },
   "automations": {
     "title": "Automations",
     "tabSchedules": "Schedules",
     "tabScenarios": "Scenarios",
-    "tabScripts": "Scripts"
+    "tabScripts": "Scripts",
+    "readOnlyMaster": "Managed by the Default tenant — read-only",
+    "collapse": "Collapse",
+    "expand": "Expand",
+    "groupTree": {
+      "empty": "No groups available"
+    }
   },
   "scenarios": {
     "title": "Scenarios",
@@ -2278,7 +2784,77 @@
     "cancel": "Cancel",
     "deleteConfirm": "Delete this scenario?",
     "onFailureScenario": "On failure, trigger scenario",
-    "none": "None"
+    "none": "None",
+    "export": {
+      "menu": "Export this scenario as JSON",
+      "lean": "Export (lean)",
+      "leanDesc": "Scenario only — references scripts by id",
+      "withScripts": "Export with scripts",
+      "withScriptsDesc": "Self-contained — embeds full script bodies",
+      "copyJson": "Copy JSON to clipboard",
+      "copyJsonDesc": "Lean export, ready to paste (e.g. into an AI chat)",
+      "failed": "Failed to export scenario"
+    },
+    "importFromTemplate": "Import from template",
+    "importJson": "Import JSON",
+    "importJsonHint": "Import a scenario JSON file (with or without embedded scripts)",
+    "emptyTemplate": "Empty template",
+    "emptyTemplateHint": "Download an empty scenario JSON to share with an AI / colleague",
+    "importExportMenu": "Import / templates",
+    "pasteJson": "Paste JSON",
+    "pasteJsonTitle": "Paste a scenario JSON",
+    "pasteJsonHint": "Paste an exported scenario (with or without embedded scripts).",
+    "invalidJson": "Invalid JSON",
+    "importFailed": "Failed to import scenario",
+    "templateFetchFailed": "Failed to fetch template",
+    "graphEditor": {
+      "closeConfirm": "Close the graph editor? Unsaved changes will be lost."
+    },
+    "savedToast": "Scenario updated",
+    "createdToast": "Scenario created",
+    "deleteConfirmNamed": "Delete scenario \"{{name}}\"?",
+    "stopRunsConfirm_one": "Stop {{count}} active run of \"{{name}}\"?",
+    "stopRunsConfirm_other": "Stop {{count}} active runs of \"{{name}}\"?",
+    "stopRunsAction": "Stop runs",
+    "stopRunsFailed": "Failed to stop runs: {{detail}}",
+    "cancelledRuns_one": "Cancelled {{count}} run",
+    "cancelledRuns_other": "Cancelled {{count}} runs",
+    "stopActiveRuns_one": "Stop {{count}} active run",
+    "stopActiveRuns_other": "Stop {{count}} active runs",
+    "triggerNow": "Trigger now",
+    "runHistory": "Run history",
+    "editGraph": "Edit graph",
+    "editMetadata": "Edit metadata",
+    "runScenario": "Run scenario",
+    "run": "Run",
+    "running": "Running...",
+    "targetDevices": "Target devices",
+    "searchDevices": "Search devices...",
+    "devicesSelected_one": "{{count}} device selected",
+    "devicesSelected_other": "{{count}} devices selected",
+    "import": {
+      "conflictsTitle": "Resolve script conflicts",
+      "conflictsHint_one": "The import contains {{count}} script whose UUID already exists. Choose what to do for each.",
+      "conflictsHint_other": "The import contains {{count}} scripts whose UUID already exists. Choose what to do for each.",
+      "existingScript": "Existing script:",
+      "keepExisting": "Keep existing",
+      "keepExistingDesc": "Don't touch the existing script. Imported nodes point at it.",
+      "overwrite": "Overwrite",
+      "overwriteDesc": "Replace the existing script body with the imported one.",
+      "newCopy": "Create new copy",
+      "newCopyDesc": "Insert as a fresh script with \" (imported)\" suffix.",
+      "importing": "Importing…",
+      "confirm": "Confirm import"
+    },
+    "history": {
+      "title": "Run history — {{name}}",
+      "runCount_one": "{{count}} run",
+      "runCount_other": "{{count}} runs",
+      "empty": "No runs yet. Trigger the scenario to create one.",
+      "pickRun": "Pick a run to see step-by-step output.",
+      "runGone": "Run no longer exists."
+    },
+    "noTemplates": "No templates available."
   },
   "masterTenant": {
     "badge": "🔒 Master",
@@ -2288,11 +2864,13 @@
     "label": "Share to (read-only on target tenants)",
     "hint": "The Default tenant stays the owner. Target tenants see the entity read-only and cannot modify it.",
     "clear": "Clear",
-    "tooltip": "Shared read-only with these tenants"
+    "tooltip": "Shared read-only with these tenants",
+    "tenantFallback": "Tenant {{id}}"
   },
   "tenantFilter": {
     "label": "Tenant",
-    "clear": "Clear"
+    "clear": "Clear",
+    "masterName": "{{name}} (master)"
   },
   "scenarioIo": {
     "importJson": "Import JSON",
@@ -2350,7 +2928,8 @@
     "user": "User",
     "services": "Services",
     "noSvcSnap": "No service snapshot at this instant.",
-    "loadError": "Could not load Rewind (server error or access denied)."
+    "loadError": "Could not load Rewind (server error or access denied).",
+    "timeOfDay": "Time of day"
   },
   "reports": {
     "group": "Group",
@@ -2358,7 +2937,79 @@
     "selectDevice": "Select a device…",
     "pickTarget": "Please choose a group or device",
     "cancel": "Cancel",
-    "cancelled": "Generation cancelled"
+    "cancelled": "Generation cancelled",
+    "allTypes": "All types",
+    "colGenerated": "Generated",
+    "colSize": "Size",
+    "count_one": "{{count}} report",
+    "count_other": "{{count}} reports",
+    "created": "Report created",
+    "cronPlaceholder": "e.g. 0 8 * * 1",
+    "cronPresets": {
+      "daily2am": "Every day at 2am",
+      "every15min": "Every 15 minutes",
+      "hourly": "Every hour",
+      "monday9am": "Every Monday at 9am",
+      "sundayMidnight": "Every Sunday at midnight"
+    },
+    "deleteConfirm": "Delete this report?",
+    "deleteFailed": "Failed to delete report",
+    "deleted": "Report deleted",
+    "editReport": "Edit Report",
+    "empty": "No reports yet",
+    "emptyHint": "Create reports to generate fleet insights and export data.",
+    "enabledForScheduled": "Enabled (for scheduled runs)",
+    "format": "Format",
+    "generate": "Generate",
+    "generateFailed": "Failed to generate report",
+    "generateStarted": "Report generation started",
+    "generateTitle": "Generate report",
+    "generationStartFailed": "Failed to start generation",
+    "generationStarted": "Generation started",
+    "lastGenerated": "Last generated",
+    "loadFailed": "Failed to load reports",
+    "nameLabel": "Name",
+    "nameRequired": "Report name is required",
+    "newReport": "New Report",
+    "noOutputs": "No outputs yet. Click Generate to create the first output.",
+    "rows": "{{count}} rows",
+    "runNow": "Generate now",
+    "runRecurring": "Recurring (cron)",
+    "saveFailed": "Failed to save report",
+    "scheduleCron": "Schedule (cron)",
+    "scope": "Scope",
+    "scopeDevice": "Specific device",
+    "scopeGroup": "Device group",
+    "scopeTenant": "Entire tenant",
+    "sectionLabels": {
+      "compliance": "Compliance",
+      "hardware": "Hardware",
+      "inventory_detail": "Detailed per-server",
+      "network": "Network",
+      "scripts_history": "Script History",
+      "software": "Software",
+      "updates": "Updates"
+    },
+    "sections": "Sections",
+    "status": {
+      "error": "Error",
+      "generating": "Generating",
+      "ready": "Ready"
+    },
+    "subtitle": "Generate and download fleet reports",
+    "timezone": "Timezone",
+    "title": "Reports",
+    "types": {
+      "compliance": "Compliance",
+      "custom": "Custom",
+      "fleet": "Fleet Overview",
+      "scripts": "Script Executions",
+      "software": "Software Inventory",
+      "updates": "Updates"
+    },
+    "updated": "Report updated",
+    "viewOutputs": "View outputs",
+    "whenToRun": "When to run"
   },
   "sshBastion": {
     "keys": {
@@ -2405,7 +3056,8 @@
       "manageKeys": "Manage my SSH keys",
       "relayed": "Obliance cannot see your real IP (internal relay address): SSH access is impossible from here. Contact an administrator.",
       "allowlisted": "This IP is in the administrator allow-list: SSH access is open without the button.",
-      "grantDisabled": "IP authorization is disabled on this tenant (\"Trust this IP\" duration = 0). Ask an administrator to add your IP to the allow-list."
+      "grantDisabled": "IP authorization is disabled on this tenant (\"Trust this IP\" duration = 0). Ask an administrator to add your IP to the allow-list.",
+      "copyFailed": "Could not copy — select the command and copy it manually"
     },
     "admin": {
       "title": "SSH bastion",
@@ -2444,5 +3096,626 @@
       "hintConfig": "Add to ~/.ssh/config (Windows: %USERPROFILE%\\.ssh\\config). Then: \"ssh {{alias}}\" for the bastion, \"ssh <machine>.{{alias}}\" to jump to a machine (scp, sftp, VS Code Remote too).",
       "hintScript": "Appends the profile to your SSH config. Then: \"ssh {{alias}}\" for the bastion, \"ssh <machine>.{{alias}}\" to jump to a machine."
     }
+  },
+  "audit": {
+    "clearTitle": "Clear the audit log",
+    "clearConfirm": "Clear the ENTIRE audit log for this tenant?\n\nThis typically requires a second-admin approval (default: Restricted). A single \"audit.cleared\" entry is kept so investigators can still see who wiped it.",
+    "clearAction": "Clear",
+    "clearHint": "Clear all audit entries (requires second-admin approval by default)"
+  },
+  "permissionSets": {
+    "confirmDelete": "Delete permission set \"{{name}}\"? This cannot be undone.",
+    "defaultSet": "Default set",
+    "rename": "Rename"
+  },
+  "quickReplyTemplates": {
+    "confirmDelete": "Delete the quick reply template \"{{text}}\" and all its translations?"
+  },
+  "notificationCenter": {
+    "title": "Notification Center",
+    "dismiss": "Dismiss",
+    "markAllRead": "Mark all as read",
+    "clearLocal": "Clear local notifications",
+    "local": "Local",
+    "allTenants": "All Tenants",
+    "localPopupsOn": "Local pop-ups on",
+    "localPopupsOff": "Local pop-ups off",
+    "allTenantPopupsOn": "All-tenant pop-ups on",
+    "allTenantPopupsOff": "All-tenant pop-ups off",
+    "empty": "No notifications",
+    "count_one": "{{count}} notification",
+    "count_other": "{{count}} notifications",
+    "agoSeconds": "{{count}}s ago",
+    "agoMinutes": "{{count}}m ago",
+    "agoHours": "{{count}}h ago",
+    "agoDays": "{{count}}d ago"
+  },
+  "liveAlerts": {
+    "dismiss": "Dismiss"
+  },
+  "shell": {
+    "panelTitle": "Remote shells",
+    "pill_one": "{{count}} shell",
+    "pill_other": "{{count}} shells",
+    "pillTitle_one": "{{count}} remote shell session",
+    "pillTitle_other": "{{count}} remote shell sessions",
+    "wsFailed": "WebSocket connection failed",
+    "connectionLost": "Connection lost",
+    "copied": "Terminal contents copied",
+    "nothingToCopy": "Nothing to copy",
+    "clipboardBlocked": "Clipboard blocked by the browser",
+    "reconnect": "Reconnect",
+    "reconnectFailed": "Reconnect failed",
+    "startFailed": "Failed to start {{protocol}} session",
+    "loadDevicesFailed": "Failed to load devices",
+    "closeSession": "Close session",
+    "copyContents": "Copy terminal contents",
+    "copyToClipboard": "Copy terminal contents to clipboard",
+    "copyThis": "Copy this terminal's contents",
+    "addToSplit": "Add to split view",
+    "removeFromSplit": "Remove from split view",
+    "clearSplit": "Clear split group",
+    "inSplit": "In split group",
+    "tabHint": "Click to activate · Drag onto another tab to split · Ctrl+Click to toggle split",
+    "tabHintGrouped": "Drop another tab here to add it · Ctrl+Click to remove from split",
+    "tabActions": "Actions for {{name}}",
+    "openAnother": "Open another remote session",
+    "broadcast": "Broadcast",
+    "broadcastOn": "Broadcast ON — keystrokes go to every grouped terminal",
+    "broadcastOff": "Broadcast OFF — keystrokes go to the focused terminal only",
+    "showKeys": "Show virtual keys",
+    "hideKeys": "Hide virtual keys",
+    "enterFullscreen": "Enter fullscreen",
+    "exitFullscreen": "Exit fullscreen",
+    "minimize": "Minimize (stays alive in background)",
+    "pickerTitle": "Open remote session",
+    "searchDevices": "Search devices...",
+    "showingRecent_one": "Showing {{count}} most recent · type to search all",
+    "showingRecent_other": "Showing {{count}} most recent · type to search all",
+    "loadingDevices": "Loading devices...",
+    "noMatch": "No devices match your search",
+    "noDevices": "No devices available",
+    "privacyBadge": "privacy",
+    "noIp": "no IP",
+    "privacyBlocked": "Privacy mode is active — unlock Remote on the device detail page first"
+  },
+  "twoFactorPrompt": {
+    "title": "Sensitive action",
+    "description": "is marked sensitive by your tenant admin. Enter your current 6-digit TOTP code to confirm.",
+    "invalidFormat": "Enter a 6-digit TOTP code from your authenticator app.",
+    "failed": "Verification failed",
+    "verify": "Verify & execute",
+    "codeLabel": "TOTP code",
+    "trustIp": "Trust this IP for 24h",
+    "trustIpHint": "Skips the TOTP prompt for sensitive actions from this IP only. Revocable any time from your profile."
+  },
+  "tenantBadge": {
+    "title": "Tenant: {{name}}"
+  },
+  "deviceMultiSelect": {
+    "searchPlaceholder": "Hostname, IP, user, UUID, OS, tag…",
+    "clearSelection": "Clear selection",
+    "noMatch": "No device matches your search"
+  },
+  "groupPicker": {
+    "placeholder": "Select a group",
+    "clearSearch": "Clear search",
+    "title": "Select a group",
+    "clear": "Clear selection",
+    "collapse": "Collapse",
+    "expand": "Expand",
+    "chooseTitle": "Choose a group"
+  },
+  "thresholds": {
+    "title": "Metric thresholds",
+    "helpDevice": "Leave empty to inherit from the group (then the system default).",
+    "helpGroup": "Leave empty to inherit the system default.",
+    "disk": "Disk",
+    "cpu": "CPU",
+    "ram": "RAM",
+    "warnPct": "Warn (%)",
+    "critPct": "Critical (%)",
+    "perDisk": {
+      "empty": "No internal disks reported by the agent yet.",
+      "helper": "Override the global disk threshold for a specific mount point — useful for system partitions that are full by nature, or for data drives that need tighter alerts. Removable / ISO mounts are always excluded.",
+      "override": "override",
+      "inherit": "inherit",
+      "usage": "{{size}} GB · {{percent}}% used",
+      "warnShort": "Warn",
+      "critShort": "Crit",
+      "warnTitle": "Warning threshold (%)",
+      "critTitle": "Critical threshold (%)"
+    }
+  },
+  "desktopUpdate": {
+    "appName": "Desktop app",
+    "isAvailable": "is available",
+    "youHave": "you have",
+    "pleaseUpdate": "please update to get the latest features",
+    "download": "Download update",
+    "skip": "Skip",
+    "skipTitle": "Skip this version",
+    "dismiss": "Dismiss"
+  },
+  "customSections": {
+    "fontSmaller": "Smaller text",
+    "fontLarger": "Larger text",
+    "copyOutput": "Copy all output",
+    "htmlSaved": "HTML file saved",
+    "exportHtmlHint": "Download the dashboard as an HTML file",
+    "exportHtml": "Export HTML",
+    "builder": {
+      "fieldLabel": "Field label",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "removeBlock": "Remove block",
+      "removeRule": "Remove rule"
+    },
+    "refreshNow": "Refresh now",
+    "exportPdf": "Export PDF",
+    "exportPdfHint": "Open the print dialog (pick 'Save as PDF' as the destination)",
+    "printError": "Could not open the print dialog",
+    "autoRefresh": "Auto refresh",
+    "autoRefreshHint": "Re-run the script at a fixed cadence so the panel acts as a live dashboard.",
+    "collapseGroup": "Collapse {{name}}",
+    "commandHint": "Initially intended for a single command (htop, top, etc.) but accepts a full script too. PowerShell scripts can output an HTML document — see render mode below. The <strong>Dashboard builder</strong> generates a self-contained script from a sample output if you want a kickstart.",
+    "commandLabel": "Command or script",
+    "commandPlaceholder": "htop\n\n# or paste a full script — PowerShell, bash, …",
+    "created": "Custom section created",
+    "dashboardBuilder": "Dashboard builder",
+    "deleteConfirm": "Delete custom section \"{{name}}\"?",
+    "deleteFailed": "Failed to delete",
+    "descriptionLabel": "Description (optional)",
+    "discard": "Discard",
+    "discardConfirm": "Discard your changes?",
+    "editTitle": "Edit custom section",
+    "empty": "No custom sections yet. Click \"New section\" to create one.",
+    "emptyCommand": "(empty)",
+    "expandGroup": "Expand {{name}}",
+    "htmlPtyNote": "PTY is forced off for HTML output — terminal control sequences corrupt the document. Sandboxed iframe means scripts/forms are blocked, only static HTML + CSS render.",
+    "interval": "Interval (seconds)",
+    "intervalHint": "The cycle starts when the previous run exits — a 30s interval on a 5s script means a refresh every ~35s. Minimum 1s, max 3600s (1h).",
+    "intro": "Custom sections appear as dedicated tabs between <strong>Remote</strong> and <strong>Explorer</strong> on each targeted device. Clicking the tab opens a read-only console that streams the configured command's live output. The process is killed when the tab is closed.",
+    "loadFailed": "Failed to load custom sections",
+    "multiline": "multi-line script",
+    "nameCommandRequired": "Name and command are required",
+    "nameLabel": "Name (tab label)",
+    "newSection": "New section",
+    "newTitle": "New custom section",
+    "platform": "Platform",
+    "renderHtml": "HTML document",
+    "renderHtmlHint": "Script writes a full HTML page (e.g. PowerShell <code>ConvertTo-Html</code>) — rendered in a sandboxed panel.",
+    "renderMode": "Render mode",
+    "renderTerminal": "Terminal stream",
+    "renderTerminalHint": "Live xterm console — htop, tail -f, anything CLI.",
+    "runtime": "Runtime",
+    "saveFailed": "Failed to save",
+    "showCommand": "Show full command",
+    "target": "Target",
+    "targetAll": "All devices",
+    "targetAllLower": "all devices",
+    "targetDeviceCount": "{{count}} device(s)",
+    "targetDevices": "Specific devices",
+    "targetGroupCount": "{{count}} group(s)",
+    "targetGroups": "Groups",
+    "title": "Custom Sections",
+    "update": "Update",
+    "updated": "Custom section updated",
+    "usePty": "Use PTY",
+    "usePtyHint": "Required for curses apps: htop, top, less, watch..."
+  },
+  "ui": {
+    "moreActions": "More actions",
+    "moreInfo": "More information",
+    "confirm": {
+      "typeToConfirm": "Type \"{{text}}\" to confirm"
+    }
+  },
+  "scenarioGraph": {
+    "activateScenario": "Activate scenario",
+    "activeRuns": "{{count}} run(s)",
+    "activeRuns_one": "{{count}} run",
+    "activeRuns_other": "{{count}} runs",
+    "addConnectionTo": "Add a connection to…",
+    "addNode": "Add node",
+    "addNodeHere": "Add a node here",
+    "cancelRun": "Cancel this run",
+    "cancelRuns": "Cancel runs",
+    "cancelRunsOnNode": "Cancel runs on this node",
+    "cancelRunsOnNodeHint": "Mark all in-flight runs as cancelled",
+    "cancelledRuns": "Cancelled {{count}} run(s)",
+    "cancelledRuns_one": "Cancelled {{count}} run",
+    "cancelledRuns_other": "Cancelled {{count}} runs",
+    "configure": "Configure",
+    "connect": "Connect",
+    "connectExists": "These nodes are already connected",
+    "connectFrom": "From: {{name}}",
+    "connectHint": "Then tap the node to connect to",
+    "connectPrompt": "Tap the node to connect to",
+    "connectTo": "Connect to…",
+    "connectTriggerTarget": "A trigger cannot be the target of a connection",
+    "connected": "Nodes connected",
+    "connection": "Connection",
+    "deleteEdge": "Delete connection",
+    "disableScenario": "Disable scenario",
+    "discard": "Discard",
+    "discardMessage": "The graph has unsaved changes. Close the editor and lose them?",
+    "discardScriptMessage": "Your changes to this script have not been saved.",
+    "discardScriptTitle": "Discard this script?",
+    "discardTitle": "Discard unsaved changes?",
+    "duplicate": "Duplicate",
+    "edgeCondition": "Edge condition",
+    "editCondition": "Edit condition",
+    "fitView": "Fit view",
+    "graphCounts": "{{nodes}} nodes · {{edges}} edges",
+    "hideOutput": "Hide output",
+    "noActiveRun": "No active run to cancel",
+    "noOutgoing": "No outgoing connection yet.",
+    "noRecentRuns": "No runs in the last 24 hours.",
+    "nodeCopied": "Node copied",
+    "outgoing": "Outgoing connections",
+    "output": "Output",
+    "paste": "Paste node",
+    "pasteHere": "Paste node here",
+    "recentRuns": "Recent runs (24h)",
+    "removeDevice": "Remove {{name}}",
+    "resizeOutput": "Resize the output panel",
+    "run": "Run",
+    "runFromHere": "Run from here",
+    "runFromNode": "Run from this node…",
+    "runFromNodeHint": "Bypass triggers — execute this node and continue the graph",
+    "runOnDevices": "Run on device(s)",
+    "runOnly": "Run only this",
+    "runOnlyNode": "Run only this node…",
+    "runOnlyNodeHint": "One-shot — engine stops after this node finishes",
+    "runsInProgress": "{{count}} in progress",
+    "runsInProgress_one": "{{count}} in progress",
+    "runsInProgress_other": "{{count}} in progress",
+    "saveAndRun": "Save & run",
+    "saveRunFromNode": "Save & run from this node…",
+    "saveRunOnlyNode": "Save & run only this node…",
+    "saved": "saved",
+    "saving": "Saving…",
+    "showOutput": "Show output",
+    "showOutputHint": "Open the output panel for this node",
+    "showOutputPanel": "Show output",
+    "statusActive": "Active",
+    "statusDisabled": "Disabled",
+    "statusDraft": "Draft",
+    "tipMouse": "Tip: drag from a node's right port to another node's left port to connect them.",
+    "tipTouch": "Tip: select a node, tap “Connect”, then tap the target node (or tap a right port, then a left port). Tap ⋯ on the selected node, or long-press a node or the canvas, for more actions.",
+    "unsaved": "unsaved",
+    "warningCount": "{{count}} warning(s)",
+    "warningCount_one": "{{count}} warning",
+    "warningCount_other": "{{count}} warnings",
+    "warnings": "Graph warnings"
+  },
+  "approvals": {
+    "approve": "Approve",
+    "approveFailed": "Approval failed",
+    "approveTitle": "Approve this request?",
+    "approvedBy": "approved by",
+    "approvedToast": "Approved — commands dispatched",
+    "by": "By",
+    "cancelConfirm": "Cancel your own pending request?",
+    "cancelFailed": "Cancel failed",
+    "cancelRequest": "Cancel request",
+    "cancelledToast": "Cancelled",
+    "deniedBy": "denied by",
+    "deniedToast": "Denied",
+    "deny": "Deny",
+    "denyFailed": "Deny failed",
+    "denyTitle": "Deny this request?",
+    "empty": "No approvals.",
+    "emptyPending": "No pending approvals.",
+    "loadFailed": "Failed to load approvals",
+    "reason": "Reason",
+    "reasonOptional": "Reason (optional)",
+    "showLess": "Show less",
+    "showMore": "Show more",
+    "showResolved": "Show resolved",
+    "status": {
+      "approved": "approved",
+      "cancelled": "cancelled",
+      "denied": "denied",
+      "executed": "executed",
+      "expired": "expired",
+      "pending": "pending"
+    },
+    "subtitle": "Destructive actions waiting for a second admin.",
+    "title": "Approvals",
+    "yourRequest": "your request"
+  },
+  "history": {
+    "clearSearch": "Clear search",
+    "cmd": {
+      "check_compliance": "Check Compliance",
+      "close_remote_tunnel": "Close Tunnel",
+      "install_software": "Install Software",
+      "install_update": "Install Update",
+      "list_services": "List Services",
+      "open_remote_tunnel": "Open Tunnel",
+      "reboot": "Reboot",
+      "restart_agent": "Restart Agent",
+      "restart_service": "Restart Service",
+      "run_script": "Run Script",
+      "scan_inventory": "Scan Inventory",
+      "scan_updates": "Scan Updates",
+      "shutdown": "Shutdown",
+      "uninstall_software": "Uninstall Software"
+    },
+    "col": {
+      "action": "Action",
+      "date": "Date",
+      "device": "Device",
+      "duration": "Duration",
+      "scenario": "Scenario",
+      "status": "Status",
+      "trigger": "Trigger",
+      "type": "Type",
+      "user": "User"
+    },
+    "empty": "No history yet",
+    "eventCount": "{{count}} events",
+    "filter": {
+      "all": "All",
+      "script": "Scripts",
+      "task": "Tasks",
+      "update": "Updates"
+    },
+    "kind": {
+      "script": "Script",
+      "task": "Task",
+      "update": "Update"
+    },
+    "loadFailed": "Failed to load history",
+    "loadMore": "Load {{count}} more",
+    "loadingSteps": "Loading steps...",
+    "noResults": "No results for this filter",
+    "noScenarioRuns": "No scenario runs yet",
+    "noSteps": "No step details",
+    "searchPlaceholder": "Search task, device…",
+    "showingOf": "Showing {{shown}} of {{total}}",
+    "status": {
+      "ack_running": "Running",
+      "approved": "Approved",
+      "available": "Available",
+      "cancelled": "Cancelled",
+      "failed": "Failed",
+      "failure": "Failed",
+      "installed": "Installed",
+      "pending": "Pending",
+      "running": "Running",
+      "sent": "Sent",
+      "skipped": "Skipped",
+      "success": "Success",
+      "timeout": "Timeout"
+    },
+    "step": {
+      "check": "check: exit {{code}}",
+      "recheck": "recheck: exit {{code}}",
+      "resolve": "resolve: exit {{code}}"
+    },
+    "tabEvents": "Tasks & Scripts",
+    "tabScenarios": "Scenarios",
+    "title": "History"
+  },
+  "reach": {
+    "block": "Block",
+    "blockInput": "Block remote user input",
+    "blocked": "Blocked",
+    "chat": "Chat",
+    "chatWithUser": "Chat with user",
+    "chord": {
+      "altF4": "Close active window",
+      "altTab": "Switch window",
+      "ctrlEsc": "Start menu (Ctrl+Esc)",
+      "esc": "Escape",
+      "menu": "Context-menu key",
+      "pause": "Pause / Break",
+      "prtSc": "Print Screen (full screen capture on remote)",
+      "taskMgr": "Ctrl+Shift+Esc — Task Manager",
+      "win": "Windows key — Start menu",
+      "winD": "Show / hide desktop",
+      "winDown": "Restore / minimize window",
+      "winE": "Open File Explorer",
+      "winI": "Settings",
+      "winL": "Lock the session",
+      "winR": "Run dialog",
+      "winTab": "Task view",
+      "winUp": "Maximize window"
+    },
+    "chordGroup": {
+      "misc": "Misc",
+      "win": "Windows",
+      "window": "Windows & apps"
+    },
+    "codec": "Video codec",
+    "connectingHint": "Establishing encrypted tunnel…",
+    "connectingRelay": "Connecting to relay…",
+    "connectionFailed": "Connection failed",
+    "copyFailed": "Copy failed — select the text and copy it manually",
+    "copyFromRemote": "Copy from remote",
+    "disconnect": "Disconnect",
+    "enableAudio": "Enable remote audio",
+    "err": {
+      "codec": "Unsupported codec: {{codec}}",
+      "decoder": "Decoder error: {{msg}}",
+      "relay": "Relay error",
+      "webcodecs": "WebCodecs not supported in this browser (Chrome/Edge 94+, Firefox 130+).",
+      "ws": "WebSocket connection failed"
+    },
+    "exitFullscreen": "Exit fullscreen",
+    "fit": "Fit",
+    "fullscreen": "Fullscreen",
+    "hideChat": "Hide chat",
+    "hideKeyboard": "Hide keyboard",
+    "inactivityTimeout": "Session disconnected due to inactivity",
+    "inactivityWarning": "Session will disconnect in {{seconds}}s due to inactivity",
+    "keyboard": "Keyboard",
+    "keyboardInput": "Remote keyboard input",
+    "monitorN": "Screen {{n}}",
+    "muteAudio": "Mute remote audio",
+    "muteChat": "Mute chat notifications",
+    "pasteManually": "Paste the text to send to the remote clipboard.",
+    "pasteToRemote": "Paste to remote",
+    "pasted": "Clipboard sent to the remote",
+    "reconnectingHint": "The target session transitioned (e.g. after login) — redialling automatically.",
+    "reconnectingN": "Reconnecting ({{n}}/{{max}})...",
+    "record": "Record session",
+    "recordShort": "Record",
+    "remoteClipboard": "Remote clipboard",
+    "saveFailed": "Could not save the file",
+    "screenshot": "Take screenshot",
+    "section": {
+      "clipboard": "Clipboard",
+      "display": "Display",
+      "input": "Input",
+      "session": "Session"
+    },
+    "selectMonitor": "Select monitor",
+    "send": "Send",
+    "sendCad": "Send Ctrl+Alt+Del",
+    "showKeyboard": "Show keyboard",
+    "status": {
+      "connecting": "Connecting…",
+      "disconnected": "Disconnected",
+      "error": "Error",
+      "reconnecting": "Reconnecting…",
+      "streaming": "Streaming",
+      "waiting": "Waiting…"
+    },
+    "stayConnected": "Stay connected",
+    "stop": "Stop",
+    "stopRecording": "Stop recording",
+    "systemKeys": "System keys",
+    "systemKeysHint": "Send system keys (Win, Alt+Tab, Task Manager…)",
+    "tools": "Session tools",
+    "touchModeDirect": "Touch: direct (tap where you click)",
+    "touchModeTrackpad": "Touch: trackpad (relative cursor)",
+    "unblockInput": "Unblock remote user input",
+    "unknownError": "An unknown error occurred.",
+    "unmuteChat": "Unmute chat notifications",
+    "waitingAgent": "Waiting for agent to connect…",
+    "waitingAgentHint": "The wake-up command has been sent. The Oblireach agent will connect within 30 s.",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out"
+  },
+  "remoteKeys": {
+    "bar": "Keys",
+    "functionKeys": "Function keys F1–F12",
+    "hide": "Hide keys",
+    "mod": {
+      "alt": "Alt (applies to the next key)",
+      "ctrl": "Ctrl (applies to the next key)",
+      "meta": "Win (applies to the next key)",
+      "shift": "Shift (applies to the next key)"
+    },
+    "show": "Show keys"
+  },
+  "remoteSessions": {
+    "agentConnectedAt": "Agent connected {{date}}",
+    "change": "Change",
+    "device": "Device",
+    "deviceN": "Device #{{id}}",
+    "duration": "Duration",
+    "end": "End",
+    "endConfirm": "End this remote session?",
+    "endFailed": "Failed to end session",
+    "ended": "Session ended",
+    "ending": "Ending...",
+    "initiated": "{{protocol}} session initiated — waiting for agent…",
+    "loadFailed": "Failed to load sessions",
+    "noActive": "No active sessions",
+    "noActiveHint": "Start a new session to connect to a device.",
+    "noDevices": "No devices found",
+    "noHistory": "No session history",
+    "noHistoryHint": "Completed sessions will appear here.",
+    "notes": "Notes (optional)",
+    "notesPlaceholder": "Reason for access, incident number...",
+    "protocol": {
+      "cmd": "Windows Command Prompt",
+      "oblireach": "Native screen streaming (recommended)",
+      "powershell": "Windows PowerShell terminal",
+      "rdp": "Remote Desktop Protocol (Windows)",
+      "ssh": "Secure Shell terminal",
+      "sshjump": "Native SSH through the Obliance bastion",
+      "vmconsole": "Hyper-V VM interactive console (FreeRDP)"
+    },
+    "protocolLabel": "Protocol",
+    "searchDevices": "Search devices...",
+    "selectDevice": "Please select a device",
+    "startFailed": "Failed to start session",
+    "startNew": "Start New Session",
+    "startProtocol": "Start {{protocol}} Session",
+    "started": "Started",
+    "startedAt": "Started {{date}}",
+    "starting": "Starting...",
+    "status": {
+      "active": "Active",
+      "closed": "Closed",
+      "connecting": "Connecting",
+      "expired": "Expired",
+      "failed": "Failed",
+      "timeout": "Timed out",
+      "waiting": "Waiting"
+    },
+    "statusLabel": "Status",
+    "subtitle": "Access devices remotely via Oblireach, RDP, or SSH",
+    "tabActive": "Active Sessions",
+    "tabHistory": "History",
+    "title": "Remote Sessions",
+    "user": "User",
+    "view": "View"
+  },
+  "sshTerminal": {
+    "connectionLost": "Connection lost — the tunnel was closed unexpectedly",
+    "disconnect": "Disconnect",
+    "establishing": "Establishing tunnel…",
+    "exitFullscreen": "Exit fullscreen",
+    "failed": "Shell connection failed",
+    "fullscreen": "Fullscreen",
+    "hideKeys": "Hide virtual keys",
+    "showKeys": "Show virtual keys (F1-F12, Ctrl combos...)",
+    "status": {
+      "connected": "Connected",
+      "connecting": "Connecting…",
+      "disconnected": "Disconnected",
+      "error": "Error"
+    },
+    "tunnelTimeout": "Tunnel establishment timed out — the agent did not respond within 60 s",
+    "unknownError": "An unknown error occurred.",
+    "waitingAgent": "Waiting for agent to connect back to the server",
+    "wsFailed": "WebSocket connection failed"
+  },
+  "terminalKeys": {
+    "collapse": "Collapse",
+    "expand": "Expand",
+    "key": {
+      "ctrl_a": "Ctrl+A — start of line",
+      "ctrl_c": "Ctrl+C — interrupt",
+      "ctrl_d": "Ctrl+D — EOF / logout",
+      "ctrl_e": "Ctrl+E — end of line",
+      "ctrl_l": "Ctrl+L — clear screen",
+      "ctrl_r": "Ctrl+R — reverse history search",
+      "ctrl_u": "Ctrl+U — erase line",
+      "ctrl_w": "Ctrl+W — erase word",
+      "ctrl_z": "Ctrl+Z — suspend",
+      "del": "Delete",
+      "down": "Down arrow",
+      "end": "End",
+      "esc": "Escape",
+      "home": "Home",
+      "ins": "Insert",
+      "left": "Left arrow",
+      "pgdn": "Page Down",
+      "pgup": "Page Up",
+      "right": "Right arrow",
+      "tab": "Tab",
+      "up": "Up arrow"
+    },
+    "nav": "Nav",
+    "showKeyboard": "Show keyboard",
+    "title": "Keys"
   }
 }

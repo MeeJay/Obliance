@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { RefreshCw, Wifi, Monitor, Printer, Router, Cpu, HelpCircle, Trash2, Search, X, ChevronLeft, ChevronRight, FileCode, Download, Sparkles } from 'lucide-react';
+import { RefreshCw, Wifi, Monitor, Printer, Router, Cpu, HelpCircle, Trash2, Search, X, ChevronLeft, ChevronRight, FileCode, Download, Sparkles, CheckSquare, Square } from 'lucide-react';
 import { networkDiscoveryApi } from '@/api/networkDiscovery.api';
 import { commandApi } from '@/api/command.api';
 import type { DiscoveredDevice } from '@obliance/shared';
@@ -10,6 +10,12 @@ import { GenerateDeployScriptModal } from '@/components/networkDiscovery/Generat
 import { ScanTargetPickerModal } from '@/components/networkDiscovery/ScanTargetPickerModal';
 import { ExportDiscoveryModal } from '@/components/networkDiscovery/ExportDiscoveryModal';
 import { StyledCheckbox } from '@/components/devices/StyledCheckbox';
+import { PageContainer } from '@/components/common/PageContainer';
+import { IconButton } from '@/components/common/IconButton';
+import { TableScroll } from '@/components/common/TableScroll';
+import { Modal } from '@/components/common/Modal';
+import { useConfirm } from '@/components/common/ConfirmDialog';
+import { useIsCoarsePointer, useMediaQuery, MEDIA } from '@/hooks/useMediaQuery';
 
 const PAGE_SIZE = 50;
 
@@ -26,8 +32,25 @@ const TYPE_OPTIONS = ['all', 'pc', 'server', 'printer', 'iot', 'network', 'unkno
 
 type ManagedFilter = 'all' | 'managed' | 'unmanaged';
 
+// Browser storage can throw (private mode, blocked site data, WebView
+// without DOM storage) — the "seen" marker is a convenience only.
+const SEEN_KEY = 'discovery.seenAt';
+function readSeenAt(): string {
+ try { return localStorage.getItem(SEEN_KEY) ?? '1970-01-01T00:00:00Z'; } catch { return '1970-01-01T00:00:00Z'; }
+}
+function writeSeenAt(v: string): void {
+ try { localStorage.setItem(SEEN_KEY, v); } catch { /* ignore */ }
+}
+
 export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
  const { t } = useTranslation();
+ const confirm = useConfirm();
+ const coarse = useIsCoarsePointer();
+ const isLg = useMediaQuery(MEDIA.lg);
+ // Below lg (MAC / vendor / ports / first-seen columns hidden) or on touch,
+ // tapping a row opens a detail sheet with every field. Desktop unchanged.
+ const rowOpensDetail = coarse || !isLg;
+ const [detail, setDetail] = useState<DiscoveredDevice | null>(null);
 
  // Data
  const [items, setItems] = useState<DiscoveredDevice[]>([]);
@@ -60,9 +83,7 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
  // the user has ever observed (persisted in localStorage) and badge any
  // row that's newer than that. Updated when the user clicks "Mark as
  // seen" or navigates away from the page.
- const [seenAt, setSeenAt] = useState<string>(() =>
- localStorage.getItem('discovery.seenAt') ?? '1970-01-01T00:00:00Z',
- );
+ const [seenAt, setSeenAt] = useState<string>(readSeenAt);
  const firstLoadRef = useRef(true);
 
  const loadData = useCallback(async () => {
@@ -98,10 +119,11 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
  useEffect(() => { setSelectedIds(new Set()); }, [page, managedFilter, typeFilter, osFilter, subnetFilter]);
 
  const handleDelete = async (id: number) => {
- if (!confirm(t('common.confirmDelete') || 'Delete this entry?')) return;
+ if (!(await confirm({ message: t('common.confirmDelete') || 'Delete this entry?', danger: true }))) return;
  try {
  await networkDiscoveryApi.remove(id);
  toast.success(t('common.deleted') || 'Deleted');
+ setDetail((cur) => (cur?.id === id ? null : cur));
  loadData();
  } catch {
  toast.error(t('common.error'));
@@ -138,7 +160,7 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
  const markAllAsSeen = () => {
  const now = new Date().toISOString();
  setSeenAt(now);
- localStorage.setItem('discovery.seenAt', now);
+ writeSeenAt(now);
  };
 
  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -192,7 +214,7 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
  (acc, d) => (d.lastSeen > acc ? d.lastSeen : acc),
  seenAt,
  );
- localStorage.setItem('discovery.seenAt', max);
+ writeSeenAt(max);
  }
  };
  }, [items, seenAt]);
@@ -228,7 +250,7 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
  };
 
  return (
- <div className={clsx('space-y-5', !embedded && 'p-6')}>
+ <PageContainer embedded={embedded} className="space-y-5">
  {!embedded && (
  <div>
  <h1 className="text-2xl font-bold text-text-primary">{t('discovery.title') || 'Network Discovery'}</h1>
@@ -272,7 +294,7 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
  key={f}
  onClick={() => setManagedFilter(f)}
  className={clsx(
- 'px-3 py-1.5 text-xs font-medium rounded-full border transition-colors',
+ 'px-3 py-1.5 text-xs font-medium rounded-full border transition-colors coarse:min-h-9',
  managedFilter === f
  ? 'bg-accent text-white border-accent'
  : 'bg-bg-secondary text-text-muted border-transparent hover:text-text-primary',
@@ -286,7 +308,7 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
  <select
  value={typeFilter}
  onChange={e => setTypeFilter(e.target.value)}
- className="px-3 py-1.5 text-xs bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent"
+ className="px-3 py-1.5 text-xs bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent coarse:min-h-10"
  >
  {TYPE_OPTIONS.map(o => (
  <option key={o} value={o}>{o === 'all' ? (t('common.all') || 'All Types') : o.charAt(0).toUpperCase() + o.slice(1)}</option>
@@ -299,7 +321,7 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
  <select
  value={osFilter}
  onChange={e => setOsFilter(e.target.value as typeof osFilter)}
- className="px-3 py-1.5 text-xs bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent"
+ className="px-3 py-1.5 text-xs bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent coarse:min-h-10"
  >
  <option value="all">{t('discovery.osFilter.all') || 'All OS'}</option>
  <option value="windows">Windows</option>
@@ -314,23 +336,32 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
  value={subnetFilter}
  onChange={e => setSubnetFilter(e.target.value)}
  placeholder={t('discovery.subnetPlaceholder') || 'Subnet (e.g. 192.168.1)'}
- className="px-3 py-1.5 text-xs bg-bg-secondary rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent w-44"
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
+ className="px-3 py-1.5 text-xs bg-bg-secondary rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent w-44 max-sm:w-auto max-sm:flex-1 max-sm:min-w-[8rem] coarse:min-h-10"
  />
 
  {/* Search */}
- <div className="relative flex-1 min-w-[180px] max-w-xs">
+ <div className="relative flex-1 min-w-[180px] max-w-xs max-sm:max-w-none">
  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted" />
  <input
  type="text"
  value={search}
  onChange={e => setSearch(e.target.value)}
  placeholder={t('discovery.searchPlaceholder') || 'Search IP or hostname...'}
- className="w-full pl-8 pr-7 py-1.5 text-xs bg-bg-secondary rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent"
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
+ enterKeyHint="search"
+ className="w-full pl-8 pr-7 py-1.5 text-xs bg-bg-secondary rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent coarse:min-h-10"
  />
  {search && (
- <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary">
- <X className="w-3.5 h-3.5" />
- </button>
+ <IconButton
+ label={t('discovery.clearSearch', 'Clear search')}
+ icon={<X className="w-3.5 h-3.5" />}
+ size="xs"
+ variant="plain"
+ touchTarget="overlay"
+ onClick={() => setSearch('')}
+ className="absolute right-2 top-1/2 -translate-y-1/2 p-0"
+ />
  )}
  </div>
 
@@ -338,7 +369,7 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
  {newCount > 0 && (
  <button
  onClick={markAllAsSeen}
- className="ml-auto flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-accent/10 border border-accent/30 text-accent rounded-lg hover:bg-accent/15 transition-colors"
+ className="ml-auto flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-accent/10 border border-accent/30 text-accent rounded-lg hover:bg-accent/15 transition-colors coarse:min-h-10"
  title={t('discovery.markAllSeen') || 'Mark as seen'}
  >
  <Sparkles className="w-3.5 h-3.5" />
@@ -352,7 +383,7 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
  <button
  onClick={() => setShowDeployModal(true)}
  className={clsx(
- 'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-bg-secondary border border-transparent text-text-primary rounded-lg hover:border-accent hover:text-accent transition-colors',
+ 'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-bg-secondary border border-transparent text-text-primary rounded-lg hover:border-accent hover:text-accent transition-colors coarse:min-h-10',
  newCount === 0 && 'ml-auto',
  )}
  >
@@ -367,7 +398,7 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
  onClick={() => setShowExportModal(true)}
  disabled={filteredItems.length === 0}
  className={clsx(
- 'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-bg-secondary border border-transparent text-text-primary rounded-lg hover:border-accent hover:text-accent disabled:opacity-50 transition-colors',
+ 'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-bg-secondary border border-transparent text-text-primary rounded-lg hover:border-accent hover:text-accent disabled:opacity-50 transition-colors coarse:min-h-10',
  newCount === 0 && selectedHosts.length === 0 && 'ml-auto',
  )}
  >
@@ -379,7 +410,7 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
  <button
  onClick={handleScanNow}
  disabled={scanning}
- className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-accent text-white rounded-lg hover:bg-accent/80 disabled:opacity-50 transition-colors"
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-accent text-white rounded-lg hover:bg-accent/80 disabled:opacity-50 transition-colors coarse:min-h-10"
  >
  <Wifi className={clsx('w-3.5 h-3.5', scanning && 'animate-pulse')} />
  {t('discovery.scanNow') || 'Scan Now'}
@@ -388,10 +419,10 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
 
  {/* Selection toolbar — appears when unmanaged rows are selectable */}
  {unmanagedVisible.length > 0 && (
- <div className="flex items-center gap-3 px-3 py-1.5 bg-bg-secondary rounded-lg text-xs text-text-muted">
+ <div className="flex flex-wrap items-center gap-3 px-3 py-1.5 bg-bg-secondary rounded-lg text-xs text-text-muted">
  <button
  onClick={selectedIds.size > 0 ? clearSelection : selectAllUnmanaged}
- className="text-accent hover:underline"
+ className="text-accent hover:underline coarse:min-h-10"
  >
  {selectedIds.size > 0
  ? (t('discovery.clearSelection') || 'Clear selection')
@@ -426,8 +457,8 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
  <p className="text-sm">{t('discovery.noResults') || 'No discovered devices found'}</p>
  </div>
  ) : (
- <div className="overflow-x-auto rounded-lg">
- <table className="w-full text-sm">
+ <TableScroll className="rounded-lg">
+ <table className="w-full text-sm min-w-[640px]">
  <thead>
  <tr className="bg-bg-secondary text-left">
  <th className="px-2 py-2.5 w-8">
@@ -463,8 +494,12 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
  : d.ports.join(', ')
  : '--';
  return (
- <tr key={d.id} className="/50 hover:bg-bg-secondary/50 transition-colors">
- <td className="px-2 py-2.5">
+ <tr
+ key={d.id}
+ className={clsx('/50 hover:bg-bg-secondary/50 transition-colors', rowOpensDetail && 'cursor-pointer')}
+ onClick={rowOpensDetail ? () => setDetail(d) : undefined}
+ >
+ <td className="px-2 py-2.5" onClick={(e) => e.stopPropagation()}>
  <div title={d.isManaged ? (t('discovery.alreadyManaged') || 'Already managed') : undefined}>
  <StyledCheckbox
  checked={selectedIds.has(d.id)}
@@ -476,15 +511,29 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
  <td className="px-4 py-2.5 text-text-primary font-mono text-xs">
  <span className="inline-flex items-center gap-1.5">
  {d.firstSeen > seenAt && (
+ <>
  <span
  className="w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0"
  title={t('discovery.newSince') || 'New since your last visit'}
  />
+ {/* Touch: the dot's meaning was only in its title. */}
+ <span className="hidden coarse:inline font-sans text-[9px] font-semibold uppercase text-accent">{t('discovery.newBadge', 'New')}</span>
+ </>
  )}
  {d.ip}
  </span>
  </td>
- <td className="px-4 py-2.5 text-text-primary text-xs truncate max-w-[200px]">{d.hostname || '--'}</td>
+ <td className="px-4 py-2.5 text-text-primary text-xs truncate max-w-[200px]">
+ {d.hostname || '--'}
+ {/* MAC + vendor columns are hidden below lg — keep them readable here. */}
+ {(d.mac || d.ouiVendor) && (
+ <div className="lg:hidden mt-0.5 truncate text-[10px] text-text-muted">
+ {d.mac && <span className="font-mono">{d.mac}</span>}
+ {d.mac && d.ouiVendor && ' · '}
+ {d.ouiVendor}
+ </div>
+ )}
+ </td>
  <td className="px-4 py-2.5 text-text-muted text-xs font-mono hidden lg:table-cell">{d.mac || '--'}</td>
  <td className="px-4 py-2.5 text-text-muted text-xs hidden lg:table-cell truncate max-w-[150px]">{d.ouiVendor || '--'}</td>
  <td className="px-4 py-2.5">
@@ -510,21 +559,22 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
  </span>
  )}
  </td>
- <td className="px-4 py-2.5">
- <button
+ <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
+ <IconButton
+ label={t('common.delete') || 'Delete'}
+ icon={<Trash2 className="w-3.5 h-3.5" />}
+ size="sm"
+ variant="danger"
+ touchTarget="overlay"
  onClick={() => handleDelete(d.id)}
- className="p-1 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded transition-colors"
- title={t('common.delete') || 'Delete'}
- >
- <Trash2 className="w-3.5 h-3.5" />
- </button>
+ />
  </td>
  </tr>
  );
  })}
  </tbody>
  </table>
- </div>
+ </TableScroll>
  )}
 
  {/* Deploy script modal */}
@@ -545,26 +595,82 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
 
  {/* Pagination */}
  {total > PAGE_SIZE && (
- <div className="flex items-center justify-between text-xs text-text-muted">
+ <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-text-muted">
  <span>{t('common.page') || 'Page'} {page} / {totalPages} ({total} {t('common.results') || 'results'})</span>
  <div className="flex items-center gap-1">
  <button
  onClick={() => setPage(p => Math.max(1, p - 1))}
  disabled={page <= 1}
- className="p-1.5 rounded hover:bg-bg-secondary disabled:opacity-30 transition-colors"
+ aria-label={t('discovery.previousPage', 'Previous page')}
+ className="p-1.5 rounded hover:bg-bg-secondary disabled:opacity-30 transition-colors coarse:inline-flex coarse:min-h-10 coarse:min-w-10 coarse:items-center coarse:justify-center"
  >
  <ChevronLeft className="w-4 h-4" />
  </button>
  <button
  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
  disabled={page >= totalPages}
- className="p-1.5 rounded hover:bg-bg-secondary disabled:opacity-30 transition-colors"
+ aria-label={t('discovery.nextPage', 'Next page')}
+ className="p-1.5 rounded hover:bg-bg-secondary disabled:opacity-30 transition-colors coarse:inline-flex coarse:min-h-10 coarse:min-w-10 coarse:items-center coarse:justify-center"
  >
  <ChevronRight className="w-4 h-4" />
  </button>
  </div>
  </div>
  )}
+
+ {/* Row detail sheet (narrow / touch): every column, incl. the ones the
+ table hides below lg / xl, plus select + delete. */}
+ <Modal
+ open={detail !== null}
+ onClose={() => setDetail(null)}
+ title={detail ? <span className="font-mono">{detail.ip}</span> : null}
+ icon={detail ? <TypeIcon type={detail.deviceType} /> : undefined}
+ phoneLayout="sheet"
+ size="md"
+ footer={detail && <>
+ {!detail.isManaged && (
+ <button
+ type="button"
+ onClick={() => toggleSelect(detail.id)}
+ aria-pressed={selectedIds.has(detail.id)}
+ className="mr-auto inline-flex items-center gap-2 px-3 py-2 min-h-10 text-sm rounded-lg bg-bg-tertiary text-text-primary"
+ >
+ {selectedIds.has(detail.id) ? <CheckSquare className="w-4 h-4 text-accent" /> : <Square className="w-4 h-4" />}
+ {t('discovery.selectForDeploy', 'Select for deploy script')}
+ </button>
+ )}
+ <button
+ type="button"
+ onClick={() => handleDelete(detail.id)}
+ className="inline-flex items-center gap-2 px-3 py-2 min-h-10 text-sm rounded-lg text-red-400 bg-red-400/10 hover:bg-red-400/20"
+ >
+ <Trash2 className="w-4 h-4" />
+ {t('common.delete') || 'Delete'}
+ </button>
+ </>}
+ >
+ {detail && (
+ <dl className="grid grid-cols-[auto,1fr] gap-x-4 gap-y-2 text-sm">
+ {([
+ [t('discovery.hostname') || 'Hostname', detail.hostname || '--'],
+ ['MAC', <span className="font-mono">{detail.mac || '--'}</span>],
+ [t('discovery.vendor') || 'Vendor', detail.ouiVendor || '--'],
+ [t('discovery.os') || 'OS', <OsBadge os={detail.osGuess} />],
+ [t('discovery.type') || 'Type', detail.deviceType],
+ [t('discovery.ports') || 'Ports', <span className="font-mono break-all">{detail.ports?.length ? detail.ports.join(', ') : '--'}</span>],
+ [t('discovery.export.subnet') || 'Subnet', <span className="font-mono">{detail.subnet || '--'}</span>],
+ [t('discovery.firstSeen') || 'First Seen', formatDate(detail.firstSeen)],
+ [t('discovery.lastSeen') || 'Last Seen', formatDate(detail.lastSeen)],
+ [t('discovery.status') || 'Status', detail.isManaged ? (t('discovery.managed') || 'Managed') : (t('discovery.unmanaged') || 'Unmanaged')],
+ ] as Array<[string, React.ReactNode]>).map(([label, value]) => (
+ <div key={label} className="contents">
+ <dt className="text-xs text-text-muted pt-0.5">{label}</dt>
+ <dd className="text-text-primary min-w-0 break-words">{value}</dd>
  </div>
+ ))}
+ </dl>
+ )}
+ </Modal>
+ </PageContainer>
  );
 }

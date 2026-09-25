@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
-import { MessageSquare, Plus, Pencil, Trash2, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { MessageSquare, Plus, Pencil, Trash2 } from 'lucide-react';
 import { quickReplyTemplatesApi } from '@/api/quickReplyTemplates.api';
 import type { QuickReplyTemplate } from '@obliance/shared';
 import toast from 'react-hot-toast';
+import { Modal } from '@/components/common/Modal';
+import { IconButton } from '@/components/common/IconButton';
+import { useConfirm } from '@/components/common/ConfirmDialog';
 
 const LANGUAGES = [
  { code: 'en', name: 'English' }, { code: 'fr', name: 'Français' },
@@ -17,6 +21,8 @@ const LANGUAGES = [
 ];
 
 export function QuickReplyTemplatesSection() {
+ const { t: tr } = useTranslation();
+ const confirm = useConfirm();
  const [templates, setTemplates] = useState<QuickReplyTemplate[]>([]);
  const [editMode, setEditMode] = useState<'create' | 'edit' | null>(null);
  const [editingId, setEditingId] = useState<number | null>(null);
@@ -65,7 +71,14 @@ export function QuickReplyTemplatesSection() {
  }
  };
 
- const handleDelete = async (id: number) => {
+ const handleDelete = async (tpl: QuickReplyTemplate) => {
+ const id = tpl.id;
+ // A mis-tap on touch used to wipe an 18-language template instantly.
+ const preview = tpl.translations.en || tpl.translations[Object.keys(tpl.translations)[0]] || '';
+ if (!(await confirm({
+ message: tr('quickReplyTemplates.confirmDelete', { defaultValue: 'Delete the quick reply template "{{text}}" and all its translations?', text: preview.length > 60 ? `${preview.slice(0, 60)}…` : preview }),
+ danger: true,
+ }))) return;
  try {
  await quickReplyTemplatesApi.remove(id);
  setTemplates(prev => prev.filter(t => t.id !== id));
@@ -80,13 +93,13 @@ export function QuickReplyTemplatesSection() {
 
  return (
  <div>
- <div className="flex items-center justify-between mb-4">
+ <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
  <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2">
  <MessageSquare size={18} className="text-accent" />
  Quick Reply Templates
  </h2>
  <button onClick={openCreate}
- className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent/80 transition-colors">
+ className="flex items-center gap-1.5 px-3 py-1.5 coarse:py-2.5 text-xs bg-accent text-white rounded-lg hover:bg-accent/80 transition-colors">
  <Plus size={14} /> Add Template
  </button>
  </div>
@@ -104,45 +117,37 @@ export function QuickReplyTemplatesSection() {
  <div className="text-sm text-text-primary truncate">{t.translations.en || t.translations[Object.keys(t.translations)[0]] || '(empty)'}</div>
  <div className="text-[10px] text-text-muted">{filledCount(t)} / {LANGUAGES.length} languages</div>
  </div>
- <button onClick={() => openEdit(t)} className="p-1.5 text-text-muted hover:text-accent transition-colors">
- <Pencil size={14} />
- </button>
- <button onClick={() => handleDelete(t.id)} className="p-1.5 text-text-muted hover:text-red-400 transition-colors">
- <Trash2 size={14} />
- </button>
- </div>
- ))}
- </div>
-
- {/* ── Edit / Create modal ── */}
- {editMode && (
- <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
- <div className="bg-bg-secondary rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
- <div className="flex items-center justify-between px-5 py-4 ">
- <h3 className="text-base font-semibold text-text-primary">
- {editMode === 'create' ? 'Add Template' : 'Edit Template'}
- </h3>
- <button onClick={() => setEditMode(null)} className="p-1 text-text-muted hover:text-text-primary">
- <X size={18} />
- </button>
- </div>
- <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
- {LANGUAGES.map(l => (
- <div key={l.code}>
- <label className="text-xs text-text-muted mb-1 block">
- {l.name} {l.code === 'en' && <span className="text-red-400">*</span>}
- </label>
- <input
- value={form[l.code] || ''}
- onChange={e => setForm(prev => ({ ...prev, [l.code]: e.target.value }))}
- placeholder={`Quick reply in ${l.name}...`}
- maxLength={500}
- className="w-full px-3 py-2 text-sm bg-bg-tertiary rounded-lg text-text-primary"
+ <IconButton
+ label={tr('common.edit')}
+ icon={<Pencil size={14} />}
+ variant="plain"
+ onClick={() => openEdit(t)}
+ className="shrink-0 hover:text-accent"
+ />
+ <IconButton
+ label={tr('common.delete')}
+ icon={<Trash2 size={14} />}
+ variant="plain"
+ onClick={() => handleDelete(t)}
+ className="shrink-0 hover:text-red-400"
  />
  </div>
  ))}
  </div>
- <div className="flex justify-end gap-2 px-5 py-4 ">
+
+ {/* ── Edit / Create modal ── (shared Modal: full-screen on phones,
+     scrolling body + sticky footer above the soft keyboard) */}
+ <Modal
+ open={!!editMode}
+ onClose={() => setEditMode(null)}
+ size="md"
+ closeOnBackdrop={false}
+ title={<span className="text-base">{editMode === 'create' ? 'Add Template' : 'Edit Template'}</span>}
+ className="sm:rounded-2xl sm:max-h-[80dvh] sm:supports-[not(height:100dvh)]:max-h-[80vh]"
+ bodyClassName="px-5 py-4 space-y-3"
+ footerClassName="px-5 py-4"
+ footer={
+ <>
  <button onClick={() => setEditMode(null)}
  className="px-4 py-2 text-sm bg-bg-tertiary text-text-muted rounded-lg hover:text-text-primary transition-colors">
  Cancel
@@ -151,10 +156,26 @@ export function QuickReplyTemplatesSection() {
  className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent/80 transition-colors">
  {editMode === 'create' ? 'Create' : 'Save'}
  </button>
+ </>
+ }
+ >
+ {LANGUAGES.map(l => (
+ <div key={l.code}>
+ <label htmlFor={`qrt-${l.code}`} className="text-xs text-text-muted mb-1 block">
+ {l.name} {l.code === 'en' && <span className="text-red-400">*</span>}
+ </label>
+ <input
+ id={`qrt-${l.code}`}
+ value={form[l.code] || ''}
+ onChange={e => setForm(prev => ({ ...prev, [l.code]: e.target.value }))}
+ placeholder={`Quick reply in ${l.name}...`}
+ maxLength={500}
+ lang={l.code}
+ className="w-full px-3 py-2 text-sm bg-bg-tertiary rounded-lg text-text-primary"
+ />
  </div>
- </div>
- </div>
- )}
+ ))}
+ </Modal>
  </div>
  );
 }

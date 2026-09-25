@@ -352,7 +352,9 @@ const THEMES: { id: AppTheme; label: string; Preview: () => JSX.Element }[] = [
 
 export function ThemePicker({ value, onChange }: ThemePickerProps) {
  return (
- <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+ // Phones: two columns of smaller previews (four full-width SVG cards made
+ // the Profile / Enrollment appearance sections very long). sm+ unchanged.
+ <div className="grid grid-cols-2 gap-2 sm:gap-4">
  {THEMES.map(({ id, label, Preview }) => {
  const selected = value === id;
  return (
@@ -361,7 +363,7 @@ export function ThemePicker({ value, onChange }: ThemePickerProps) {
  type="button"
  onClick={() => onChange(id)}
  className={clsx(
- 'group relative rounded-xl border-2 p-2 text-left transition-all',
+ 'group relative min-w-0 rounded-xl border-2 p-1.5 sm:p-2 text-left transition-all',
  selected
  ? 'border-primary shadow-[0_0_0_1px_rgb(var(--c-primary)/0.3)]'
  : 'border-transparent hover:border-primary/40 hover:bg-bg-hover',
@@ -376,15 +378,15 @@ export function ThemePicker({ value, onChange }: ThemePickerProps) {
  </div>
 
  {/* Label + checkmark */}
- <div className="mt-2.5 flex items-center justify-between px-1 pb-0.5">
+ <div className="mt-2 sm:mt-2.5 flex items-center justify-between gap-1 px-1 pb-0.5">
  <span className={clsx(
- 'text-sm font-semibold',
+ 'min-w-0 text-xs sm:text-sm font-semibold max-sm:truncate',
  selected ? 'text-primary' : 'text-text-secondary',
  )}>
  {label}
  </span>
  {selected && (
- <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary">
+ <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary">
  <Check size={11} className="text-bg-primary" strokeWidth={3} />
  </span>
  )}

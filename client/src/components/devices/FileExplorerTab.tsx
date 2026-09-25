@@ -22,6 +22,7 @@ import {
  Shield,
  Package,
  Check,
+ CheckSquare,
  X,
  Edit3,
  Save,
@@ -32,6 +33,11 @@ import toast from 'react-hot-toast';
 import { fileApi } from '@/api/file.api';
 import { getSocket } from '@/socket/socketClient';
 import { isCommandSupported, unsupportedTooltip } from '@/utils/capabilities';
+import { saveBlob } from '@/utils/download';
+import { useIsCoarsePointer, useMediaQuery, MEDIA } from '@/hooks/useMediaQuery';
+import { useConfirm, usePrompt } from '@/components/common/ConfirmDialog';
+import { ActionMenu, type ActionMenuItem } from '@/components/common/ActionMenu';
+import { Modal } from '@/components/common/Modal';
 import type { Device, Command } from '@obliance/shared';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -51,7 +57,16 @@ interface Props {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const MAX_UPLOAD_SIZE = 150 * 1024 * 1024; // 1150 MB
+const MAX_UPLOAD_SIZE = 150 * 1024 * 1024; // 150 MB
+// Touch devices: the base64 copy of the file lives in the WebView's memory.
+const MAX_UPLOAD_MB_TOUCH = 25;
+const MAX_UPLOAD_SIZE_TOUCH = MAX_UPLOAD_MB_TOUCH * 1024 * 1024;
+
+// 40 px tap targets on touch screens (desktop sizes unchanged) — docs/obli-mobile.md §5.4.
+const TB = 'coarse:min-h-10 coarse:min-w-10 coarse:inline-flex coarse:items-center coarse:justify-center';
+
+// File names / paths: no autocapitalize / autocorrect on mobile keyboards.
+const PLAIN_INPUT = { autoCapitalize: 'off', autoCorrect: 'off', spellCheck: false } as const;
 
 function formatSize(bytes: number): string {
  if (bytes <= 0) return '-';
@@ -178,6 +193,20 @@ function splitBreadcrumb(path: string, osType: string): { label: string; path: s
 
 export default function FileExplorerTab({ device }: Props) {
  const { t } = useTranslation();
+ const confirm = useConfirm();
+ const prompt = usePrompt();
+ // Touch screens (docs/obli-mobile.md §5): a tap opens (folder → navigate,
+ // text file → editor, other file → actions menu), the file icon toggles the
+ // selection, row actions stay visible (or sit in a "⋯" menu on phones) and
+ // rename / delete go through dialogs. Desktop keeps click = select,
+ // double-click = open, the right-click menu and the inline rename / delete.
+ const isCoarse = useIsCoarsePointer();
+ // The text editor is a side panel from lg up, a full-screen sheet below.
+ const isLg = useMediaQuery(MEDIA.lg);
+ // The per-row "⋯" menu only exists below md: not mounted at all on
+ // desktop (large folders would otherwise mount thousands of hidden menus).
+ const isMd = useMediaQuery(MEDIA.md);
+ const fileInputRef = useRef<HTMLInputElement>(null);
  const [currentPath, setCurrentPath] = useState('');
  const [files, setFiles] = useState<FileInfo[]>([]);
  const [loading, setLoading] = useState(false);
@@ -196,7 +225,8 @@ export default function FileExplorerTab({ device }: Props) {
  const [editorLoading, setEditorLoading] = useState(false);
  const [editorSaving, setEditorSaving] = useState(false);
 
- // Custom right-click context menu state
+ // Custom right-click context menu state (also opened by a long-press, or by
+ // a tap on a file that has no direct "open" action, on touch screens)
  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; file: FileInfo } | null>(null);
  useEffect(() => {
  if (!contextMenu) return;
@@ -340,6 +370,13 @@ export default function FileExplorerTab({ device }: Props) {
 
  // ── Selection ───────────────────────────────────────────────────────────
 
+ // True when a click comes from a finger. Decided per event, so a touch
+ // laptop used with a mouse keeps the desktop behaviour for mouse clicks.
+ const isTouchEvent = (e: React.MouseEvent) => {
+ const pt = (e.nativeEvent as PointerEvent).pointerType;
+ return pt ? pt === 'touch' : isCoarse;
+ };
+
  const toggleSelect = (filePath: string, e: React.MouseEvent) => {
  e.stopPropagation();
  setSelectedFiles((prev) => {
@@ -370,16 +407,11 @@ export default function FileExplorerTab({ device }: Props) {
  for (let i = 0; i < binaryStr.length; i++) {
  bytes[i] = binaryStr.charCodeAt(i);
  }
- const blob = new Blob([bytes]);
- const url = URL.createObjectURL(blob);
- const a = document.createElement('a');
- a.href = url;
- a.download = file.name;
- document.body.appendChild(a);
- a.click();
- document.body.removeChild(a);
- URL.revokeObjectURL(url);
- toast.success(t('fileExplorer.downloadSuccess'));
+ // Native bridge in the Android app (blob: URLs cannot be downloaded
+ // there), classic <a download> in a browser.
+ const saved = await saveBlob(new Blob([bytes]), file.name, 'application/octet-stream');
+ if (saved) toast.success(t('fileExplorer.downloadSuccess'));
+ else toast.error(t('fileExplorer.downloadFailed'));
  } else {
  toast.error((result as any).error || t('fileExplorer.downloadFailed'));
  }
@@ -431,7 +463,7 @@ export default function FileExplorerTab({ device }: Props) {
 
  const handleOpenEditor = async (file: FileInfo) => {
  if (!isEditableText(file)) {
- toast.error(t('fileExplorer.notEditable') || 'This file is not editable as text');
+ toast.error(t('fileExplorer.notEditable', 'This file is not editable as text'));
  return;
  }
  setEditorFile(file);
@@ -471,22 +503,27 @@ export default function FileExplorerTab({ device }: Props) {
  const base64 = btoa(binary);
  const result = await sendCommand('upload_file', { path: editorFile.path, data: base64, overwrite: true }, 60000);
  if (result.status === 'success') {
- toast.success(t('fileExplorer.saved') || 'File saved');
+ toast.success(t('fileExplorer.saved', 'File saved'));
  setEditorOriginal(editorContent);
  await listDirectory(currentPath);
  } else {
- toast.error((result as any).error || t('fileExplorer.saveFailed') || 'Save failed');
+ toast.error((result as any).error || t('fileExplorer.saveFailed', 'Save failed'));
  }
  } catch (err: any) {
- toast.error(err.message || t('fileExplorer.saveFailed') || 'Save failed');
+ toast.error(err.message || t('fileExplorer.saveFailed', 'Save failed'));
  } finally {
  setEditorSaving(false);
  }
  };
 
- const handleCloseEditor = () => {
+ const handleCloseEditor = async () => {
  if (editorContent !== editorOriginal) {
- if (!confirm(t('fileExplorer.unsavedChanges') || 'You have unsaved changes. Close anyway?')) return;
+ const ok = await confirm({
+ message: t('fileExplorer.unsavedChanges', 'You have unsaved changes. Close anyway?'),
+ confirmLabel: t('fileExplorer.discardChanges', 'Discard changes'),
+ danger: true,
+ });
+ if (!ok) return;
  }
  setEditorFile(null);
  setEditorContent('');
@@ -496,7 +533,12 @@ export default function FileExplorerTab({ device }: Props) {
  // ── Create directory ────────────────────────────────────────────────────
 
  const handleCreateFolder = async () => {
- const name = prompt(t('fileExplorer.newFolderPrompt'));
+ const name = await prompt({
+ title: t('fileExplorer.newFolder'),
+ message: t('fileExplorer.newFolderPrompt'),
+ required: true,
+ confirmLabel: t('common.create', 'Create'),
+ });
  if (!name?.trim()) return;
  const dirPath = joinPath(currentPath, name.trim(), device.osType);
  setLoading(true);
@@ -523,8 +565,8 @@ export default function FileExplorerTab({ device }: Props) {
  setTimeout(() => renameInputRef.current?.select(), 50);
  };
 
- const confirmRename = async (file: FileInfo) => {
- const newName = renameValue.trim();
+ const confirmRename = async (file: FileInfo, value: string = renameValue) => {
+ const newName = value.trim();
  if (!newName || newName === file.name) {
  setRenamingFile(null);
  return;
@@ -555,6 +597,18 @@ export default function FileExplorerTab({ device }: Props) {
  }
  };
 
+ // Touch screens: rename through a dialog (the inline field is too narrow).
+ const renameViaDialog = async (file: FileInfo) => {
+ const value = await prompt({
+ title: t('fileExplorer.rename'),
+ defaultValue: file.name,
+ required: true,
+ confirmLabel: t('fileExplorer.rename'),
+ });
+ if (value === null) return;
+ await confirmRename(file, value);
+ };
+
  // ── Delete ──────────────────────────────────────────────────────────────
 
  const handleDelete = async (file: FileInfo) => {
@@ -579,6 +633,25 @@ export default function FileExplorerTab({ device }: Props) {
  }
  };
 
+ // Touch screens: confirm in a dialog instead of the inline "Delete? ✓ ✗".
+ const deleteViaDialog = async (file: FileInfo) => {
+ const ok = await confirm({
+ message: t('fileExplorer.deleteConfirm', 'Delete "{{name}}"?', { name: file.name }),
+ danger: true,
+ });
+ if (ok) await handleDelete(file);
+ };
+
+ const requestRename = (file: FileInfo) => {
+ if (isCoarse) renameViaDialog(file);
+ else startRename(file);
+ };
+
+ const requestDelete = (file: FileInfo) => {
+ if (isCoarse) deleteViaDialog(file);
+ else setDeletingFile(file.path);
+ };
+
  // ── Upload (drag & drop) ────────────────────────────────────────────────
 
  const handleDrop = async (e: React.DragEvent) => {
@@ -587,14 +660,29 @@ export default function FileExplorerTab({ device }: Props) {
  const droppedFiles = Array.from(e.dataTransfer.files);
  if (droppedFiles.length === 0) return;
 
- const oversized = droppedFiles.filter((f) => f.size > MAX_UPLOAD_SIZE);
+ // Each file is read whole into memory as base64 and sent in one command:
+ // on touch devices (phones / tablets, often low on RAM) a large file can
+ // crash the WebView tab, so they get a lower cap until uploads are chunked.
+ const uploadLimit = isCoarse ? MAX_UPLOAD_SIZE_TOUCH : MAX_UPLOAD_SIZE;
+ const oversized = droppedFiles.filter((f) => f.size > uploadLimit);
  if (oversized.length > 0) {
+ const names = oversized.map((f) => f.name).join(', ');
  toast.error(
- `${oversized.length} file(s) exceed 150 MB limit: ${oversized.map((f) => f.name).join(', ')}`,
+ isCoarse
+ ? t('fileExplorer.tooLargeTouch', '{{count}} file(s) exceed the {{limit}} MB upload limit on phones and tablets (the file is loaded in memory): {{names}}', {
+ count: oversized.length,
+ limit: MAX_UPLOAD_MB_TOUCH,
+ names,
+ })
+ : t('fileExplorer.tooLarge', '{{count}} file(s) exceed the 150 MB limit: {{names}}', {
+ count: oversized.length,
+ names,
+ }),
+ isCoarse ? { duration: 8000 } : undefined,
  );
  }
 
- const valid = droppedFiles.filter((f) => f.size <= MAX_UPLOAD_SIZE);
+ const valid = droppedFiles.filter((f) => f.size <= uploadLimit);
  if (valid.length === 0) return;
 
  setLoading(true);
@@ -625,26 +713,29 @@ export default function FileExplorerTab({ device }: Props) {
  }
  }
 
- if (successCount > 0) toast.success(`${successCount} file(s) uploaded`);
- if (failCount > 0) toast.error(`${failCount} file(s) failed to upload`);
+ if (successCount > 0) toast.success(t('fileExplorer.uploadedCount', '{{count}} file(s) uploaded', { count: successCount }));
+ if (failCount > 0) toast.error(t('fileExplorer.uploadFailedCount', '{{count}} file(s) failed to upload', { count: failCount }));
  await listDirectory(currentPath);
  };
 
+ // The file input lives in the DOM (below): mobile WebView file choosers do
+ // not always honour a detached input. This is also the touch path —
+ // drag & drop only exists with a mouse.
  const handleUploadClick = () => {
- const input = document.createElement('input');
- input.type = 'file';
- input.multiple = true;
- input.onchange = async () => {
- if (!input.files?.length) return;
- const files = Array.from(input.files);
+ fileInputRef.current?.click();
+ };
+
+ const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+ const input = e.currentTarget;
+ const picked = input.files ? Array.from(input.files) : [];
+ input.value = ''; // picking the same file again must fire onChange
+ if (picked.length === 0) return;
  // Reuse the same upload logic
  const fakeEvent = {
  preventDefault: () => {},
- dataTransfer: { files },
+ dataTransfer: { files: picked },
  } as unknown as React.DragEvent;
  await handleDrop(fakeEvent);
- };
- input.click();
  };
 
  // ── Render ──────────────────────────────────────────────────────────────
@@ -675,30 +766,153 @@ export default function FileExplorerTab({ device }: Props) {
  const canDownload = isCommandSupported(device, 'download_file');
  const canRename = isCommandSupported(device, 'rename_file');
  const canDelete = isCommandSupported(device, 'delete_file');
+ const unsupported = unsupportedTooltip(t);
+
+ // "Open" = what a double-click does on desktop and a tap does on touch.
+ const openFile = (file: FileInfo, at: { x: number; y: number }) => {
+ if (file.isDir) {
+ navigateTo(file);
+ } else if (isEditableText(file) && canDownload) {
+ handleOpenEditor(file);
+ } else {
+ // No direct action: show the file's actions where the finger is.
+ setContextMenu({ x: at.x, y: at.y, file });
+ }
+ };
+
+ // Row actions for the "⋯" menu (phones / tablets).
+ const fileActions = (file: FileInfo): ActionMenuItem[] => {
+ const editable = !file.isDir && isEditableText(file);
+ return [
+ {
+ key: 'open',
+ icon: <FolderOpen className="w-4 h-4 text-yellow-500" />,
+ label: t('fileExplorer.open', 'Open'),
+ onClick: () => navigateTo(file),
+ hidden: !file.isDir,
+ },
+ {
+ key: 'edit',
+ icon: <Edit3 className="w-4 h-4 text-accent" />,
+ label: t('fileExplorer.edit', 'Edit'),
+ onClick: () => handleOpenEditor(file),
+ hidden: !editable || !canDownload,
+ },
+ {
+ key: 'download',
+ icon: <Download className="w-4 h-4 text-accent" />,
+ label: t('fileExplorer.download'),
+ description: canDownload ? undefined : unsupported,
+ onClick: () => handleDownload(file),
+ hidden: file.isDir,
+ disabled: !canDownload,
+ },
+ {
+ key: 'rename',
+ icon: <Pencil className="w-4 h-4 text-accent" />,
+ label: t('fileExplorer.rename'),
+ description: canRename ? undefined : unsupported,
+ onClick: () => renameViaDialog(file),
+ disabled: !canRename,
+ separator: true,
+ },
+ {
+ key: 'delete',
+ icon: <Trash2 className="w-4 h-4" />,
+ label: t('fileExplorer.delete'),
+ description: canDelete ? undefined : unsupported,
+ onClick: () => deleteViaDialog(file),
+ disabled: !canDelete,
+ danger: true,
+ },
+ ];
+ };
+
+ const editorDirty = editorContent !== editorOriginal;
+ const editorAsSheet = !!editorFile && !isLg;
+
+ const saveButton = (
+ <button
+ onClick={handleSaveEditor}
+ disabled={editorSaving || editorLoading || !editorDirty}
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-accent text-white hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors coarse:min-h-10"
+ title={t('fileExplorer.save', 'Save')}
+ >
+ {editorSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+ {t('fileExplorer.save', 'Save')}
+ </button>
+ );
+
+ const unsavedBadge = editorDirty && (
+ <span className="text-xs text-orange-400 shrink-0">{t('fileExplorer.unsavedBadge', 'modified')}</span>
+ );
+
+ const renderEditorArea = (textareaClassName: string) => (
+ <div className="flex-1 min-h-0 relative">
+ {editorLoading ? (
+ <div className="absolute inset-0 flex items-center justify-center">
+ <Loader2 className="w-6 h-6 text-accent animate-spin" />
+ </div>
+ ) : (
+ <textarea
+ value={editorContent}
+ onChange={(e) => setEditorContent(e.target.value)}
+ {...PLAIN_INPUT}
+ aria-label={editorFile?.name}
+ className={textareaClassName}
+ onKeyDown={(e) => {
+ if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+ e.preventDefault();
+ handleSaveEditor();
+ }
+ }}
+ />
+ )}
+ </div>
+ );
+
+ const editorStats = (
+ <>
+ <span>{t('fileExplorer.editorStats', '{{chars}} chars · {{lines}} lines', { chars: editorContent.length, lines: editorContent.split('\n').length })}</span>
+ <span className="opacity-60 coarse:hidden">{t('fileExplorer.ctrlSToSave', 'Ctrl+S to save')}</span>
+ </>
+ );
 
  return (
  <div className="flex gap-3">
  <div className={clsx(
  'bg-bg-secondary rounded-xl overflow-hidden flex flex-col',
- editorFile ? 'flex-1 min-w-0' : 'w-full'
+ editorFile && !editorAsSheet ? 'flex-1 min-w-0' : 'w-full'
  )}>
+ {/* Hidden picker used by the Upload button (the touch upload path). */}
+ <input
+ ref={fileInputRef}
+ type="file"
+ multiple
+ className="hidden"
+ tabIndex={-1}
+ aria-hidden="true"
+ onChange={handleFileInputChange}
+ />
+
  {/* ── Top bar ──────────────────────────────────────────────────────── */}
- <div className="px-4 py-3 flex items-center gap-2 flex-wrap">
+ <div className="px-4 py-3 flex items-center gap-2 flex-wrap max-sm:px-3">
  {/* Back button */}
  <button
  onClick={navigateUp}
  disabled={isRoot || loading}
- className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-tertiary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+ className={clsx('p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-tertiary disabled:opacity-30 disabled:cursor-not-allowed transition-colors', TB)}
  title={t('fileExplorer.back')}
+ aria-label={t('fileExplorer.back')}
  >
  <ArrowLeft className="w-4 h-4" />
  </button>
 
- {/* Breadcrumb */}
- <div className="flex items-center gap-1 text-sm min-w-0 flex-1 overflow-x-auto scrollbar-thin">
+ {/* Breadcrumb (own line on phones) */}
+ <div className="flex items-center gap-1 text-sm min-w-0 flex-1 overflow-x-auto scrollbar-thin max-sm:order-last max-sm:basis-full overscroll-x-contain">
  <button
  onClick={() => listDirectory('')}
- className={`shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium transition-colors ${
+ className={`shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium transition-colors coarse:py-2 coarse:px-2.5 ${
  isRoot
  ? 'text-accent bg-accent/10'
  : 'text-text-muted hover:text-text-primary hover:bg-bg-tertiary'
@@ -712,7 +926,7 @@ export default function FileExplorerTab({ device }: Props) {
  <ChevronRight className="w-3 h-3 text-text-muted/50" />
  <button
  onClick={() => navigateToBreadcrumb(crumb.path)}
- className={`px-1.5 py-0.5 rounded text-xs font-medium transition-colors ${
+ className={`px-1.5 py-0.5 rounded text-xs font-medium transition-colors coarse:py-2 coarse:px-2.5 ${
  i === breadcrumbs.length - 1
  ? 'text-accent bg-accent/10'
  : 'text-text-muted hover:text-text-primary hover:bg-bg-tertiary'
@@ -725,28 +939,31 @@ export default function FileExplorerTab({ device }: Props) {
  </div>
 
  {/* Action buttons */}
- <div className="flex items-center gap-1 shrink-0">
+ <div className="flex items-center gap-1 shrink-0 max-sm:ml-auto">
  <button
  onClick={() => listDirectory(currentPath)}
  disabled={loading}
- className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-tertiary disabled:opacity-30 transition-colors"
+ className={clsx('p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-tertiary disabled:opacity-30 transition-colors', TB)}
  title={t('fileExplorer.refresh')}
+ aria-label={t('fileExplorer.refresh')}
  >
  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
  </button>
  <button
  onClick={handleCreateFolder}
  disabled={loading || isRoot || !canCreateDir}
- className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-tertiary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
- title={canCreateDir ? t('fileExplorer.newFolder') : unsupportedTooltip(t)}
+ className={clsx('p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-tertiary disabled:opacity-30 disabled:cursor-not-allowed transition-colors', TB)}
+ title={canCreateDir ? t('fileExplorer.newFolder') : unsupported}
+ aria-label={canCreateDir ? t('fileExplorer.newFolder') : unsupported}
  >
  <FolderPlus className="w-4 h-4" />
  </button>
  <button
  onClick={handleUploadClick}
  disabled={loading || isRoot || !canUpload}
- className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-tertiary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
- title={canUpload ? t('fileExplorer.upload') : unsupportedTooltip(t)}
+ className={clsx('p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-tertiary disabled:opacity-30 disabled:cursor-not-allowed transition-colors', TB)}
+ title={canUpload ? t('fileExplorer.upload') : unsupported}
+ aria-label={canUpload ? t('fileExplorer.upload') : unsupported}
  >
  <Upload className="w-4 h-4" />
  </button>
@@ -771,29 +988,32 @@ export default function FileExplorerTab({ device }: Props) {
  <div className="flex flex-col items-center gap-2 text-accent">
  <Upload className="w-10 h-10" />
  <span className="text-sm font-medium">{t('fileExplorer.dropToUpload')}</span>
- <span className="text-xs text-text-muted">Max 150 MB per file</span>
+ <span className="text-xs text-text-muted">{t('fileExplorer.maxUploadSize', 'Max 150 MB per file')}</span>
  </div>
  </div>
  )}
 
- {/* Loading state */}
+ {/* Loading state (also swallows a second tap while a folder opens) */}
  {loading && (
  <div className="absolute inset-0 z-20 flex items-center justify-center bg-bg-secondary/80">
  <Loader2 className="w-6 h-6 text-accent animate-spin" />
  </div>
  )}
 
- {/* Table */}
+ {/* Table — nested scroll on large screens; on phones (and short
+ touch screens) the page scrolls instead of a 40 px strip. */}
  {files.length > 0 ? (
- <div className="overflow-auto max-h-[calc(100vh-320px)]">
+ <div className="overflow-auto max-h-[calc(100dvh-320px)] supports-[not(height:100dvh)]:max-h-[calc(100vh-320px)] max-md:max-h-none coarse:[@media(max-height:600px)]:max-h-none">
  <table className="w-full text-sm">
  <thead className="sticky top-0 z-[5]">
  <tr className="bg-bg-tertiary/80 backdrop-blur text-text-muted text-xs uppercase tracking-wider">
- <th className="w-8 px-3 py-2" />
- <th className="text-left px-3 py-2 font-medium">{t('fileExplorer.name')}</th>
- <th className="text-right px-3 py-2 font-medium w-28">{t('fileExplorer.size')}</th>
- <th className="text-left px-3 py-2 font-medium w-44">{t('fileExplorer.modified')}</th>
- <th className="text-right px-3 py-2 font-medium w-28">{t('fileExplorer.actions')}</th>
+ <th className="w-8 px-3 py-2 max-sm:px-2" />
+ <th className="text-left px-3 py-2 font-medium max-sm:px-1">{t('fileExplorer.name')}</th>
+ <th className="text-right px-3 py-2 font-medium w-28 hidden sm:table-cell">{t('fileExplorer.size')}</th>
+ <th className="text-left px-3 py-2 font-medium w-44 hidden sm:table-cell">{t('fileExplorer.modified')}</th>
+ <th className="text-right px-3 py-2 font-medium w-12 md:w-28 max-sm:px-1">
+ <span className="max-md:sr-only">{t('fileExplorer.actions')}</span>
+ </th>
  </tr>
  </thead>
  <tbody>
@@ -807,8 +1027,19 @@ export default function FileExplorerTab({ device }: Props) {
  return (
  <tr
  key={file.path}
- onClick={(e) => toggleSelect(file.path, e)}
- onDoubleClick={() => {
+ onClick={(e) => {
+ if (isTouchEvent(e)) {
+ // Tap = open. stopPropagation also keeps the
+ // window 'click' listener from closing a menu
+ // this tap just opened.
+ e.stopPropagation();
+ openFile(file, { x: e.clientX, y: e.clientY });
+ } else {
+ toggleSelect(file.path, e);
+ }
+ }}
+ onDoubleClick={(e) => {
+ if (isTouchEvent(e)) return; // the tap already opened it
  if (file.isDir) {
  navigateTo(file);
  } else if (isEditableText(file)) {
@@ -822,16 +1053,24 @@ export default function FileExplorerTab({ device }: Props) {
  e.stopPropagation();
  setContextMenu({ x: e.clientX, y: e.clientY, file });
  }}
- className={`group /50 cursor-pointer transition-colors ${
+ className={`group /50 cursor-pointer transition-colors coarse:select-none coarse:[-webkit-touch-callout:none] ${
  isSelected
  ? 'bg-accent/10'
  : 'hover:bg-bg-tertiary/50'
  } ${isOperating ? 'opacity-50 pointer-events-none' : ''}`}
  >
- {/* Icon */}
- <td className="px-3 py-1.5 text-center">
+ {/* Icon — on touch it also toggles the selection */}
+ <td
+ className="px-3 py-1.5 text-center max-sm:px-2"
+ onClick={(e) => {
+ if (!isTouchEvent(e)) return;
+ toggleSelect(file.path, e);
+ }}
+ >
  {isOperating ? (
  <Loader2 className="w-4 h-4 text-accent animate-spin mx-auto" />
+ ) : isSelected && isCoarse ? (
+ <CheckSquare className="w-4 h-4 mx-auto text-accent" aria-label={t('fileExplorer.selected')} />
  ) : (
  <Icon
  className={`w-4 h-4 mx-auto ${
@@ -841,8 +1080,8 @@ export default function FileExplorerTab({ device }: Props) {
  )}
  </td>
 
- {/* Name */}
- <td className="px-3 py-1.5">
+ {/* Name (+ size · date under it on phones) */}
+ <td className="px-3 py-1.5 max-sm:px-1 coarse:py-2.5">
  {isRenaming ? (
  <div className="flex items-center gap-1">
  <input
@@ -856,7 +1095,9 @@ export default function FileExplorerTab({ device }: Props) {
  }}
  onClick={(e) => e.stopPropagation()}
  onDoubleClick={(e) => e.stopPropagation()}
- className="px-1.5 py-0.5 text-sm bg-bg-tertiary border border-accent/50 rounded text-text-primary focus:outline-none w-64"
+ {...PLAIN_INPUT}
+ aria-label={t('fileExplorer.rename')}
+ className="px-1.5 py-0.5 text-sm bg-bg-tertiary border border-accent/50 rounded text-text-primary focus:outline-none w-full max-w-64 min-w-0"
  autoFocus
  />
  <button
@@ -864,7 +1105,8 @@ export default function FileExplorerTab({ device }: Props) {
  e.stopPropagation();
  confirmRename(file);
  }}
- className="p-0.5 rounded text-green-400 hover:bg-green-400/10"
+ aria-label={t('fileExplorer.confirm')}
+ className={clsx('p-0.5 rounded text-green-400 hover:bg-green-400/10', TB)}
  >
  <Check className="w-3.5 h-3.5" />
  </button>
@@ -873,36 +1115,42 @@ export default function FileExplorerTab({ device }: Props) {
  e.stopPropagation();
  setRenamingFile(null);
  }}
- className="p-0.5 rounded text-red-400 hover:bg-red-400/10"
+ aria-label={t('fileExplorer.cancel')}
+ className={clsx('p-0.5 rounded text-red-400 hover:bg-red-400/10', TB)}
  >
  <X className="w-3.5 h-3.5" />
  </button>
  </div>
  ) : (
+ <>
  <span
  className={`${
  file.isDir
  ? 'text-text-primary font-medium hover:text-accent'
  : 'text-text-primary'
- } transition-colors`}
+ } transition-colors max-sm:[overflow-wrap:anywhere]`}
  >
  {file.name}
  </span>
+ <div className="sm:hidden mt-0.5 text-[11px] text-text-muted tabular-nums">
+ {file.isDir ? formatDate(file.modified) : `${formatSize(file.size)} · ${formatDate(file.modified)}`}
+ </div>
+ </>
  )}
  </td>
 
  {/* Size */}
- <td className="px-3 py-1.5 text-right text-text-muted text-xs tabular-nums">
+ <td className="px-3 py-1.5 text-right text-text-muted text-xs tabular-nums hidden sm:table-cell">
  {file.isDir ? '-' : formatSize(file.size)}
  </td>
 
  {/* Modified */}
- <td className="px-3 py-1.5 text-text-muted text-xs">
+ <td className="px-3 py-1.5 text-text-muted text-xs hidden sm:table-cell">
  {formatDate(file.modified)}
  </td>
 
  {/* Actions */}
- <td className="px-3 py-1.5 text-right">
+ <td className="px-3 py-1.5 text-right max-sm:px-1">
  {isDeleting ? (
  <div
  className="inline-flex items-center gap-1"
@@ -913,29 +1161,35 @@ export default function FileExplorerTab({ device }: Props) {
  </span>
  <button
  onClick={() => handleDelete(file)}
- className="p-1 rounded text-red-400 hover:bg-red-400/10 transition-colors"
+ className={clsx('p-1 rounded text-red-400 hover:bg-red-400/10 transition-colors', TB)}
  title={t('fileExplorer.confirm')}
+ aria-label={t('fileExplorer.confirm')}
  >
  <Check className="w-3.5 h-3.5" />
  </button>
  <button
  onClick={() => setDeletingFile(null)}
- className="p-1 rounded text-text-muted hover:bg-bg-tertiary transition-colors"
+ className={clsx('p-1 rounded text-text-muted hover:bg-bg-tertiary transition-colors', TB)}
  title={t('fileExplorer.cancel')}
+ aria-label={t('fileExplorer.cancel')}
  >
  <X className="w-3.5 h-3.5" />
  </button>
  </div>
  ) : (
- <div className="inline-flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+ <>
+ {/* md+: inline buttons — revealed on hover with a mouse,
+ always visible on touch screens. */}
+ <div className="hidden md:inline-flex items-center gap-0.5 can-hover:opacity-0 can-hover:group-hover:opacity-100 transition-opacity">
  {!file.isDir && isEditableText(file) && canDownload && (
  <button
  onClick={(e) => {
  e.stopPropagation();
  handleOpenEditor(file);
  }}
- className="p-1 rounded text-text-muted hover:text-accent hover:bg-accent/10 transition-colors"
- title={t('fileExplorer.edit') || 'Edit'}
+ className={clsx('p-1 rounded text-text-muted hover:text-accent hover:bg-accent/10 transition-colors', TB)}
+ title={t('fileExplorer.edit', 'Edit')}
+ aria-label={t('fileExplorer.edit', 'Edit')}
  >
  <Edit3 className="w-3.5 h-3.5" />
  </button>
@@ -947,8 +1201,9 @@ export default function FileExplorerTab({ device }: Props) {
  handleDownload(file);
  }}
  disabled={!canDownload}
- className="p-1 rounded text-text-muted hover:text-accent hover:bg-accent/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
- title={canDownload ? t('fileExplorer.download') : unsupportedTooltip(t)}
+ className={clsx('p-1 rounded text-text-muted hover:text-accent hover:bg-accent/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors', TB)}
+ title={canDownload ? t('fileExplorer.download') : unsupported}
+ aria-label={canDownload ? t('fileExplorer.download') : unsupported}
  >
  <Download className="w-3.5 h-3.5" />
  </button>
@@ -956,26 +1211,47 @@ export default function FileExplorerTab({ device }: Props) {
  <button
  onClick={(e) => {
  e.stopPropagation();
- startRename(file);
+ requestRename(file);
  }}
  disabled={!canRename}
- className="p-1 rounded text-text-muted hover:text-accent hover:bg-accent/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
- title={canRename ? t('fileExplorer.rename') : unsupportedTooltip(t)}
+ className={clsx('p-1 rounded text-text-muted hover:text-accent hover:bg-accent/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors', TB)}
+ title={canRename ? t('fileExplorer.rename') : unsupported}
+ aria-label={canRename ? t('fileExplorer.rename') : unsupported}
  >
  <Pencil className="w-3.5 h-3.5" />
  </button>
  <button
  onClick={(e) => {
  e.stopPropagation();
- setDeletingFile(file.path);
+ requestDelete(file);
  }}
  disabled={!canDelete}
- className="p-1 rounded text-text-muted hover:text-red-400 hover:bg-red-400/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
- title={canDelete ? t('fileExplorer.delete') : unsupportedTooltip(t)}
+ className={clsx('p-1 rounded text-text-muted hover:text-red-400 hover:bg-red-400/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors', TB)}
+ title={canDelete ? t('fileExplorer.delete') : unsupported}
+ aria-label={canDelete ? t('fileExplorer.delete') : unsupported}
  >
  <Trash2 className="w-3.5 h-3.5" />
  </button>
  </div>
+ {/* Phones: every action in one "⋯" menu (bottom sheet). The
+ wrapper keeps the menu's clicks (portalled, but they
+ bubble through React) away from the row. Only mounted
+ below md. */}
+ {!isMd && (
+ <div
+ className="md:hidden inline-flex"
+ onClick={(e) => e.stopPropagation()}
+ onDoubleClick={(e) => e.stopPropagation()}
+ onContextMenu={(e) => e.stopPropagation()}
+ >
+ <ActionMenu
+ items={fileActions(file)}
+ label={t('fileExplorer.actions')}
+ sheetTitle={file.name}
+ />
+ </div>
+ )}
+ </>
  )}
  </td>
  </tr>
@@ -990,7 +1266,7 @@ export default function FileExplorerTab({ device }: Props) {
  <FolderOpen className="w-10 h-10 mb-3 opacity-30" />
  <p className="text-sm">{t('fileExplorer.empty')}</p>
  {!isRoot && (
- <p className="text-xs mt-1 opacity-60">{t('fileExplorer.dropToUpload')}</p>
+ <p className="text-xs mt-1 opacity-60 coarse:hidden">{t('fileExplorer.dropToUpload')}</p>
  )}
  </div>
  )
@@ -998,89 +1274,100 @@ export default function FileExplorerTab({ device }: Props) {
  </div>
 
  {/* ── Status bar ───────────────────────────────────────────────────── */}
- <div className="px-4 py-1.5 bg-bg-tertiary/50 flex items-center justify-between text-xs text-text-muted">
- <span>
+ <div className="px-4 py-1.5 bg-bg-tertiary/50 flex items-center justify-between text-xs text-text-muted max-md:gap-3">
+ <span className="max-md:shrink-0">
  {files.length > 0
  ? `${files.length} ${t('fileExplorer.items')}${
  selectedFiles.size > 0 ? ` — ${selectedFiles.size} ${t('fileExplorer.selected')}` : ''
  }`
  : ''}
  </span>
- <span className="opacity-60">{currentPath || (isWindows ? t('fileExplorer.drives') : '/')}</span>
+ <span className="opacity-60 max-md:min-w-0 max-md:truncate">{currentPath || (isWindows ? t('fileExplorer.drives') : '/')}</span>
  </div>
  </div>
 
- {/* ── Custom right-click context menu ─────────────────────────────── */}
+ {/* ── Custom right-click context menu (long-press / tap on touch) ──── */}
  {contextMenu && (() => {
  const file = contextMenu.file;
  const editable = !file.isDir && isEditableText(file);
  const MENU_W = 200;
- const MENU_H_EST = 240;
- const x = Math.min(contextMenu.x, window.innerWidth - MENU_W - 8);
- const y = Math.min(contextMenu.y, window.innerHeight - MENU_H_EST - 8);
+ const MENU_H_EST = isCoarse ? 300 : 240;
+ const x = Math.max(8, Math.min(contextMenu.x, window.innerWidth - MENU_W - 8));
+ const y = Math.max(8, Math.min(contextMenu.y, window.innerHeight - MENU_H_EST - 8));
  const close = () => setContextMenu(null);
+ const row = 'w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors text-left coarse:py-3 coarse:text-sm';
+ // Touch: a disabled item explains itself under its label (no hover title).
+ const why = (ok: boolean) => !ok && isCoarse && (
+ <span className="block text-[11px] text-text-muted">{unsupported}</span>
+ );
  return (
  <div
  className="fixed z-[200] w-[200px] bg-bg-secondary rounded-lg shadow-2xl overflow-hidden py-1"
  style={{ left: x, top: y }}
+ role="menu"
  onClick={(e) => e.stopPropagation()}
  onContextMenu={(e) => e.preventDefault()}
  >
  {file.isDir ? (
  <button
+ role="menuitem"
  onClick={() => { navigateTo(file); close(); }}
- className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-bg-tertiary transition-colors text-left"
+ className={clsx(row, 'text-text-primary hover:bg-bg-tertiary')}
  >
  <FolderOpen className="w-3.5 h-3.5 text-yellow-500" />
- Open
+ {t('fileExplorer.open', 'Open')}
  </button>
  ) : (
  <>
  {editable && canDownload && (
  <button
+ role="menuitem"
  onClick={() => { handleOpenEditor(file); close(); }}
- className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-bg-tertiary transition-colors text-left"
+ className={clsx(row, 'text-text-primary hover:bg-bg-tertiary')}
  >
  <Edit3 className="w-3.5 h-3.5 text-accent" />
- Edit
+ {t('fileExplorer.edit', 'Edit')}
  </button>
  )}
  <button
+ role="menuitem"
  onClick={() => { handleDownload(file); close(); }}
  disabled={!canDownload}
- title={canDownload ? undefined : unsupportedTooltip(t)}
- className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-bg-tertiary disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-left"
+ title={canDownload ? undefined : unsupported}
+ className={clsx(row, 'text-text-primary hover:bg-bg-tertiary disabled:opacity-30 disabled:cursor-not-allowed')}
  >
- <Download className="w-3.5 h-3.5 text-accent" />
- Download
+ <Download className="w-3.5 h-3.5 text-accent shrink-0" />
+ <span>{t('fileExplorer.download')}{why(canDownload)}</span>
  </button>
  </>
  )}
  <div className="h-px bg-border my-1" />
  <button
- onClick={() => { startRename(file); close(); }}
+ role="menuitem"
+ onClick={() => { requestRename(file); close(); }}
  disabled={!canRename}
- title={canRename ? undefined : unsupportedTooltip(t)}
- className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-bg-tertiary disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-left"
+ title={canRename ? undefined : unsupported}
+ className={clsx(row, 'text-text-primary hover:bg-bg-tertiary disabled:opacity-30 disabled:cursor-not-allowed')}
  >
- <Pencil className="w-3.5 h-3.5 text-accent" />
- Rename
+ <Pencil className="w-3.5 h-3.5 text-accent shrink-0" />
+ <span>{t('fileExplorer.rename')}{why(canRename)}</span>
  </button>
  <button
- onClick={() => { setDeletingFile(file.path); close(); }}
+ role="menuitem"
+ onClick={() => { requestDelete(file); close(); }}
  disabled={!canDelete}
- title={canDelete ? undefined : unsupportedTooltip(t)}
- className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-400 hover:bg-red-400/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-left"
+ title={canDelete ? undefined : unsupported}
+ className={clsx(row, 'text-red-400 hover:bg-red-400/10 disabled:opacity-30 disabled:cursor-not-allowed')}
  >
- <Trash2 className="w-3.5 h-3.5" />
- Delete
+ <Trash2 className="w-3.5 h-3.5 shrink-0" />
+ <span>{t('fileExplorer.delete')}{why(canDelete)}</span>
  </button>
  </div>
  );
  })()}
 
- {/* ── Text editor side panel ──────────────────────────────────────── */}
- {editorFile && (
+ {/* ── Text editor: side panel from lg up ───────────────────────────── */}
+ {editorFile && !editorAsSheet && (
  <div className="w-1/2 min-w-[400px] bg-bg-secondary rounded-xl overflow-hidden flex flex-col">
  {/* Header */}
  <div className="px-4 py-3 flex items-center gap-2">
@@ -1089,57 +1376,46 @@ export default function FileExplorerTab({ device }: Props) {
  <div className="text-sm text-text-primary font-medium truncate">{editorFile.name}</div>
  <div className="text-xs text-text-muted truncate" title={editorFile.path}>{editorFile.path}</div>
  </div>
- {editorContent !== editorOriginal && (
- <span className="text-xs text-orange-400 shrink-0">modified</span>
- )}
- <button
- onClick={handleSaveEditor}
- disabled={editorSaving || editorLoading || editorContent === editorOriginal}
- className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-accent text-white hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
- title={t('fileExplorer.save') || 'Save'}
- >
- {editorSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
- {t('fileExplorer.save') || 'Save'}
- </button>
+ {unsavedBadge}
+ {saveButton}
  <button
  onClick={handleCloseEditor}
  disabled={editorSaving}
- className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-colors"
- title={t('fileExplorer.close') || 'Close'}
+ className={clsx('p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-colors', TB)}
+ title={t('fileExplorer.close', 'Close')}
+ aria-label={t('fileExplorer.close', 'Close')}
  >
  <X className="w-4 h-4" />
  </button>
  </div>
 
  {/* Editor area */}
- <div className="flex-1 min-h-0 relative">
- {editorLoading ? (
- <div className="absolute inset-0 flex items-center justify-center">
- <Loader2 className="w-6 h-6 text-accent animate-spin" />
- </div>
- ) : (
- <textarea
- value={editorContent}
- onChange={(e) => setEditorContent(e.target.value)}
- spellCheck={false}
- className="w-full h-full min-h-[400px] p-4 bg-bg-primary text-text-primary font-mono text-xs leading-relaxed resize-none focus:outline-none"
- onKeyDown={(e) => {
- if ((e.ctrlKey || e.metaKey) && e.key === 's') {
- e.preventDefault();
- handleSaveEditor();
- }
- }}
- />
- )}
- </div>
+ {renderEditorArea('w-full h-full min-h-[400px] p-4 bg-bg-primary text-text-primary font-mono text-xs leading-relaxed resize-none focus:outline-none')}
 
  {/* Footer with info */}
  <div className="px-4 py-1.5 bg-bg-tertiary/50 flex items-center justify-between text-xs text-text-muted">
- <span>{editorContent.length} chars · {editorContent.split('\n').length} lines</span>
- <span className="opacity-60">Ctrl+S to save</span>
+ {editorStats}
  </div>
  </div>
  )}
+
+ {/* ── Text editor: full-screen sheet below lg ──────────────────────── */}
+ <Modal
+ open={editorAsSheet}
+ onClose={handleCloseEditor}
+ size="full"
+ closeOnBackdrop={false}
+ dismissible={!editorSaving}
+ title={editorFile?.name}
+ icon={<Edit3 className="w-4 h-4 text-accent shrink-0" />}
+ headerExtra={<>{unsavedBadge}{saveButton}</>}
+ bodyClassName="p-0 flex flex-col"
+ footer={<div className="flex w-full items-center justify-between gap-3">{editorStats}</div>}
+ footerClassName="py-1.5 bg-bg-tertiary/50 text-xs text-text-muted"
+ >
+ <div className="px-4 pb-2 text-xs text-text-muted truncate">{editorFile?.path}</div>
+ {renderEditorArea('w-full h-full min-h-[12rem] p-3 bg-bg-primary text-text-primary font-mono text-xs leading-relaxed resize-none focus:outline-none')}
+ </Modal>
  </div>
  );
 }

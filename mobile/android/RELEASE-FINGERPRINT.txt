@@ -1,0 +1,20 @@
+# Empreinte du certificat de signature des APK Obli Shell (release)
+#
+# Keystore : D:\keys\obli-release.jks, alias obli
+# Certificat : CN=Obli Shell, OU=Self-hosted, O=BinaryHearts, L=Paris, C=FR
+#              RSA 4096, valide du 2026-09-24 au 2056-09-16
+# Calculée avec :
+#   keytool -J-Duser.language=en -list -v -keystore D:\keys\obli-release.jks -alias obli -storepass:file D:\keys\obli-release-password.txt
+#
+# RÈGLE : chaque APK publié est vérifié avec
+#   apksigner verify --print-certs <apk>
+# et la ligne « certificate SHA-256 digest » doit être égale à l'empreinte
+# ci-dessous (casse et « : » ignorés). Si elle diffère : ARRÊTER, ne rien
+# publier et ne rien écraser — un APK signé par une autre clé ne peut pas
+# mettre à jour les installations existantes, et la coquille le refuse.
+# mobile/build-android.ps1 applique cette règle automatiquement.
+#
+# Cette empreinte n'est pas secrète (c'est le signerSha256 du manifeste).
+# Ne la modifier qu'en cas de rotation de clé volontaire (APK Signature Scheme v3).
+
+SHA256: 8C:7E:67:F8:60:BE:AC:DE:55:AB:24:37:A4:1F:50:C6:E2:C8:F0:77:7F:2F:AC:A8:88:76:67:6C:6D:82:AC:8D

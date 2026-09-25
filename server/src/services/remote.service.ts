@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import type { IncomingMessage } from 'http';
 import { db } from '../db';
 import { commandService } from './command.service';
 import { agentHub } from './agentHub.service';
@@ -9,6 +10,18 @@ import { getIO } from '../socket';
 import { SocketEvents, isMasterTenant } from '@obliance/shared';
 import type { RemoteSession, RemoteProtocol } from '@obliance/shared';
 import { logger } from '../utils/logger';
+import { AppError } from '../middleware/errorHandler';
+import {
+  emitRemoteSessionEvent,
+  evaluateAgentTunnelAccess,
+  evaluateBrowserTunnelAccess,
+  loadUpgradeSession,
+  toPublicRemoteSession,
+  type AgentTunnelVerdict,
+  type PublicRemoteSession,
+  type RemoteSessionEvent,
+  type TunnelAccessVerdict,
+} from './remoteSessionSecurity';
 
 interface TunnelEntry {
   browser?: any;
@@ -31,6 +44,86 @@ class RemoteService {
       endedAt: row.ended_at, durationSeconds: row.duration_seconds,
       endReason: row.end_reason, notes: row.notes, createdAt: row.created_at,
     };
+  }
+
+  /**
+   * THE single way to emit REMOTE_SESSION_UPDATED / REMOTE_TUNNEL_READY.
+   * The full session (with sessionToken) goes to the starter's `user:<id>`
+   * room only; the rest of the tenant gets a token-free copy. Never emit
+   * these events with a raw row or to a tenant room directly — the token is
+   * the relay key and must not reach other users.
+   * Accepts a DB row (snake_case) or an already-mapped RemoteSession.
+   */
+  emitSessionEvent(event: RemoteSessionEvent, rowOrSession: any) {
+    if (!rowOrSession) return;
+    const session: RemoteSession = 'session_token' in rowOrSession || 'tenant_id' in rowOrSession
+      ? this.rowToSession(rowOrSession)
+      : rowOrSession;
+    try {
+      emitRemoteSessionEvent(getIO(), event, session);
+    } catch { /* socket.io not initialised (boot / scripts) — nothing to notify */ }
+  }
+
+  /**
+   * Authorize the browser end of /api/remote/tunnel/<token>: the upgrade
+   * request must carry a valid express-session cookie whose user started the
+   * session, and the session must still be open. `sessionMw` is the app's
+   * express-session middleware (app.getSessionMiddleware()).
+   * Never throws — errors resolve to a 4000 verdict.
+   */
+  async authorizeBrowserTunnel(
+    request: IncomingMessage,
+    sessionToken: string,
+    sessionMw: ((req: any, res: any, next: (err?: unknown) => void) => void) | null,
+  ): Promise<TunnelAccessVerdict> {
+    try {
+      const sess = await loadUpgradeSession(sessionMw, request);
+      const userId = sess?.userId;
+      if (!userId) return evaluateBrowserTunnelAccess({ userId: null, userActive: false, row: null });
+      const row = await db('remote_sessions')
+        .where({ session_token: sessionToken })
+        .first('id', 'started_by', 'status');
+      const user = row ? await db('users').where({ id: userId }).first('is_active') : null;
+      return evaluateBrowserTunnelAccess({ userId, userActive: !!user && user.is_active !== false, row });
+    } catch (err) {
+      logger.error(err, 'Browser remote tunnel authorization error');
+      return { ok: false, code: 4000, reason: 'Internal error' };
+    }
+  }
+
+  /**
+   * Authorize the agent end of /api/remote/agent-tunnel/<token>: the
+   * X-Api-Key must be the key the session's DEVICE is bound to (same rule as
+   * the /api/agent/ws channel), the session must still be waiting for its
+   * agent, and no agent may already be attached. The caller must register
+   * the tunnel in the same tick as a positive verdict (no await in between)
+   * so the "no live agent" check cannot race.
+   * Never throws — errors resolve to a 500 verdict.
+   */
+  async authorizeAgentTunnel(apiKey: string | undefined, sessionToken: string): Promise<AgentTunnelVerdict> {
+    try {
+      if (!apiKey) return { ok: false, status: 401, reason: 'Missing X-Api-Key header' };
+      const key = await db('agent_api_keys').where({ key: apiKey }).first('id', 'tenant_id', 'is_active');
+      if (!key || key.is_active === false) return evaluateAgentTunnelAccess({ key: null, row: null, hasLiveAgent: false });
+      const row = await db('remote_sessions as rs')
+        .leftJoin('devices as d', 'd.id', 'rs.device_id')
+        .where('rs.session_token', sessionToken)
+        .first(
+          'rs.id', 'rs.status', 'rs.device_id',
+          'd.tenant_id as device_tenant_id', 'd.api_key_id as device_api_key_id',
+        );
+      return evaluateAgentTunnelAccess({ key, row, hasLiveAgent: this.hasLiveAgent(sessionToken) });
+    } catch (err) {
+      logger.error(err, 'Agent remote tunnel authorization error');
+      return { ok: false, status: 500, reason: 'Internal error' };
+    }
+  }
+
+  /** True while an agent WebSocket is attached (and not closed) for this token. */
+  hasLiveAgent(sessionToken: string): boolean {
+    const agent = this.tunnels.get(sessionToken)?.agent;
+    // ws readyState: 0 CONNECTING, 1 OPEN, 2 CLOSING, 3 CLOSED
+    return !!agent && (agent.readyState === 0 || agent.readyState === 1);
   }
 
   async createSession(
@@ -85,11 +178,17 @@ class RemoteService {
           id: `or_${sessionToken.slice(0, 8)}`,
           payload: commandPayload,
         };
-        const delivered = oblireachHub.push(device.uuid, orCmd);
+        // Only to a channel registered with this device's key (the command
+        // carries the relay token) — see oblireachHub.push.
+        const delivered = oblireachHub.push(device.uuid, orCmd, {
+          tenantId: device.tenant_id, apiKeyId: device.api_key_id ?? null,
+        });
         if (!delivered) {
           // Agent offline — queue in DB; drained immediately on next WS connect.
+          // oblireach_devices rows are keyed by the AGENT's tenant, i.e. the
+          // device's (the session tenant is the master's for a god-view start).
           await db('oblireach_devices')
-            .where({ device_uuid: device.uuid, tenant_id: tenantId })
+            .where({ device_uuid: device.uuid, tenant_id: device.tenant_id })
             .update({ pending_command: JSON.stringify(orCmd) });
         }
       }
@@ -106,9 +205,15 @@ class RemoteService {
         payload: vmPayload,
       });
       if (!delivered) {
-        await db('remote_sessions').where({ session_token: sessionToken })
-          .update({ status: 'failed', end_reason: 'agent_offline' });
-        logger.warn({ deviceId }, 'vm console: agent offline, session failed');
+        const [failed] = await db('remote_sessions').where({ id: row.id })
+          .update({ status: 'failed', ended_at: new Date(), end_reason: 'agent_offline' })
+          .returning('*');
+        this.emitSessionEvent(SocketEvents.REMOTE_SESSION_UPDATED, failed ?? row);
+        logger.warn({ deviceId, sessionId: row.id }, 'vm console: agent offline, session failed');
+        // Do NOT hand back a session that is already dead: the viewer would
+        // open a tunnel that is refused and, on its reconnect path, create
+        // another dead session in a loop. A 409 stops the caller instead.
+        throw new AppError(409, 'The host agent is not connected — the VM console needs a live agent connection.');
       }
     } else {
       // RDP / SSH / Shell: prefer instant command channel, fall back to DB queue.
@@ -129,10 +234,8 @@ class RemoteService {
       }
     }
 
-    // Notify UI
-    try {
-      getIO().to(`tenant:${tenantId}`).emit(SocketEvents.REMOTE_SESSION_UPDATED, session);
-    } catch {}
+    // Notify UI (token only to the starter — see emitSessionEvent)
+    this.emitSessionEvent(SocketEvents.REMOTE_SESSION_UPDATED, session);
 
     logger.info({ sessionId: session.id, deviceId, protocol }, 'Remote session created');
     return session;
@@ -173,7 +276,7 @@ class RemoteService {
           type: 'close_remote_tunnel',
           id: `close_${session.session_token.slice(0, 8)}`,
           payload: closePayload,
-        });
+        }, { tenantId: device.tenant_id, apiKeyId: device.api_key_id ?? null });
       }
     } else {
       const closePushed = agentHub.push(session.device_id, {
@@ -195,10 +298,10 @@ class RemoteService {
     // Clean up in-memory tunnel
     this.tunnels.delete(session.session_token);
 
-    // Notify UI
+    // Notify UI (token only to the starter — see emitSessionEvent)
     try {
       const updated = await db('remote_sessions').where({ id: sessionId }).first();
-      getIO().to(`tenant:${session.tenant_id}`).emit(SocketEvents.REMOTE_SESSION_UPDATED, this.rowToSession(updated));
+      this.emitSessionEvent(SocketEvents.REMOTE_SESSION_UPDATED, updated);
     } catch {}
   }
 
@@ -226,7 +329,7 @@ class RemoteService {
     const rows = await q
       .select('rs.*', 'u.username as started_by_username', 'u.display_name as started_by_display_name')
       .orderBy('rs.started_at', 'desc').limit(100);
-    return rows.map((row: any) => {
+    return rows.map((row: any): RemoteSession | PublicRemoteSession => {
       const session = this.rowToSession(row);
       if (row.started_by_username || row.started_by_display_name) {
         session.startedByUser = {
@@ -235,14 +338,23 @@ class RemoteService {
           displayName: row.started_by_display_name,
         };
       }
-      return session;
+      // The relay token only goes to the user who started the session (the
+      // tunnel refuses anyone else anyway). Admins still see every session,
+      // without the token — same shape as the socket.io tenant copy.
+      const isOwn = filters?.callerUserId != null && Number(row.started_by) === Number(filters.callerUserId);
+      return isOwn ? session : toPublicRemoteSession(session);
     });
   }
 
-  // Called when agent WebSocket connects for a session.
-  // Agent data may arrive before the browser has connected, so we buffer it
-  // until registerBrowserTunnel() flushes the buffer and sets up full relay.
-  registerAgentTunnel(sessionToken: string, agentWs: any) {
+  // Called when agent WebSocket connects for a session (after
+  // authorizeAgentTunnel). Agent data may arrive before the browser has
+  // connected, so we buffer it until registerBrowserTunnel() flushes the
+  // buffer and sets up full relay.
+  // Returns false — and registers nothing — when an agent is already
+  // attached: a second agent is never swapped in or bridged to the browser
+  // (it would receive everything the user types).
+  registerAgentTunnel(sessionToken: string, agentWs: any): boolean {
+    if (this.hasLiveAgent(sessionToken)) return false;
     if (!this.tunnels.has(sessionToken)) this.tunnels.set(sessionToken, { agentBuffer: [] });
     const tunnel = this.tunnels.get(sessionToken)!;
     tunnel.agent = agentWs;
@@ -277,16 +389,29 @@ class RemoteService {
       this._flushAndBridgeBrowser(sessionToken, tunnel.browser, agentWs);
     }
 
-    // Update session status
-    db('remote_sessions').where({ session_token: sessionToken }).update({
-      status: 'active', connected_at: new Date(),
-    }).then(() => {
-      db('remote_sessions').where({ session_token: sessionToken }).first().then((row: any) => {
+    // Update session status — only a session still waiting for its agent
+    // becomes 'active'. If it was ended/expired meanwhile, drop the tunnel
+    // and hang up on the agent instead of resurrecting the session.
+    db('remote_sessions')
+      .where({ session_token: sessionToken })
+      .whereIn('status', ['waiting', 'connecting'])
+      .update({ status: 'active', connected_at: new Date() })
+      .returning('*')
+      .then((rows: any[]) => {
+        const row = rows?.[0];
         if (row) {
-          try { getIO().to(`tenant:${row.tenant_id}`).emit(SocketEvents.REMOTE_TUNNEL_READY, this.rowToSession(row)); } catch {}
+          this.emitSessionEvent(SocketEvents.REMOTE_TUNNEL_READY, row);
+          return;
         }
-      });
-    });
+        const current = this.tunnels.get(sessionToken);
+        if (current && current.agent === agentWs) {
+          this.tunnels.delete(sessionToken); // handleTunnelClose then no-ops
+          try { current.browser?.close(); } catch {}
+        }
+        try { agentWs.close(4004, 'Session not open'); } catch {}
+      })
+      .catch((err: unknown) => logger.error(err, 'Remote tunnel: failed to mark session active'));
+    return true;
   }
 
   // Called when browser WebSocket connects for a session.
@@ -383,9 +508,7 @@ class RemoteService {
     // Notify UI for each session that was timed out
     const allTimedOut = [...(timedOutWaiting || []), ...(timedOutConnecting || [])];
     for (const row of allTimedOut) {
-      try {
-        getIO().to(`tenant:${row.tenant_id}`).emit(SocketEvents.REMOTE_SESSION_UPDATED, this.rowToSession(row));
-      } catch {}
+      this.emitSessionEvent(SocketEvents.REMOTE_SESSION_UPDATED, row);
     }
   }
 }

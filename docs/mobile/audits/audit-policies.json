@@ -1,0 +1,404 @@
+{
+ "area": "policies",
+ "filesReviewed": [
+  "D:\\Obliance\\client\\src\\pages\\PoliciesPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\UpdatesPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\CompliancePage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\SoftwareCompliancePage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\CvesPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\ApprovalsPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\ReportsPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\CustomSectionsPage.tsx",
+  "D:\\Obliance\\client\\src\\pages\\NetworkDiscoveryPage.tsx",
+  "D:\\Obliance\\client\\src\\components\\networkDiscovery\\ExportDiscoveryModal.tsx",
+  "D:\\Obliance\\client\\src\\components\\networkDiscovery\\GenerateDeployScriptModal.tsx",
+  "D:\\Obliance\\client\\src\\components\\networkDiscovery\\ScanTargetPickerModal.tsx",
+  "D:\\Obliance\\client\\src\\components\\layout\\AppLayout.tsx (context: <main> scroll container, pinned sidebar)",
+  "D:\\Obliance\\client\\src\\store\\uiStore.ts (context: default 280px pinned sidebar)",
+  "D:\\Obliance\\client\\src\\components\\devices\\StyledCheckbox.tsx (context)",
+  "D:\\Obliance\\client\\src\\components\\common\\Button.tsx (context)",
+  "D:\\Obliance\\client\\src\\components\\common\\ToggleSwitch.tsx (context)",
+  "D:\\Obliance\\client\\src\\api\\report.api.ts (context: download URL)",
+  "D:\\Obliance\\client\\tailwind.config.ts (context)",
+  "D:\\Obliance\\client\\index.html (context: viewport meta)"
+ ],
+ "globalFindings": [
+  {
+   "problem": "Tables are wrapped in `bg-bg-secondary rounded-xl overflow-hidden` with no horizontal-scroll or card fallback, so on narrow widths the right-hand columns are silently CLIPPED (not scrollable). Width math used below: a 768px portrait tablet has about 440px of content with the default pinned 280px sidebar (uiStore.ts loadSavedWidth → 280), and about 720px even with the sidebar hidden. A phone has about 312px after p-6. Affected: UpdatesPage.tsx:417 (per-row Approve/Retry column), CvesPage.tsx:209 (7 columns, the CVE cell alone can reach 420px), PoliciesPage.tsx:68 and :97 (Patch Report tables). NetworkDiscoveryPage.tsx:429 already does it right (`overflow-x-auto`).",
+   "fix": "Create `components/common/DataTable.tsx` (or a lighter `TableScroll` wrapper): outer `rounded-xl overflow-hidden`, inner `overflow-x-auto overscroll-x-contain`, and a `renderCard(row)` prop that renders a stacked card list below `md` (`md:hidden` cards plus `hidden md:table` table). Replace the 4 hand-rolled wrappers with it.",
+   "files": [
+    "client/src/pages/UpdatesPage.tsx",
+    "client/src/pages/CvesPage.tsx",
+    "client/src/pages/PoliciesPage.tsx",
+    "client/src/pages/NetworkDiscoveryPage.tsx"
+   ]
+  },
+  {
+   "problem": "File downloads and external links use browser-only mechanisms that do nothing, or navigate the SPA away, inside an Android WebView. ReportsPage.tsx:278 uses `window.open(url,'_blank')` on a session-cookie-authenticated URL. ExportDiscoveryModal.tsx:108-116 and GenerateDeployScriptModal.tsx:96-104 use Blob + `a.download` + an immediate revokeObjectURL (DownloadManager cannot fetch blob: URLs). CvesPage.tsx:237 and :438 use `target=_blank` to nvd.nist.gov or github.com.",
+   "fix": "Add `utils/nativeBridge.ts` plus `utils/download.ts` exposing `downloadBlob(filename, mime, data)`, `downloadAuthenticated(url, filename)` (fetch with credentials, then blob, then bridge) and `openExternal(url)`. When the Android shell is detected (e.g. `window.ObliNative` or Capacitor), hand the base64 data to the native side (SAF save or share intent) and open external URLs in Custom Tabs. Otherwise keep the current browser behaviour. Route all 5 call sites through it.",
+   "files": [
+    "client/src/pages/ReportsPage.tsx",
+    "client/src/components/networkDiscovery/ExportDiscoveryModal.tsx",
+    "client/src/components/networkDiscovery/GenerateDeployScriptModal.tsx",
+    "client/src/pages/CvesPage.tsx"
+   ]
+  },
+  {
+   "problem": "Clipboard writes use bare `navigator.clipboard.writeText` with no fallback: SoftwareCompliancePage.tsx:1516-1523 (local copyToClipboard, also used for the one-time-revealed repo access key) and GenerateDeployScriptModal.tsx:83-92. The async Clipboard API is not reliably granted in Android WebView (NotAllowedError), and the access key is shown only once.",
+   "fix": "Create `utils/clipboard.ts` `copyText(text)`: try navigator.clipboard, then a hidden-textarea `document.execCommand('copy')` fallback, then the native bridge (`ObliNative.copy`). Delete the local helper in SoftwareCompliancePage and use the shared one everywhere."
+  },
+  {
+   "problem": "Native `confirm()` and `prompt()` are used for destructive confirmations and for data entry. 13 call sites in this area: UpdatesPage:191, CompliancePage:471, SoftwareCompliancePage:806/1576/1594(prompt)/1607/1617, ApprovalsPage:76(prompt)/90(prompt)/105, ReportsPage:249, CustomSectionsPage:146, NetworkDiscoveryPage:101. In a raw WebView these only work if the shell installs a WebChromeClient; otherwise confirm returns false and prompt returns null, which makes Deny impossible (see Approvals). They also render as an unthemed 'The page at https://… says' dialog.",
+   "fix": "Add `components/common/ConfirmDialog.tsx` plus a promise-based `useConfirm()` / `usePrompt()` hook (themed, 44px buttons, danger variant, optional textarea). Replace all native calls in the area."
+  },
+  {
+   "problem": "There is no shared Modal/Drawer primitive. Each overlay re-implements `fixed inset-0 … bg-black/50`: KnownAppsModal (SoftwareCompliancePage:463), CustomSections editor (CustomSectionsPage:241), AffectedDevicesDrawer (CvesPage:431), ExportDiscoveryModal:121, ScanTargetPickerModal:195, GenerateDeployScriptModal:108, DashboardBuilder:220. None of them closes on the Android hardware Back button (history is not pushed), so Back leaves the page and loses unsaved forms. Close buttons are `p-1` icons (about 24px). None uses dvh or safe-area insets. Inline editors (Updates, Compliance, Software and Reports forms) are lost on Back the same way, and PoliciesPage tab changes (setTab at :164) are not written to `?tab=`.",
+   "fix": "Create `components/common/Modal.tsx` (centered on ≥sm, full-screen sheet below sm, `max-h-[90dvh]`, `pb-[env(safe-area-inset-bottom)]`, 40px close button, Escape handling) and `Drawer.tsx`, both using a `useBackButtonClose(open, onClose)` hook (pushState on open, popstate closes). Sync segmented tabs to the URL with `setSearchParams` so Back steps through tabs."
+  },
+  {
+   "problem": "Icon-only action buttons use `p-1`/`p-1.5` with 14-16px icons (about 22-28px hit area). Their meaning is often available only through `title=`, which never shows on touch. Examples: CompliancePage:778/848/858/867, SoftwareCompliancePage:217-239/365/1074/1132/1427-1471/1788-1805, ReportsPage:606-624, CustomSectionsPage:226-231, NetworkDiscoveryPage:514, UpdatesPage:711-722. StyledCheckbox (components/devices/StyledCheckbox.tsx) is a bare 16x16 button that NetworkDiscovery and the Export modal use as the only selection hit area. Area pages never use the shared components/common/Button.tsx.",
+   "fix": "Add `components/common/IconButton.tsx`: requires `label` (used for aria-label and for a long-press or visible label on coarse pointers) and applies `min-w-10 min-h-10` under `@media (pointer:coarse)` (add a `coarse` Tailwind variant via plugin). Give StyledCheckbox an expanded hit area (`relative before:absolute before:-inset-3 before:content-['']`)."
+  },
+  {
+   "problem": "Five copies of a group-tree selector each have 12-16px expand chevrons (`p-0.5` + `w-3 h-3`) and 16px checkboxes on about 28px rows: UpdatePolicyGroupTree (UpdatesPage:737-826), GroupScopePicker (UpdatesPage:831-903), PolicyGroupTreeMultiSelect (CompliancePage:1278-1393), ListGroupTreeMultiSelect (SoftwareCompliancePage:540-653), GroupTreeSelector (CustomSectionsPage:444-476, the worst: 12px chevron with no padding, `py-0.5` rows, native 13px checkbox).",
+   "fix": "Merge them into a single `components/common/GroupTreeSelect.tsx` next to the existing GroupPicker.tsx, with `mode: 'single'|'multi'`, cascade selection, search, and rows at least 40px tall on coarse pointers where the chevron and checkbox each get a 40x40 hit area. Delete the 5 local copies."
+  },
+  {
+   "problem": "The same segmented tab-bar markup (`flex items-center gap-1 … p-1` with `flex-1 px-4` buttons, no overflow handling) is duplicated at PoliciesPage:160, UpdatesPage:390, CompliancePage:661 and SoftwareCompliancePage:954. With 7 admin tabs the Policies bar needs about 800px of min-content, so it overflows and forces whole-page horizontal scroll on portrait tablets and phones.",
+   "fix": "Create `components/common/SegmentedTabs.tsx`: `overflow-x-auto scrollbar-none snap-x` with `whitespace-nowrap shrink-0` items (or collapse to a `<select>` below sm), plus an optional URL-sync prop."
+  },
+  {
+   "problem": "Device filters render the whole fleet as a native `<select>` (CompliancePage:680-691, SoftwareCompliancePage:975-986, ReportsPage:419-428). On Android this opens an unsearchable native list of 2000+ hostnames. The select's intrinsic width equals its longest hostname, which can push the phone layout wider than the viewport.",
+   "fix": "Build a searchable single-select `DeviceSelect` (a combobox with a filter input, reusing components/common/DeviceMultiSelect.tsx logic) with `w-full sm:w-64 max-w-full`."
+  },
+  {
+   "problem": "`embedded` mode hides page-header actions, and every page in this area is mounted ONLY embedded (App.tsx has no standalone route for them). Result: CompliancePage 'Sync presets' (admin, :595-614) is unreachable on every device, and the refresh buttons of UpdatesPage (:277), CompliancePage (:615) and SoftwareCompliancePage (:909) never render. ReportsPage:325-338 already shows the right pattern.",
+   "fix": "Render header actions in both modes (an actions row as in ReportsPage), or let PoliciesPage pass an `actionsSlot`. Standardise this in a small `PageToolbar` component."
+  },
+  {
+   "problem": "Global touch hygiene. (1) tailwind.config.ts lacks `future.hoverOnlyWhenSupported`, so `hover:` backgrounds stick after a tap on every row and button. (2) All inputs/selects are `text-sm`/`text-xs` (12-14px): iOS zooms on focus; Android does not (low priority, but the shell may later ship iOS). (3) Outside-click handlers listen to `mousedown` (CvesPage:72, SoftwareCompliancePage:870). (4) Search inputs auto-focus inside modals (ScanTargetPickerModal:221, SoftwareCompliancePage:419), which pops the soft keyboard over half of a browse-first list. (5) Pages hardcode `p-6` (e.g. PoliciesPage:158). (6) index.html viewport meta lacks `interactive-widget=resizes-content, viewport-fit=cover`, which the fixed `vh`-sized modals need so they stay above the soft keyboard.",
+   "fix": "Set `future: { hoverOnlyWhenSupported: true }`. Add `@media (pointer:coarse){input,select,textarea{font-size:16px}}` to index.css. Switch outside-click handlers to `pointerdown`. Gate autoFocus behind `matchMedia('(pointer:fine)')`. Use `p-3 sm:p-6` for page padding. Update the viewport meta and use `dvh` in the shared Modal."
+  },
+  {
+   "problem": "Android shell requirements implied by this area (the WebView must provide these or the features are dead): WebChromeClient.onShowFileChooser for the repo upload `<input type=file accept='.msi,.exe,.deb,.rpm,.pkg,.dmg'>` (SoftwareCompliancePage:1757); these are extensions, not MIME types, so FileChooserParams.createIntent() can filter out every file and the shell must fall back to `*/*`. It also needs a DownloadListener that forwards session cookies (ReportsPage download), shouldOverrideUrlLoading that opens off-origin URLs externally (CVE links), onJsConfirm/onJsPrompt handling until ConfirmDialog lands, and `setDomStorageEnabled(true)` (localStorage 'discovery.seenAt', sidebar prefs).",
+   "fix": "Document these in the Android shell (or use Capacitor, whose BridgeWebChromeClient covers dialogs and the file chooser), and expose a `window.ObliNative` bridge used by utils/download.ts and utils/clipboard.ts."
+  }
+ ],
+ "issues": [
+  {
+   "file": "client/src/pages/UpdatesPage.tsx",
+   "loc": "L417-516 (wrapper L417, actions cell L457-489)",
+   "severity": "blocker",
+   "problem": "The aggregated-updates table sits in `overflow-hidden` with no scroll. Min-content is about 790px: checkbox 40 + title up to about 200 (winget ids do not wrap) + severity badge 107 + source 82 (visible from md=768) + devices 92 + a no-wrap actions flex of about 300 ('N deploying' + 'N failed — retry' + 'Approuver (N)'). On a portrait tablet (about 440px with the pinned sidebar, about 720px without it) and on phones, the whole Actions column is clipped. Per-row Approve and Retry and the deploying/approved status chips are invisible. The only workaround is the checkbox plus bulk bar, which users will not discover.",
+   "fix": "Use `overflow-x-auto` (shared DataTable). Below lg, move per-row actions into the expanded row (L491-511) or under the title cell with `flex-wrap`; give the actions flex `flex-wrap justify-end`."
+  },
+  {
+   "file": "client/src/pages/ReportsPage.tsx",
+   "loc": "L276-279",
+   "severity": "blocker",
+   "problem": "`handleDownload` calls `window.open('/api/reports/outputs/:id/download','_blank')`. In an Android WebView, window.open is ignored unless the shell implements onCreateWindow. Even then, the download needs a DownloadListener that carries the express-session cookie. Report outputs (PDF/CSV/Excel), the main purpose of the page, cannot be retrieved on the tablet app.",
+   "fix": "Use the shared `downloadAuthenticated(url, filename)` (fetch with credentials, then blob, then native bridge save/share; fall back to window.open in a browser)."
+  },
+  {
+   "file": "client/src/components/networkDiscovery/ExportDiscoveryModal.tsx",
+   "loc": "L105-118",
+   "severity": "blocker",
+   "problem": "The export creates a Blob, clicks an `<a download>` and revokes the object URL on the same tick. Android WebView's DownloadListener cannot fetch `blob:` URLs, so the CSV/JSON export does nothing in the app and the modal closes (L117) as if it had succeeded.",
+   "fix": "Use `downloadBlob(filename, mime, content)` from the shared utils/download.ts (base64 to native bridge, or Share intent). Close the modal only after the bridge confirms."
+  },
+  {
+   "file": "client/src/pages/SoftwareCompliancePage.tsx",
+   "loc": "L1722-1760 (hidden file input L1757-1758)",
+   "severity": "blocker",
+   "problem": "Package upload depends on drag-and-drop (impossible on touch) or on the hidden `<input type=file accept='.msi,.exe,.deb,.rpm,.pkg,.dmg'>`. In a WebView the Browse button does nothing unless the shell implements onShowFileChooser. The accept list contains extensions, not MIME types, so the Android picker intent can filter out every file. Also, the drop-zone copy tells touch users to drag & drop (L1737).",
+   "fix": "Shell: implement onShowFileChooser and fall back to `*/*` when acceptTypes are extensions. Web: add a MIME-typed accept list alongside the extensions (application/x-msi, application/vnd.debian.binary-package, application/x-rpm, application/x-apple-diskimage, application/octet-stream), and on `(pointer:coarse)` show a 'Tap to choose a file' label instead of drag-and-drop text."
+  },
+  {
+   "file": "client/src/pages/ApprovalsPage.tsx",
+   "loc": "L75-87 (L76)",
+   "severity": "major",
+   "problem": "Correctness bug made worse by touch: `window.prompt(...) ?? undefined` turns Cancel (null) into undefined, and the approval proceeds anyway. Approve and Deny are about 26px-tall buttons 6px apart (L204-221), so a mis-tap on Approve followed by Cancel on the prompt still approves and dispatches a DESTRUCTIVE command. In a WebView without JS-dialog handling, prompt() returns null immediately, so every Approve fires with no confirmation at all.",
+   "fix": "`const r = await promptDialog(...); if (r === null) return;` using the shared ConfirmDialog/usePrompt. Make the buttons at least 40px with at least 12px spacing, or put Deny in an overflow menu."
+  },
+  {
+   "file": "client/src/pages/ApprovalsPage.tsx",
+   "loc": "L89-102",
+   "severity": "major",
+   "problem": "Deny needs `window.prompt` for the reason. If the WebView does not handle JS prompts, prompt returns null and `if (reason === null) return;` exits silently, so a request can never be denied from the app.",
+   "fix": "Replace it with the shared in-app PromptDialog (textarea + Deny/Cancel)."
+  },
+  {
+   "file": "client/src/pages/ApprovalsPage.tsx",
+   "loc": "L173-201 (L185)",
+   "severity": "major",
+   "problem": "The request description (what the destructive action will do) is `truncate` with no title, expand, or detail view. On a phone the shrink-0 Approve+Deny cluster (about 150px) leaves about 125px for the text, so the reviewer cannot read what they are approving. Even on a portrait tablet it is cut after about 30 characters.",
+   "fix": "Use `line-clamp-3` plus tap-to-expand (or a details drawer). Below sm, stack the action buttons under the content (`flex-col sm:flex-row`)."
+  },
+  {
+   "file": "client/src/pages/PoliciesPage.tsx",
+   "loc": "L160-174",
+   "severity": "major",
+   "problem": "The 7-tab segmented bar (admin) uses `flex-1 px-4` with icon+label and no overflow or wrap handling. Min-content is about 800px, so it overflows by about 360px on a portrait tablet with the sidebar and about 490px on a phone. The 'Notifications' and 'Seuils' tabs are reachable only by horizontally scrolling the entire page, and at borderline widths multi-word labels ('Mises à jour') wrap onto 3 lines.",
+   "fix": "Use the shared SegmentedTabs (`overflow-x-auto snap-x`, `whitespace-nowrap shrink-0`), or show a `<select>` below sm. Also write `?tab=` on change so Android Back works."
+  },
+  {
+   "file": "client/src/pages/PoliciesPage.tsx",
+   "loc": "L96-118 (L107)",
+   "severity": "major",
+   "problem": "The Patch Report per-update table sits in `overflow-hidden`. The title cell is `truncate max-w-[300px]` (min-content up to 300px) plus Severity/Devices/Patched columns and 128px of padding, about 680px in total. On a portrait tablet with the sidebar (about 440px) and on phones, the Devices and Patched columns (the actual compliance data) are clipped and cannot be scrolled to. The full update title is never viewable on touch.",
+   "fix": "Use the DataTable wrapper with `overflow-x-auto`, a card layout below md (title with line-clamp-2 and a severity plus patched-ratio row), and drop max-w-[300px] in card mode."
+  },
+  {
+   "file": "client/src/pages/PoliciesPage.tsx",
+   "loc": "L67-93",
+   "severity": "minor",
+   "problem": "The per-group table is also inside `overflow-hidden`; its fixed `w-20` bar plus 4×32px padding clips the Compliance column on a 312px phone.",
+   "fix": "Wrap it in `overflow-x-auto`, or use px-2 on small screens."
+  },
+  {
+   "file": "client/src/pages/CvesPage.tsx",
+   "loc": "L209-279 (L246 max-w-[420px])",
+   "severity": "major",
+   "problem": "The 7-column CVE table is clipped by `overflow-hidden`. The CVE cell alone can reach 420px (a `truncate max-w-[420px]` name is nowrap), so the table is about 900-1000px. On a portrait tablet or phone the Severity/Patched/Devices/Due columns disappear, and with long names even a 1280px landscape tablet with the sidebar (about 950px) loses 'Due'. The drawer shows severity and patched but not the due date or the H/M/L counts.",
+   "fix": "Use `overflow-x-auto`. Below md, render cards: CVE id + severity badge + KEV icon on the first line, product on the second, then devices, patched and due as a meta row."
+  },
+  {
+   "file": "client/src/pages/CvesPage.tsx",
+   "loc": "L236-243 and L437-443",
+   "severity": "major",
+   "problem": "The CVE id is an `<a target=_blank>` to nvd.nist.gov or github.com and is the most prominent tap target in each row. Inside the WebView, target=_blank is ignored by default, so NVD loads inside the app, replaces the SPA and loses state. On touch, users meaning to open the drawer hit the link instead.",
+   "fix": "Route it through the shared `openExternal(url)` (Custom Tabs / system browser). On coarse pointers make the id plain text in the row and put an explicit 'Open in NVD' button inside the drawer."
+  },
+  {
+   "file": "client/src/pages/CvesPage.tsx",
+   "loc": "L310 (SourcesDropdown), L336-346",
+   "severity": "major",
+   "problem": "The sources dropdown is `absolute right-0 w-[420px]`. On a 360px phone it extends about 84px past the left viewport edge, and that negative overflow cannot be scrolled to, so source names and descriptions are cut. The metadata row is a no-wrap `flex gap-4` that overflows too, and the full timestamps are available only via `title=`.",
+   "fix": "Use `w-[min(420px,calc(100vw-2rem))]` and give the metadata row `flex-wrap`; below sm, render it as a bottom sheet (shared Modal)."
+  },
+  {
+   "file": "client/src/pages/CvesPage.tsx",
+   "loc": "L148, L232, L392-404, L459, L505-509",
+   "severity": "minor",
+   "problem": "Polish: the search input has a fixed `w-72`. The KEV marker and the confidence dot carry their meaning only in `title=` (color-only on touch). Filter chips are about 28px tall. The drawer close button is `p-1` (about 28px).",
+   "fix": "Use `w-full sm:w-72`. Add visible text (e.g. 'KEV' pill, 'High/Med/Low' label). Use `min-h-10` chips on coarse pointers and a 40px close button."
+  },
+  {
+   "file": "client/src/pages/UpdatesPage.tsx",
+   "loc": "L421-426, L442-447",
+   "severity": "major",
+   "problem": "Row selection, which the bulk Approve / Approve & Deploy / Retry bar depends on, is a bare 16px icon button. The surrounding td (`w-10 px-3 py-3`) calls stopPropagation, so taps slightly off the icon are swallowed and do nothing.",
+   "fix": "Make the whole td the button (`<td><button className='w-full h-full min-h-10 flex items-center justify-center'>`) or use StyledCheckbox with an expanded hit area."
+  },
+  {
+   "file": "client/src/pages/UpdatesPage.tsx",
+   "loc": "L861-864, L797-800 (GroupScopePicker / UpdatePolicyGroupTree)",
+   "severity": "major",
+   "problem": "The expand chevrons in both group trees are `p-0.5` + `w-3 h-3` (about 16px) on about 28px rows. On touch, expanding a sub-group to scope approvals or target a policy is hit-or-miss, and a miss selects the group instead. The scope picker's explanation exists only in `title=` (L880).",
+   "fix": "Use the shared GroupTreeSelect (40px rows and toggles on coarse pointers) and put the hint text under the picker."
+  },
+  {
+   "file": "client/src/pages/UpdatesPage.tsx",
+   "loc": "L272-280, L518-534, L710-723",
+   "severity": "minor",
+   "problem": "The refresh button renders only when `!embedded`, but the page is only ever embedded, so it is unreachable. The pagination arrows '←/→' are about 24px. Policy Edit/Delete are 28px icon buttons with no label or title at all.",
+   "fix": "Always render refresh in the toolbar. Use IconButton (40px, aria-label) for pagination and edit/delete."
+  },
+  {
+   "file": "client/src/pages/CompliancePage.tsx",
+   "loc": "L848-874",
+   "severity": "major",
+   "problem": "Failing-rule actions are icon-only 22px buttons (Wrench = Remediate, EyeOff = Ignore, Eye = Unignore) placed 6px apart, with their meaning only in `title=`. Remediate immediately runs a remediation script on the device with no confirmation, so on touch it is undiscoverable and easy to mis-tap in place of Ignore.",
+   "fix": "On coarse pointers show labelled buttons ('Fix', 'Ignore') with at least 40px height, or an overflow menu per rule. Add a confirmation for Remediate (shared ConfirmDialog)."
+  },
+  {
+   "file": "client/src/pages/CompliancePage.tsx",
+   "loc": "L589-619",
+   "severity": "major",
+   "problem": "The admin 'Sync presets' action and the refresh button live in the `!embedded` header, and CompliancePage is only mounted embedded (PoliciesPage:176). The feature is therefore unreachable on tablet, and on desktop too.",
+   "fix": "Move these actions into the tabs/filter toolbar (L660-703) so they render in embedded mode."
+  },
+  {
+   "file": "client/src/pages/CompliancePage.tsx",
+   "loc": "L678-692",
+   "severity": "major",
+   "problem": "The device filter is a native `<select>` over the entire device store (`min-w-[120px]`, intrinsic width equals the longest hostname). On Android it opens an unsearchable list of the whole fleet (2000+ in production) and can widen the phone layout.",
+   "fix": "Use the shared searchable DeviceSelect with `w-full sm:w-64`."
+  },
+  {
+   "file": "client/src/pages/CompliancePage.tsx",
+   "loc": "L764-786",
+   "severity": "minor",
+   "problem": "In the result header, the Re-run button is a 26px RefreshCw icon with only a `title` label, next to 'Fix All'; a tap slightly off it toggles the row instead. The checkedAt date is hidden below sm (`hidden sm:block`), with no other place to see it on a phone.",
+   "fix": "Use IconButton with a visible label on coarse pointers, and show the date in the second line on phones."
+  },
+  {
+   "file": "client/src/pages/CompliancePage.tsx",
+   "loc": "L1053-1084",
+   "severity": "minor",
+   "problem": "The edit-mode presets dropdown is `absolute right-0 w-80` with no max-height (10 presets, about 700px) and no outside-tap dismissal; it closes only by re-tapping the button. On a phone the 320px panel right-anchored inside a 264px form spills past the left edge, into area that cannot be scrolled to.",
+   "fix": "Render it in the shared Modal or bottom sheet below sm; add `max-h-[60dvh] overflow-y-auto` and a backdrop."
+  },
+  {
+   "file": "client/src/pages/CompliancePage.tsx",
+   "loc": "L101, L255-261, L1008-1024, L1248-1263, L1340-1377",
+   "severity": "minor",
+   "problem": "Polish: the GripVertical 'drag handle' has `cursor-grab` but no drag or reorder exists, which misleads touch users. The rule delete X is 24px. The 4 platform chips (`flex-1 text-xs`) overflow their half-column at md with the sidebar (about 44px each for 'Windows'). The read-only reason ('Géré par le tenant Default') appears only in `title` on disabled buttons. The group tree has 16px chevrons and checkboxes.",
+   "fix": "Remove the grip or add up/down buttons (as SoftwareCompliance does). Use a 40px delete button, `flex-wrap` chips, visible read-only text next to the 🔒 badge, and the shared GroupTreeSelect."
+  },
+  {
+   "file": "client/src/pages/SoftwareCompliancePage.tsx",
+   "loc": "L194-241 (EntryEditorCard header)",
+   "severity": "major",
+   "problem": "On a phone the entry header row (index 20 + chevron 14 + name input flex-1 + platform badges + no-wrap 'from inventory' badge + three 22px buttons + gaps) needs about 294px of fixed content inside about 240px (page p-6 + form p-6 + card px-3). The name input collapses to about 0px, and the card's `overflow-hidden` clips the right-most Delete/Move buttons. The up, down and delete buttons are 22px and adjacent.",
+   "fix": "Below sm, split into two rows: the name input full width, then a row with badges plus 40px move/delete buttons. Use `flex-wrap`, or move the badges into the collapsible body."
+  },
+  {
+   "file": "client/src/pages/SoftwareCompliancePage.tsx",
+   "loc": "L1902-1917",
+   "severity": "major",
+   "problem": "The history batch row is a single no-wrap line: chevron, type badge, a `toLocaleString()` datetime (about 120px, shrink-0), list name, and a shrink-0 counts cluster ('3 OK 2 failed 1 pending (6)', about 150px). On a phone the list name gets 0px and the counts are clipped by the parent `overflow-hidden`.",
+   "fix": "Use two lines below sm (`flex-wrap`, name on the first line with the badge, date and counts on the second); shorten the date to `toLocaleDateString` plus the time."
+  },
+  {
+   "file": "client/src/pages/SoftwareCompliancePage.tsx",
+   "loc": "L975-986",
+   "severity": "major",
+   "problem": "Same fleet-wide native device `<select>` as CompliancePage (unsearchable on Android, intrinsic width equals the longest hostname).",
+   "fix": "Use the shared searchable DeviceSelect."
+  },
+  {
+   "file": "client/src/pages/SoftwareCompliancePage.tsx",
+   "loc": "L1516-1523, L1705-1709",
+   "severity": "major",
+   "problem": "The repo access key is revealed ONCE and copied only through `navigator.clipboard.writeText`, which can reject in Android WebView. The copy button is a 24px icon. If the copy fails, the only option is long-press selection of a `break-all` code string, and after navigating away the key is lost for good (it must be regenerated).",
+   "fix": "Use the shared `copyText()` with fallbacks, a 40px labelled 'Copy' button, and make the `<code>` `select-all` so a single tap selects it."
+  },
+  {
+   "file": "client/src/pages/SoftwareCompliancePage.tsx",
+   "loc": "L1426-1472, L1060-1082, L1131-1140",
+   "severity": "minor",
+   "problem": "List actions are 4 adjacent 28-32px icon buttons, and 'Scan now on all targets' uses the same RefreshCw glyph as a generic refresh, with its meaning only in `title`. The result-row Re-run and per-entry Remediate (Wrench, 22px, no confirmation) likewise rely on title-only labels.",
+   "fix": "Use IconButton with a visible label on coarse pointers, or collapse the actions into a '⋯' menu on sm; confirm Remediate."
+  },
+  {
+   "file": "client/src/pages/SoftwareCompliancePage.tsx",
+   "loc": "L954-970",
+   "severity": "minor",
+   "problem": "The 4-tab segmented bar (`flex-1 px-4`, no wrap or scroll) is about 330px min-content, just above a 312px phone content width, so it causes a slight horizontal page scroll.",
+   "fix": "Use the shared SegmentedTabs."
+  },
+  {
+   "file": "client/src/pages/SoftwareCompliancePage.tsx",
+   "loc": "L305-311, L365-367, L419, L470, L1238-1252, L1592-1604, L1788-1817, L1937-1944",
+   "severity": "minor",
+   "problem": "Tap-target and prompt polish. '+ Add source' is 10px text with a 12px icon. Source remove X is `p-0.5` (18px). KnownAppsModal auto-focuses search, which pops the keyboard. Its close button is 24px. The 5 platform chips overflow at md. The quota is set via native `prompt()`. Package row buttons (Terminal, 'sh', Trash) and the snippet Copy button are 24-28px. The history 'open device' link is 18px.",
+   "fix": "Use IconButton/40px targets, and gate autofocus on `(pointer:fine)`. Replace prompt with a small inline number input or the shared PromptDialog. Make the chips `flex-wrap`."
+  },
+  {
+   "file": "client/src/pages/ReportsPage.tsx",
+   "loc": "L567-625",
+   "severity": "major",
+   "problem": "In the report row header, the shrink-0 actions cluster ('Generate' text button about 100px + 3 icon buttons + gaps, about 210px) leaves only a few pixels on a phone for the `flex-1 min-w-0` name block. The name and its 3 badges wrap one word or badge per line into a very tall, unreadable column.",
+   "fix": "Below sm, stack: `flex-col sm:flex-row`, with actions in a full-width row beneath (Generate as a primary 40px button; edit and delete in an overflow menu)."
+  },
+  {
+   "file": "client/src/pages/ReportsPage.tsx",
+   "loc": "L636-676",
+   "severity": "major",
+   "problem": "The outputs list is `grid grid-cols-4` at every width (Tailwind uses minmax(0,1fr)). On a phone each column is about 58px, so the 'Download' and 'Cancel' buttons (about 95px) overflow their cell and overlap the Size column. The error reason is `truncate max-w-xs` with the full text only in `title` (L671), so a failed generation cannot be diagnosed on touch.",
+   "fix": "Below md, render each output as a card (date + status on the first line, size/rows, then a full-width Download button). Show the error text with `line-clamp-2` and tap-to-expand."
+  },
+  {
+   "file": "client/src/pages/ReportsPage.tsx",
+   "loc": "L343-360, L466-475, L606-624, L249",
+   "severity": "minor",
+   "problem": "The form header (title + Cancel/Save) does not wrap. Cron preset chips are `text-xs px-2 py-0.5` (about 20px tall). Edit/Delete are unlabeled 28px icons. Delete uses native confirm().",
+   "fix": "Use `flex-wrap gap-2`, `min-h-9` chips, IconButton, and the shared ConfirmDialog."
+  },
+  {
+   "file": "client/src/pages/CustomSectionsPage.tsx",
+   "loc": "L444-476 (chevron L455-461, row L453)",
+   "severity": "major",
+   "problem": "GroupTreeSelector: the expand toggle is a bare `<button>` around a 12x12 chevron with no padding, rows are `py-0.5` (about 20px), and selection uses a default 13px native checkbox. Choosing target sub-groups on touch is nearly impossible without mis-taps. Unlike the other trees, it starts fully collapsed.",
+   "fix": "Replace it with the shared GroupTreeSelect (40px rows and toggles on coarse pointers)."
+  },
+  {
+   "file": "client/src/pages/CustomSectionsPage.tsx",
+   "loc": "L205-231, L241-248, L336-355, L413-426",
+   "severity": "minor",
+   "problem": "List Edit/Delete are 26px icons. The full command is visible only via `title` on the truncated preview. The editor close button is `p-1` (24px), and Android Back is not handled (unsaved script lost). The render-mode cards (grid-cols-2 with 10px descriptions) are cramped on a phone. Device checklist rows are about 20px tall.",
+   "fix": "Use IconButton. Add a tap-to-expand command preview. Use the shared Modal (full-screen below sm, back-button close), `grid-cols-1 sm:grid-cols-2`, and `min-h-10` checklist rows."
+  },
+  {
+   "file": "client/src/pages/NetworkDiscoveryPage.tsx",
+   "loc": "L467-474 (StyledCheckbox), L433-443",
+   "severity": "major",
+   "problem": "Selecting hosts for 'Generate deploy script' happens only through a 16x16 StyledCheckbox in a `px-2` cell. The row itself is not tappable, so individual selection on touch is a precision exercise. The reason a row cannot be selected ('Already managed') appears only via `title`.",
+   "fix": "Make the row toggle selection on tap for unmanaged hosts (excluding the delete button), or give StyledCheckbox a 40px hit area; show a visible 'managed' state instead of the title."
+  },
+  {
+   "file": "client/src/pages/NetworkDiscoveryPage.tsx",
+   "loc": "L447-452, L488-500",
+   "severity": "major",
+   "problem": "MAC and Vendor are `hidden lg:table-cell` (<1024px), Ports is `hidden md:table-cell`, and First Seen is `hidden xl:table-cell`. On a portrait tablet (768-1023px) MAC and Vendor cannot be seen at all: there is no row detail, and the only other path, Export, is broken in the WebView. The table itself correctly uses `overflow-x-auto`, so hiding columns is not even necessary.",
+   "fix": "Keep the overflow-x table but make the row tappable to open a detail sheet listing all fields (or show MAC/vendor as a second line under the hostname below lg)."
+  },
+  {
+   "file": "client/src/pages/NetworkDiscoveryPage.tsx",
+   "loc": "L330-334, L434/468/481, L513-520, L551-564",
+   "severity": "minor",
+   "problem": "The search clear X is 14px. The new-since-last-visit dot and the checkbox hints are title-only. The Delete button (22px) sits in the last column and needs horizontal scrolling on phones. Pagination buttons are 28px.",
+   "fix": "Use 40px IconButtons, a visible 'New' pill, and put delete in the row detail sheet on small screens."
+  },
+  {
+   "file": "client/src/components/networkDiscovery/GenerateDeployScriptModal.tsx",
+   "loc": "L83-105, L302-317",
+   "severity": "major",
+   "problem": "The generated script can leave the app only via `navigator.clipboard.writeText` (may reject in WebView) or a Blob plus `a.download` (does not work in WebView). Both buttons are tiny (`px-2 py-1 text-[11px]`, about 22px). If both fail, the only path left is long-press selecting text inside a nested horizontal and vertical scrolling `<pre>` (L320, `max-h-[40vh] overflow-x-auto` inside an overflow-y-auto body).",
+   "fix": "Use the shared copyText() and downloadBlob() (native share of a .sh/.ps1 is ideal on Android). Use 40px labelled buttons in a sticky footer, and let the pre wrap (`whitespace-pre-wrap`) on coarse pointers."
+  },
+  {
+   "file": "client/src/components/networkDiscovery/GenerateDeployScriptModal.tsx",
+   "loc": "L108-127, L220-239",
+   "severity": "minor",
+   "problem": "The modal has no footer, only a 24px `p-1` close X, and it ignores Android Back. In API-key rows the name is `flex-1 truncate` next to a shrink-0 group chip and key fingerprint, so on a phone key names are cut to a few characters.",
+   "fix": "Use the shared Modal (full-screen below sm, back-button close), and put the key rows on two lines below sm."
+  },
+  {
+   "file": "client/src/components/networkDiscovery/ScanTargetPickerModal.tsx",
+   "loc": "L165-176",
+   "severity": "major",
+   "problem": "The whole-group checkbox (the intended 'one agent per site' shortcut) is a 14x14 button placed directly next to the full-width 'open folder' button. On touch a mis-tap opens the folder instead of selecting the group.",
+   "fix": "Give the checkbox a 40x40 hit area (`p-3 -m-3` or a wrapper), separated from the folder button."
+  },
+  {
+   "file": "client/src/components/networkDiscovery/ScanTargetPickerModal.tsx",
+   "loc": "L265-283",
+   "severity": "major",
+   "problem": "Inside an opened group, 'Select all / Unselect all' is a 10px-text `<span onClick>` nested INSIDE the full-width 'back to groups' `<button>` (nested interactive content). On touch, a near miss navigates back and loses the view instead of toggling the selection.",
+   "fix": "Split it into two sibling controls: a Back button on the left and a separate 40px 'Select all' button on the right."
+  },
+  {
+   "file": "client/src/components/networkDiscovery/ScanTargetPickerModal.tsx",
+   "loc": "L125-151 (L143-150)",
+   "severity": "major",
+   "problem": "In search results, each device row packs the name (flex-1 truncate), a group label (`shrink-0 max-w-[8rem]`), and a shrink-0 mono IP into a modal about 288px wide on a phone. The device name gets about 20px, so the admin cannot tell which agent they are selecting.",
+   "fix": "Below sm, render two lines: the name first, then group and IP muted beneath it."
+  },
+  {
+   "file": "client/src/components/networkDiscovery/ScanTargetPickerModal.tsx",
+   "loc": "L211, L221, L299-322",
+   "severity": "minor",
+   "problem": "`autoFocus` on search pops the soft keyboard over about half the list of a browse-first picker. The close X is 24px. The footer (hint + Cancel + 'Launch scan on N agent(s)') does not wrap, so the text squeezes into multiple lines on a phone.",
+   "fix": "Only autofocus on `(pointer:fine)`. Use a 40px close button and `flex-wrap` footer (or a full-width launch button below sm)."
+  },
+  {
+   "file": "client/src/components/networkDiscovery/ExportDiscoveryModal.tsx",
+   "loc": "L136, L182-209",
+   "severity": "minor",
+   "problem": "The close X is 24px. The 'Select all · None' links are 11px text. Field rows are `py-1` (about 24px) in a grid-cols-2 layout.",
+   "fix": "Use a 40px close button, `min-h-10` rows, and pill buttons for select-all/none."
+  }
+ ]
+}

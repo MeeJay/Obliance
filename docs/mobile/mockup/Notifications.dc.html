@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Exemples de notifications</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Rajdhani:wght@600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+body{margin:0;font-family:Inter,system-ui,sans-serif;background:#0b0d1a;color:#f0f4fc;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+a{color:inherit;text-decoration:none}a:hover{color:inherit}
+::placeholder{color:#828caf;opacity:1}
+@keyframes obliPulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes obliSpin{to{transform:rotate(360deg)}}
+@keyframes obliSkeleton{0%,100%{opacity:.55}50%{opacity:1}}
+</style>
+</helmet>
+<div style="position:relative;width:390px;height:844px;box-sizing:border-box;display:flex;flex-direction:column;background:#0B0D1A;overflow:hidden">
+  <main aria-label="Exemples de notifications Obliance" style="flex:1;min-height:0;display:flex;flex-direction:column;padding:8px 16px 0;overflow:hidden">
+
+    <div style="display:flex;flex-direction:column;gap:2px">
+
+      <!-- Groupe BASH : 5 alertes (2 enfants dépliés, +3 masquées) -->
+      <article aria-label="Groupe de notifications BASH, 5 alertes" style="position:relative;display:flex;flex-direction:column;gap:6px;padding:10px 8px 8px;border-radius:16px 16px 6px 6px;background:#131728;box-shadow:0 6px 24px -8px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.03)">
+        <div style="display:flex;align-items:center;gap:6px;height:16px;padding:0 100px 0 8px;font:400 12px/16px Inter,system-ui,sans-serif;color:#828CAF;white-space:nowrap;overflow:hidden">
+          <svg width="16" height="16" viewBox="0 0 122.88 122.88" aria-hidden="true" style="display:block;flex:none;color:#F87171"><path fill="currentColor" d="M122.88,61.44c0,33.93-27.51,61.44-61.44,61.44h-.08c-20.87-10.92-35.66-31.91-37.87-56.52,2.47,19.24,19.25,33.99,39.34,33.23,19.73-.75,35.83-16.78,36.66-36.5.65-15.47-7.91-29.02-20.65-35.6-.33-.17-.66-.34-1-.49-.66-.33-1.33-.62-2.02-.91-4.46-1.82-9.35-2.83-14.47-2.83-1.13,0-2.25.05-3.36.15-2.6.22-5.13.72-7.56,1.44-.17.05-.35.1-.51.16-.17.05-.35.1-.51.16t.03-.03s.02-.02.03-.03c.02-.02.03-.03.05-.05.04-.04.09-.09.16-.16.06-.06.13-.13.21-.2.16-.15.35-.33.58-.53,0,0,.03-.02.03-.03.23-.2.49-.43.79-.69.78-.66,1.78-1.46,2.98-2.32.97-.68,2.06-1.41,3.28-2.15.6-.36,1.25-.72,1.92-1.09.25-.13.51-.27.77-.4.39-.2.78-.4,1.19-.6.41-.19.82-.39,1.24-.58.4-.17.8-.35,1.22-.51.22-.09.43-.17.66-.26.27-.1.53-.21.8-.3.18-.07.37-.14.56-.2.4-.14.8-.28,1.22-.41.03-.02.06-.03.09-.03.53-.16,1.07-.32,1.61-.47.4-.11.79-.21,1.2-.3,1.01-.24,2.05-.45,3.12-.61.39-.06.78-.11,1.18-.16.08,0,.16-.02.23-.03.44-.05.89-.09,1.34-.13h0c4.18-.13,10.67.22,17.98,2.89,8.65,3.17,14.03,8.44,17.36,12.27,1.29,1.48,2.69,2.96,3.74,4.61,1.92,3.02,4.1,6.91,5.49,11.72,0,0,2.4,8.34,2.4,17.04Z"></path><path fill="currentColor" d="M23.2,60.34c-.02.36-.03.73-.03,1.1,0,1.65.1,3.27.31,4.86,0,.02,0,.03,0,.05v.04c2.23,24.59,17.01,45.57,37.87,56.48-15.23-.02-29.16-5.58-39.89-14.78C8.19,96.72-.17,79.76,0,60.84.3,29.35,24.71,3.31,55.45.3h0c1.98-.21,3.99-.3,6.01-.3,9.64,0,18.77,2.23,26.89,6.19-3.38-.85-21.87-5.11-39.49,6.12-12.5,7.97-16.61,22.22-18.35,26.59-4.42,6.03-7.1,13.4-7.32,21.39v.04Z"></path></svg>
+          <span style="font-weight:500;color:#F87171">Obliance</span><span>· BASH · 5 alertes</span>
+        </div>
+        <span role="img" aria-label="3 autres alertes dans ce groupe" style="position:absolute;top:8px;right:48px;display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:999px;background:#1D2238;font:500 12px/20px 'JetBrains Mono',ui-monospace,monospace;color:#B4BCD7">+3</span>
+        <button type="button" aria-label="Réduire le groupe BASH" style="position:absolute;top:0;right:2px;display:flex;align-items:center;justify-content:center;width:44px;height:44px;padding:0;border:0;border-radius:22px;background:transparent;color:#828CAF;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="m18 15-6-6-6 6"></path></svg></button>
+
+        <div style="display:flex;flex-direction:column;border-radius:8px;background:#181C30">
+          <a href="AlertDetail.dc.html" style="display:flex;flex-direction:column;padding:8px 12px 0">
+            <span style="display:flex;align-items:baseline;gap:8px;min-width:0"><span style="flex:1;min-width:0;font:600 14px/20px Inter,system-ui,sans-serif;color:#F0F4FC;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="color:#F87171">CRITIQUE</span> · BASH — SRV-AD2</span><span style="flex:none;font:400 12px/16px 'JetBrains Mono',ui-monospace,monospace;color:#828CAF">03:12</span></span>
+            <span style="font:400 14px/20px Inter,system-ui,sans-serif;color:#B4BCD7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Hors ligne : aucun push reçu depuis 4&#8239;min.</span>
+          </a>
+          <div style="display:flex">
+            <a href="AlertDetail.dc.html" style="display:inline-flex;align-items:center;height:44px;padding:0 12px;border-radius:8px;font:500 14px/20px Inter,system-ui,sans-serif;color:#60A5FA;white-space:nowrap">Ouvrir</a>
+            <button type="button" style="display:inline-flex;align-items:center;height:44px;padding:0 12px;border:0;border-radius:8px;background:transparent;font:500 14px/20px Inter,system-ui,sans-serif;color:#60A5FA;white-space:nowrap;cursor:pointer">Surveiller</button>
+            <button type="button" style="display:inline-flex;align-items:center;height:44px;padding:0 12px;border:0;border-radius:8px;background:transparent;font:500 14px/20px Inter,system-ui,sans-serif;color:#60A5FA;white-space:nowrap;cursor:pointer">Marquer lu</button>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;border-radius:8px;background:#181C30">
+          <a href="DeviceOverview.dc.html" style="display:flex;flex-direction:column;padding:8px 12px 0">
+            <span style="display:flex;align-items:baseline;gap:8px;min-width:0"><span style="flex:1;min-width:0;font:600 14px/20px Inter,system-ui,sans-serif;color:#F0F4FC;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="color:#F87171">CRITIQUE</span> · BASH — PC-COMPTA-03</span><span style="flex:none;font:400 12px/16px 'JetBrains Mono',ui-monospace,monospace;color:#828CAF">03:05</span></span>
+            <span style="font:400 14px/20px Inter,system-ui,sans-serif;color:#B4BCD7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Métrique critique : CPU 98&#8239;% (seuil 90&#8239;%)</span>
+          </a>
+          <div style="display:flex">
+            <a href="DeviceOverview.dc.html" style="display:inline-flex;align-items:center;height:44px;padding:0 12px;border-radius:8px;font:500 14px/20px Inter,system-ui,sans-serif;color:#60A5FA;white-space:nowrap">Processus</a>
+            <button type="button" style="display:inline-flex;align-items:center;height:44px;padding:0 12px;border:0;border-radius:8px;background:transparent;font:500 14px/20px Inter,system-ui,sans-serif;color:#60A5FA;white-space:nowrap;cursor:pointer">Surveiller</button>
+            <button type="button" style="display:inline-flex;align-items:center;height:44px;padding:0 12px;border:0;border-radius:8px;background:transparent;font:500 14px/20px Inter,system-ui,sans-serif;color:#60A5FA;white-space:nowrap;cursor:pointer">Marquer lu</button>
+          </div>
+        </div>
+      </article>
+
+      <!-- Approbation à deux -->
+      <article aria-label="Notification : demande d'approbation" style="position:relative;display:flex;flex-direction:column;border-radius:6px;background:#131728;box-shadow:0 6px 24px -8px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.03)">
+        <a href="ApprovalDetail.dc.html" style="display:flex;flex-direction:column;gap:2px;padding:10px 48px 0 16px">
+          <span style="display:flex;align-items:center;gap:6px;height:16px;font:400 12px/16px Inter,system-ui,sans-serif;color:#828CAF;white-space:nowrap;overflow:hidden">
+            <svg width="16" height="16" viewBox="0 0 122.88 122.88" aria-hidden="true" style="display:block;flex:none;color:#60A5FA"><path fill="currentColor" d="M122.88,61.44c0,33.93-27.51,61.44-61.44,61.44h-.08c-20.87-10.92-35.66-31.91-37.87-56.52,2.47,19.24,19.25,33.99,39.34,33.23,19.73-.75,35.83-16.78,36.66-36.5.65-15.47-7.91-29.02-20.65-35.6-.33-.17-.66-.34-1-.49-.66-.33-1.33-.62-2.02-.91-4.46-1.82-9.35-2.83-14.47-2.83-1.13,0-2.25.05-3.36.15-2.6.22-5.13.72-7.56,1.44-.17.05-.35.1-.51.16-.17.05-.35.1-.51.16t.03-.03s.02-.02.03-.03c.02-.02.03-.03.05-.05.04-.04.09-.09.16-.16.06-.06.13-.13.21-.2.16-.15.35-.33.58-.53,0,0,.03-.02.03-.03.23-.2.49-.43.79-.69.78-.66,1.78-1.46,2.98-2.32.97-.68,2.06-1.41,3.28-2.15.6-.36,1.25-.72,1.92-1.09.25-.13.51-.27.77-.4.39-.2.78-.4,1.19-.6.41-.19.82-.39,1.24-.58.4-.17.8-.35,1.22-.51.22-.09.43-.17.66-.26.27-.1.53-.21.8-.3.18-.07.37-.14.56-.2.4-.14.8-.28,1.22-.41.03-.02.06-.03.09-.03.53-.16,1.07-.32,1.61-.47.4-.11.79-.21,1.2-.3,1.01-.24,2.05-.45,3.12-.61.39-.06.78-.11,1.18-.16.08,0,.16-.02.23-.03.44-.05.89-.09,1.34-.13h0c4.18-.13,10.67.22,17.98,2.89,8.65,3.17,14.03,8.44,17.36,12.27,1.29,1.48,2.69,2.96,3.74,4.61,1.92,3.02,4.1,6.91,5.49,11.72,0,0,2.4,8.34,2.4,17.04Z"></path><path fill="currentColor" d="M23.2,60.34c-.02.36-.03.73-.03,1.1,0,1.65.1,3.27.31,4.86,0,.02,0,.03,0,.05v.04c2.23,24.59,17.01,45.57,37.87,56.48-15.23-.02-29.16-5.58-39.89-14.78C8.19,96.72-.17,79.76,0,60.84.3,29.35,24.71,3.31,55.45.3h0c1.98-.21,3.99-.3,6.01-.3,9.64,0,18.77,2.23,26.89,6.19-3.38-.85-21.87-5.11-39.49,6.12-12.5,7.97-16.61,22.22-18.35,26.59-4.42,6.03-7.1,13.4-7.32,21.39v.04Z"></path></svg>
+            <span style="font-weight:500;color:#60A5FA">Obliance</span><span>· BASH · 03:21</span>
+          </span>
+          <span style="font:600 14px/20px Inter,system-ui,sans-serif;color:#F0F4FC">Demande d'approbation — Désinstaller l'agent de <span style="white-space:nowrap">PC-ATELIER-02</span></span>
+          <span style="font:400 14px/20px Inter,system-ui,sans-serif;color:#B4BCD7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Par Julien Moreau · BASH · expire à 03:51</span>
+        </a>
+        <button type="button" aria-label="Réduire la notification" style="position:absolute;top:0;right:2px;display:flex;align-items:center;justify-content:center;width:44px;height:44px;padding:0;border:0;border-radius:22px;background:transparent;color:#828CAF;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="m18 15-6-6-6 6"></path></svg></button>
+        <div style="display:flex;padding:0 4px">
+          <a href="ApprovalDetail.dc.html" style="display:inline-flex;align-items:center;height:44px;padding:0 12px;border-radius:8px;font:500 14px/20px Inter,system-ui,sans-serif;color:#60A5FA;white-space:nowrap">Examiner</a>
+        </div>
+      </article>
+
+      <!-- Enrôlement -->
+      <article aria-label="Notification : nouvel appareil en attente" style="position:relative;display:flex;flex-direction:column;border-radius:6px;background:#131728;box-shadow:0 6px 24px -8px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.03)">
+        <div style="display:flex;flex-direction:column;gap:2px;padding:10px 48px 0 16px">
+          <span style="display:flex;align-items:center;gap:6px;height:16px;font:400 12px/16px Inter,system-ui,sans-serif;color:#828CAF;white-space:nowrap;overflow:hidden">
+            <svg width="16" height="16" viewBox="0 0 122.88 122.88" aria-hidden="true" style="display:block;flex:none;color:#60A5FA"><path fill="currentColor" d="M122.88,61.44c0,33.93-27.51,61.44-61.44,61.44h-.08c-20.87-10.92-35.66-31.91-37.87-56.52,2.47,19.24,19.25,33.99,39.34,33.23,19.73-.75,35.83-16.78,36.66-36.5.65-15.47-7.91-29.02-20.65-35.6-.33-.17-.66-.34-1-.49-.66-.33-1.33-.62-2.02-.91-4.46-1.82-9.35-2.83-14.47-2.83-1.13,0-2.25.05-3.36.15-2.6.22-5.13.72-7.56,1.44-.17.05-.35.1-.51.16-.17.05-.35.1-.51.16t.03-.03s.02-.02.03-.03c.02-.02.03-.03.05-.05.04-.04.09-.09.16-.16.06-.06.13-.13.21-.2.16-.15.35-.33.58-.53,0,0,.03-.02.03-.03.23-.2.49-.43.79-.69.78-.66,1.78-1.46,2.98-2.32.97-.68,2.06-1.41,3.28-2.15.6-.36,1.25-.72,1.92-1.09.25-.13.51-.27.77-.4.39-.2.78-.4,1.19-.6.41-.19.82-.39,1.24-.58.4-.17.8-.35,1.22-.51.22-.09.43-.17.66-.26.27-.1.53-.21.8-.3.18-.07.37-.14.56-.2.4-.14.8-.28,1.22-.41.03-.02.06-.03.09-.03.53-.16,1.07-.32,1.61-.47.4-.11.79-.21,1.2-.3,1.01-.24,2.05-.45,3.12-.61.39-.06.78-.11,1.18-.16.08,0,.16-.02.23-.03.44-.05.89-.09,1.34-.13h0c4.18-.13,10.67.22,17.98,2.89,8.65,3.17,14.03,8.44,17.36,12.27,1.29,1.48,2.69,2.96,3.74,4.61,1.92,3.02,4.1,6.91,5.49,11.72,0,0,2.4,8.34,2.4,17.04Z"></path><path fill="currentColor" d="M23.2,60.34c-.02.36-.03.73-.03,1.1,0,1.65.1,3.27.31,4.86,0,.02,0,.03,0,.05v.04c2.23,24.59,17.01,45.57,37.87,56.48-15.23-.02-29.16-5.58-39.89-14.78C8.19,96.72-.17,79.76,0,60.84.3,29.35,24.71,3.31,55.45.3h0c1.98-.21,3.99-.3,6.01-.3,9.64,0,18.77,2.23,26.89,6.19-3.38-.85-21.87-5.11-39.49,6.12-12.5,7.97-16.61,22.22-18.35,26.59-4.42,6.03-7.1,13.4-7.32,21.39v.04Z"></path></svg>
+            <span style="font-weight:500;color:#60A5FA">Obliance</span><span>· BASH · 02:59</span>
+          </span>
+          <span style="font:600 14px/20px Inter,system-ui,sans-serif;color:#F0F4FC;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Nouvel appareil en attente</span>
+          <span style="font:400 14px/20px Inter,system-ui,sans-serif;color:#B4BCD7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">KIOSK-ACCUEIL-02 (clé «&nbsp;Site Siège&nbsp;»)</span>
+        </div>
+        <button type="button" aria-label="Réduire la notification" style="position:absolute;top:0;right:2px;display:flex;align-items:center;justify-content:center;width:44px;height:44px;padding:0;border:0;border-radius:22px;background:transparent;color:#828CAF;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="m18 15-6-6-6 6"></path></svg></button>
+        <div style="display:flex;padding:0 4px">
+          <button type="button" style="display:inline-flex;align-items:center;height:44px;padding:0 12px;border:0;border-radius:8px;background:transparent;font:500 14px/20px Inter,system-ui,sans-serif;color:#60A5FA;white-space:nowrap;cursor:pointer">Approuver</button>
+          <button type="button" style="display:inline-flex;align-items:center;height:44px;padding:0 12px;border:0;border-radius:8px;background:transparent;font:500 14px/20px Inter,system-ui,sans-serif;color:#60A5FA;white-space:nowrap;cursor:pointer">Refuser</button>
+        </div>
+      </article>
+
+      <!-- Lot de scripts terminé -->
+      <article aria-label="Notification : script terminé" style="position:relative;display:flex;flex-direction:column;border-radius:6px 6px 16px 16px;background:#131728;box-shadow:0 6px 24px -8px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.03)">
+        <a href="RunLive.dc.html" style="display:flex;flex-direction:column;gap:2px;padding:10px 48px 0 16px">
+          <span style="display:flex;align-items:center;gap:6px;height:16px;font:400 12px/16px Inter,system-ui,sans-serif;color:#828CAF;white-space:nowrap;overflow:hidden">
+            <svg width="16" height="16" viewBox="0 0 122.88 122.88" aria-hidden="true" style="display:block;flex:none;color:#FBBF24"><path fill="currentColor" d="M122.88,61.44c0,33.93-27.51,61.44-61.44,61.44h-.08c-20.87-10.92-35.66-31.91-37.87-56.52,2.47,19.24,19.25,33.99,39.34,33.23,19.73-.75,35.83-16.78,36.66-36.5.65-15.47-7.91-29.02-20.65-35.6-.33-.17-.66-.34-1-.49-.66-.33-1.33-.62-2.02-.91-4.46-1.82-9.35-2.83-14.47-2.83-1.13,0-2.25.05-3.36.15-2.6.22-5.13.72-7.56,1.44-.17.05-.35.1-.51.16-.17.05-.35.1-.51.16t.03-.03s.02-.02.03-.03c.02-.02.03-.03.05-.05.04-.04.09-.09.16-.16.06-.06.13-.13.21-.2.16-.15.35-.33.58-.53,0,0,.03-.02.03-.03.23-.2.49-.43.79-.69.78-.66,1.78-1.46,2.98-2.32.97-.68,2.06-1.41,3.28-2.15.6-.36,1.25-.72,1.92-1.09.25-.13.51-.27.77-.4.39-.2.78-.4,1.19-.6.41-.19.82-.39,1.24-.58.4-.17.8-.35,1.22-.51.22-.09.43-.17.66-.26.27-.1.53-.21.8-.3.18-.07.37-.14.56-.2.4-.14.8-.28,1.22-.41.03-.02.06-.03.09-.03.53-.16,1.07-.32,1.61-.47.4-.11.79-.21,1.2-.3,1.01-.24,2.05-.45,3.12-.61.39-.06.78-.11,1.18-.16.08,0,.16-.02.23-.03.44-.05.89-.09,1.34-.13h0c4.18-.13,10.67.22,17.98,2.89,8.65,3.17,14.03,8.44,17.36,12.27,1.29,1.48,2.69,2.96,3.74,4.61,1.92,3.02,4.1,6.91,5.49,11.72,0,0,2.4,8.34,2.4,17.04Z"></path><path fill="currentColor" d="M23.2,60.34c-.02.36-.03.73-.03,1.1,0,1.65.1,3.27.31,4.86,0,.02,0,.03,0,.05v.04c2.23,24.59,17.01,45.57,37.87,56.48-15.23-.02-29.16-5.58-39.89-14.78C8.19,96.72-.17,79.76,0,60.84.3,29.35,24.71,3.31,55.45.3h0c1.98-.21,3.99-.3,6.01-.3,9.64,0,18.77,2.23,26.89,6.19-3.38-.85-21.87-5.11-39.49,6.12-12.5,7.97-16.61,22.22-18.35,26.59-4.42,6.03-7.1,13.4-7.32,21.39v.04Z"></path></svg>
+            <span style="font-weight:500;color:#FBBF24">Obliance</span><span>· BASH · 10:42</span>
+          </span>
+          <span style="font:600 14px/20px Inter,system-ui,sans-serif;color:#F0F4FC;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Script terminé : 2 réussis, 1 échec</span>
+          <span style="font:400 14px/20px Inter,system-ui,sans-serif;color:#B4BCD7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">«&nbsp;Nettoyer les fichiers temporaires&nbsp;»</span>
+        </a>
+        <button type="button" aria-label="Réduire la notification" style="position:absolute;top:0;right:2px;display:flex;align-items:center;justify-content:center;width:44px;height:44px;padding:0;border:0;border-radius:22px;background:transparent;color:#828CAF;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="m18 15-6-6-6 6"></path></svg></button>
+        <div style="display:flex;padding:0 4px 2px">
+          <a href="RunLive.dc.html" style="display:inline-flex;align-items:center;height:44px;padding:0 12px;border-radius:8px;font:500 14px/20px Inter,system-ui,sans-serif;color:#60A5FA;white-space:nowrap">Voir la sortie</a>
+        </div>
+      </article>
+    </div>
+
+    <h2 style="margin:0;padding:12px 4px 6px;font:400 11px/14px 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:#828CAF">Silencieuses</h2>
+
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <!-- Rétablissement -->
+      <article aria-label="Notification : 140 de retour en ligne" style="position:relative;display:flex;flex-direction:column;border-radius:16px 16px 6px 6px;background:#131728;box-shadow:0 6px 24px -8px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.03)">
+        <div style="display:flex;flex-direction:column;gap:2px;padding:10px 48px 12px 16px">
+          <span style="display:flex;align-items:center;gap:6px;height:16px;font:400 12px/16px Inter,system-ui,sans-serif;color:#828CAF;white-space:nowrap;overflow:hidden">
+            <svg width="16" height="16" viewBox="0 0 122.88 122.88" aria-hidden="true" style="display:block;flex:none;color:#4ADE80"><path fill="currentColor" d="M122.88,61.44c0,33.93-27.51,61.44-61.44,61.44h-.08c-20.87-10.92-35.66-31.91-37.87-56.52,2.47,19.24,19.25,33.99,39.34,33.23,19.73-.75,35.83-16.78,36.66-36.5.65-15.47-7.91-29.02-20.65-35.6-.33-.17-.66-.34-1-.49-.66-.33-1.33-.62-2.02-.91-4.46-1.82-9.35-2.83-14.47-2.83-1.13,0-2.25.05-3.36.15-2.6.22-5.13.72-7.56,1.44-.17.05-.35.1-.51.16-.17.05-.35.1-.51.16t.03-.03s.02-.02.03-.03c.02-.02.03-.03.05-.05.04-.04.09-.09.16-.16.06-.06.13-.13.21-.2.16-.15.35-.33.58-.53,0,0,.03-.02.03-.03.23-.2.49-.43.79-.69.78-.66,1.78-1.46,2.98-2.32.97-.68,2.06-1.41,3.28-2.15.6-.36,1.25-.72,1.92-1.09.25-.13.51-.27.77-.4.39-.2.78-.4,1.19-.6.41-.19.82-.39,1.24-.58.4-.17.8-.35,1.22-.51.22-.09.43-.17.66-.26.27-.1.53-.21.8-.3.18-.07.37-.14.56-.2.4-.14.8-.28,1.22-.41.03-.02.06-.03.09-.03.53-.16,1.07-.32,1.61-.47.4-.11.79-.21,1.2-.3,1.01-.24,2.05-.45,3.12-.61.39-.06.78-.11,1.18-.16.08,0,.16-.02.23-.03.44-.05.89-.09,1.34-.13h0c4.18-.13,10.67.22,17.98,2.89,8.65,3.17,14.03,8.44,17.36,12.27,1.29,1.48,2.69,2.96,3.74,4.61,1.92,3.02,4.1,6.91,5.49,11.72,0,0,2.4,8.34,2.4,17.04Z"></path><path fill="currentColor" d="M23.2,60.34c-.02.36-.03.73-.03,1.1,0,1.65.1,3.27.31,4.86,0,.02,0,.03,0,.05v.04c2.23,24.59,17.01,45.57,37.87,56.48-15.23-.02-29.16-5.58-39.89-14.78C8.19,96.72-.17,79.76,0,60.84.3,29.35,24.71,3.31,55.45.3h0c1.98-.21,3.99-.3,6.01-.3,9.64,0,18.77,2.23,26.89,6.19-3.38-.85-21.87-5.11-39.49,6.12-12.5,7.97-16.61,22.22-18.35,26.59-4.42,6.03-7.1,13.4-7.32,21.39v.04Z"></path></svg>
+            <span style="font-weight:500;color:#4ADE80">Obliance</span><span>· Default · 00:58</span>
+          </span>
+          <span style="font:600 14px/20px Inter,system-ui,sans-serif;color:#F0F4FC;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">140 — De retour en ligne</span>
+          <span style="font:400 14px/20px Inter,system-ui,sans-serif;color:#B4BCD7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Hors ligne pendant 6&#8239;min.</span>
+        </div>
+        <button type="button" aria-label="Développer la notification" style="position:absolute;top:0;right:2px;display:flex;align-items:center;justify-content:center;width:44px;height:44px;padding:0;border:0;border-radius:22px;background:transparent;color:#828CAF;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="m6 9 6 6 6-6"></path></svg></button>
+      </article>
+
+      <!-- Service de premier plan : sessions -->
+      <article aria-label="Notification persistante : 2 sessions actives" style="position:relative;display:flex;flex-direction:column;border-radius:6px 6px 16px 16px;background:#131728;box-shadow:0 6px 24px -8px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.03)">
+        <div style="display:flex;flex-direction:column;gap:2px;padding:10px 48px 0 16px">
+          <span style="display:flex;align-items:center;gap:6px;height:16px;font:400 12px/16px Inter,system-ui,sans-serif;color:#828CAF;white-space:nowrap;overflow:hidden">
+            <svg width="16" height="16" viewBox="0 0 122.88 122.88" aria-hidden="true" style="display:block;flex:none;color:#B4BCD7"><path fill="currentColor" d="M122.88,61.44c0,33.93-27.51,61.44-61.44,61.44h-.08c-20.87-10.92-35.66-31.91-37.87-56.52,2.47,19.24,19.25,33.99,39.34,33.23,19.73-.75,35.83-16.78,36.66-36.5.65-15.47-7.91-29.02-20.65-35.6-.33-.17-.66-.34-1-.49-.66-.33-1.33-.62-2.02-.91-4.46-1.82-9.35-2.83-14.47-2.83-1.13,0-2.25.05-3.36.15-2.6.22-5.13.72-7.56,1.44-.17.05-.35.1-.51.16-.17.05-.35.1-.51.16t.03-.03s.02-.02.03-.03c.02-.02.03-.03.05-.05.04-.04.09-.09.16-.16.06-.06.13-.13.21-.2.16-.15.35-.33.58-.53,0,0,.03-.02.03-.03.23-.2.49-.43.79-.69.78-.66,1.78-1.46,2.98-2.32.97-.68,2.06-1.41,3.28-2.15.6-.36,1.25-.72,1.92-1.09.25-.13.51-.27.77-.4.39-.2.78-.4,1.19-.6.41-.19.82-.39,1.24-.58.4-.17.8-.35,1.22-.51.22-.09.43-.17.66-.26.27-.1.53-.21.8-.3.18-.07.37-.14.56-.2.4-.14.8-.28,1.22-.41.03-.02.06-.03.09-.03.53-.16,1.07-.32,1.61-.47.4-.11.79-.21,1.2-.3,1.01-.24,2.05-.45,3.12-.61.39-.06.78-.11,1.18-.16.08,0,.16-.02.23-.03.44-.05.89-.09,1.34-.13h0c4.18-.13,10.67.22,17.98,2.89,8.65,3.17,14.03,8.44,17.36,12.27,1.29,1.48,2.69,2.96,3.74,4.61,1.92,3.02,4.1,6.91,5.49,11.72,0,0,2.4,8.34,2.4,17.04Z"></path><path fill="currentColor" d="M23.2,60.34c-.02.36-.03.73-.03,1.1,0,1.65.1,3.27.31,4.86,0,.02,0,.03,0,.05v.04c2.23,24.59,17.01,45.57,37.87,56.48-15.23-.02-29.16-5.58-39.89-14.78C8.19,96.72-.17,79.76,0,60.84.3,29.35,24.71,3.31,55.45.3h0c1.98-.21,3.99-.3,6.01-.3,9.64,0,18.77,2.23,26.89,6.19-3.38-.85-21.87-5.11-39.49,6.12-12.5,7.97-16.61,22.22-18.35,26.59-4.42,6.03-7.1,13.4-7.32,21.39v.04Z"></path></svg>
+            <span style="font-weight:500;color:#B4BCD7">Obliance</span><span>· Sessions actives</span>
+          </span>
+          <span style="font:600 14px/20px Inter,system-ui,sans-serif;color:#F0F4FC;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">2 sessions actives</span>
+          <span style="font:400 14px/20px Inter,system-ui,sans-serif;color:#B4BCD7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">PowerShell PC-COMPTA-03, SSH 140</span>
+        </div>
+        <button type="button" aria-label="Réduire la notification" style="position:absolute;top:0;right:2px;display:flex;align-items:center;justify-content:center;width:44px;height:44px;padding:0;border:0;border-radius:22px;background:transparent;color:#828CAF;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none"><path d="m18 15-6-6-6 6"></path></svg></button>
+        <div style="display:flex;padding:0 4px 2px">
+          <button type="button" style="display:inline-flex;align-items:center;height:44px;padding:0 12px;border:0;border-radius:8px;background:transparent;font:500 14px/20px Inter,system-ui,sans-serif;color:#60A5FA;white-space:nowrap;cursor:pointer">Tout terminer</button>
+        </div>
+      </article>
+    </div>
+
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,9 +1,12 @@
 import { useState } from 'react';
-import { X, Download, FileJson, FileSpreadsheet } from 'lucide-react';
+import { Download, FileJson, FileSpreadsheet } from 'lucide-react';
 import type { DiscoveredDevice } from '@obliance/shared';
 import { clsx } from 'clsx';
 import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
 import { StyledCheckbox } from '@/components/devices/StyledCheckbox';
+import { Modal } from '@/components/common/Modal';
+import { saveText } from '@/utils/download';
 
 interface Props {
  rows: DiscoveredDevice[];
@@ -33,6 +36,7 @@ export function ExportDiscoveryModal({ rows, onClose }: Props) {
  const { t } = useTranslation();
  const [fields, setFields] = useState<Set<FieldKey>>(new Set(DEFAULT_FIELDS));
  const [format, setFormat] = useState<Format>('csv');
+ const [saving, setSaving] = useState(false);
 
  const toggle = (f: FieldKey) => {
  setFields((prev) => {
@@ -102,43 +106,49 @@ export function ExportDiscoveryModal({ rows, onClose }: Props) {
  };
  };
 
- const handleDownload = () => {
- if (orderedFields.length === 0 || rows.length === 0) return;
+ // Shared helper: native saveFile in the Android shell (a blob: URL cannot
+ // be handed to DownloadManager), deferred-revoke anchor in a browser. The
+ // modal only closes once the file was actually handed over.
+ const handleDownload = async () => {
+ if (orderedFields.length === 0 || rows.length === 0 || saving) return;
  const { content, mime, filename } = build();
- const blob = new Blob([content], { type: mime });
- const url = URL.createObjectURL(blob);
- const a = document.createElement('a');
- a.href = url;
- a.download = filename;
- document.body.appendChild(a);
- a.click();
- document.body.removeChild(a);
- URL.revokeObjectURL(url);
- onClose();
+ setSaving(true);
+ const ok = await saveText(content, filename, mime);
+ setSaving(false);
+ if (ok) onClose();
+ else toast.error(t('common.error'));
  };
 
  return (
- <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
- <div
- className="bg-bg-primary rounded-xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-xl"
- onClick={(e) => e.stopPropagation()}
- >
- <div className="flex items-center justify-between px-5 py-3 flex-shrink-0">
- <div>
- <h3 className="text-sm font-semibold text-text-primary">
- {t('discovery.export.title') || 'Export discovered devices'}
- </h3>
- <p className="text-xs text-text-muted mt-0.5">
+ <Modal
+ open
+ onClose={onClose}
+ size="md"
+ className="bg-bg-primary"
+ title={<>
+ <span className="block truncate">{t('discovery.export.title') || 'Export discovered devices'}</span>
+ <span className="block truncate text-xs font-normal text-text-muted mt-0.5">
  {t('discovery.export.subtitle', { count: rows.length }) ||
  `${rows.length} row(s) ready to export`}
- </p>
- </div>
- <button onClick={onClose} className="p-1 text-text-muted hover:text-text-primary rounded">
- <X className="w-4 h-4" />
+ </span>
+ </>}
+ bodyClassName="p-5 space-y-4"
+ footerClassName="px-5"
+ footer={<>
+ <span className="mr-auto text-xs text-text-muted">
+ {t('discovery.export.countHint', { rows: rows.length, cols: orderedFields.length }) ||
+ `${rows.length} row(s) · ${orderedFields.length} column(s)`}
+ </span>
+ <button
+ onClick={handleDownload}
+ disabled={rows.length === 0 || orderedFields.length === 0 || saving}
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-accent text-white rounded-lg hover:bg-accent/80 disabled:opacity-50 transition-colors coarse:min-h-10 coarse:px-4"
+ >
+ <Download className="w-3.5 h-3.5" />
+ {t('common.download') || 'Download'}
  </button>
- </div>
-
- <div className="flex-1 overflow-y-auto p-5 space-y-4">
+ </>}
+ >
  {/* Format tabs */}
  <div>
  <label className="block text-xs font-medium text-text-muted mb-1.5">
@@ -147,8 +157,9 @@ export function ExportDiscoveryModal({ rows, onClose }: Props) {
  <div className="flex items-center gap-2">
  <button
  onClick={() => setFormat('csv')}
+ aria-pressed={format === 'csv'}
  className={clsx(
- 'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors',
+ 'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors coarse:min-h-10 coarse:px-4',
  format === 'csv'
  ? 'bg-accent text-white border-accent'
  : 'bg-bg-secondary text-text-muted border-transparent hover:text-text-primary',
@@ -159,8 +170,9 @@ export function ExportDiscoveryModal({ rows, onClose }: Props) {
  </button>
  <button
  onClick={() => setFormat('json')}
+ aria-pressed={format === 'json'}
  className={clsx(
- 'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors',
+ 'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors coarse:min-h-10 coarse:px-4',
  format === 'json'
  ? 'bg-accent text-white border-accent'
  : 'bg-bg-secondary text-text-muted border-transparent hover:text-text-primary',
@@ -174,21 +186,21 @@ export function ExportDiscoveryModal({ rows, onClose }: Props) {
 
  {/* Field picker */}
  <div>
- <div className="flex items-center justify-between mb-1.5">
+ <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
  <label className="block text-xs font-medium text-text-muted">
  {t('discovery.export.fields') || 'Columns'}
  </label>
- <div className="flex items-center gap-2 text-[11px]">
+ <div className="flex items-center gap-2 text-[11px] coarse:text-xs">
  <button
  onClick={() => setFields(new Set(ALL_FIELDS))}
- className="text-accent hover:underline"
+ className="text-accent hover:underline coarse:min-h-10 coarse:px-2"
  >
  {t('common.selectAll') || 'Select all'}
  </button>
  <span className="text-text-muted/40">·</span>
  <button
  onClick={() => setFields(new Set())}
- className="text-accent hover:underline"
+ className="text-accent hover:underline coarse:min-h-10 coarse:px-2"
  >
  {t('common.none') || 'None'}
  </button>
@@ -199,35 +211,18 @@ export function ExportDiscoveryModal({ rows, onClose }: Props) {
  <div
  key={f}
  onClick={() => toggle(f)}
- className="flex items-center gap-2 px-2 py-1 rounded hover:bg-bg-secondary cursor-pointer text-xs text-text-primary"
+ className="flex items-center gap-2 px-2 py-1 rounded hover:bg-bg-secondary cursor-pointer text-xs text-text-primary coarse:min-h-10 coarse:text-sm"
  >
  <StyledCheckbox
  checked={fields.has(f)}
  onChange={() => { /* handled by wrapper */ }}
  />
- <span>{labelFor(f)}</span>
+ <span className="min-w-0 break-words">{labelFor(f)}</span>
  </div>
  ))}
  </div>
  </div>
- </div>
-
- <div className="flex items-center justify-between px-5 py-3 flex-shrink-0">
- <span className="text-xs text-text-muted">
- {t('discovery.export.countHint', { rows: rows.length, cols: orderedFields.length }) ||
- `${rows.length} row(s) · ${orderedFields.length} column(s)`}
- </span>
- <button
- onClick={handleDownload}
- disabled={rows.length === 0 || orderedFields.length === 0}
- className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-accent text-white rounded-lg hover:bg-accent/80 disabled:opacity-50 transition-colors"
- >
- <Download className="w-3.5 h-3.5" />
- {t('common.download') || 'Download'}
- </button>
- </div>
- </div>
- </div>
+ </Modal>
  );
 }
 
