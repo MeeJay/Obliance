@@ -54,6 +54,8 @@ class DevicesScreenshotTest {
                     LocalObliServices provides services,
                     LocalDevicesClock provides MutableClock().clock,
                     LocalDeviceRemote provides FakeRemote(),
+                    LocalCommandRemote provides FakeCommandRemote(),
+                    tools.obli.core.security.ui.LocalActionRunner provides testRunner(),
                 ) { content() }
             }
         }

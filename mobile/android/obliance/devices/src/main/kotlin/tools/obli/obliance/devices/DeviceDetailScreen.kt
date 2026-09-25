@@ -33,6 +33,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
+import tools.obli.core.auth.AuthState
+import tools.obli.core.security.ui.LocalActionFeedback
+import tools.obli.core.security.ui.LocalActionRunner
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -74,25 +86,51 @@ import tools.obli.obliance.api.DeviceStatus
 import tools.obli.obliance.data.LocalObliServices
 
 /**
- * S30/S31, read-only alpha: header, live metrics card and identity card of one
- * device of [serverId] (the application made it the active server before
- * opening, CONTRACT §2). Actions come later: "Agir" is shown disabled.
+ * S30/S31–S33/S36/S40: one device of [serverId] (the application made it the
+ * active server before opening, CONTRACT §2): header, live metrics and
+ * identity (Aperçu), the Services, Processus and Tâches tabs, the action bar
+ * and the "Agir" sheet. Every action goes through the app's LocalActionRunner
+ * over THAT server's session.
+ *
+ * The ACCÉDER items and "Exécuter un script" belong to other modules: they
+ * call [onOpenTerminal] (`protocol` = `powershell`, `cmd` or `ssh`, as the web
+ * RemoteSession protocols), [onOpenReach], [onRunScript] (the device ids of
+ * [serverId]) and [onOpenAutomations]; the defaults do nothing.
  */
 @Composable
-fun DeviceDetailScreen(serverId: ServerId, deviceId: Long, onBack: () -> Unit) {
+fun DeviceDetailScreen(
+    serverId: ServerId,
+    deviceId: Long,
+    onBack: () -> Unit,
+    onOpenTerminal: (ServerId, Long, String) -> Unit = { _, _, _ -> },
+    onOpenReach: (ServerId, Long) -> Unit = { _, _ -> },
+    onRunScript: (ServerId, List<Long>) -> Unit = { _, _ -> },
+    onOpenAutomations: (ServerId, Long) -> Unit = { _, _ -> },
+) {
     val services = LocalObliServices.current
     val clock = LocalDevicesClock.current
     val remote = LocalDeviceRemote.current ?: remember(services) { HttpDeviceRemote(services.sessions) }
+    val commandRemote = LocalCommandRemote.current ?: remember(services) { HttpCommandRemote(services.sessions) }
+    val runner = LocalActionRunner.current
+    val feedback = LocalActionFeedback.current
     val vm = viewModel(key = "device-detail-${serverId.value}-$deviceId") {
         DeviceDetailViewModel(services, remote, clock, serverId, deviceId)
     }
+    val actVm = viewModel(key = "device-actions-${serverId.value}-$deviceId") {
+        DeviceActionsViewModel(services, commandRemote, runner, clock, serverId, deviceId)
+    }
     val state by vm.state.collectAsStateWithLifecycle()
+    val act by actVm.state.collectAsStateWithLifecycle()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     // Live metrics only while this screen is visible: leaving it or going to
     // background cancels the subscription and stops re-arming the agent (§7.4).
     LaunchedEffect(vm, lifecycle) { lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { vm.followLive() } }
+    LaunchedEffect(actVm, lifecycle) { lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { actVm.followRealtime() } }
     val registry by services.registry.state.collectAsStateWithLifecycle()
     val scope by services.tenants.scope.collectAsStateWithLifecycle()
+    val session = remember(services, serverId) { services.sessions.session(serverId) }
+    val auth by (session?.auth ?: remember { MutableStateFlow<AuthState>(AuthState.Unknown) }).collectAsStateWithLifecycle()
+    val admin = (auth as? AuthState.SignedIn)?.probe?.user?.isPlatformAdmin == true
     val now = rememberNow(clock)
 
     val device = state.device
@@ -100,16 +138,136 @@ fun DeviceDetailScreen(serverId: ServerId, deviceId: Long, onBack: () -> Unit) {
         d.tenantName?.takeIf { it.isNotBlank() }
             ?: scope.takeIf { it.serverId == serverId }?.tenants?.firstOrNull { it.id == d.tenantId }?.name
     }
+    val place = DevicePlace(registry.byId(serverId), registry.isMultiServer, tenantName)
+
+    var tab by rememberSaveable { mutableStateOf(DeviceTab.OVERVIEW) }
+    var sheetOpen by rememberSaveable { mutableStateOf(false) }
+    var openProcess by remember { mutableStateOf<ProcessInfo?>(null) }
+    var openTask by remember { mutableStateOf<CommandDto?>(null) }
+    val hasDevice = device != null
+    LaunchedEffect(tab, hasDevice) {
+        if (!hasDevice) return@LaunchedEffect
+        when (tab) {
+            DeviceTab.SERVICES -> actVm.loadServices()
+            DeviceTab.TASKS -> actVm.loadTasks()
+            else -> Unit
+        }
+    }
+    // PROCESS_SUBSCRIBE only while the Processus tab is visible (§5 S33 "Cycle de vie").
+    if (tab == DeviceTab.PROCESSES && hasDevice) {
+        LaunchedEffect(actVm, lifecycle) { lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { actVm.watchProcesses() } }
+    }
+
+    val res = LocalContext.current.resources
+    // "Obliance Prod › ACME" with 2+ servers, "ACME" otherwise (§7.6).
+    val scopeLabel = listOfNotNull(place.server?.takeIf { place.multiServer }?.displayName, tenantName).joinToString(" › ")
+    val nav = ActNavigation(onOpenTerminal, onOpenReach, onRunScript, onOpenAutomations)
+    val controller = remember(actVm, res, feedback, scopeLabel, admin, nav) {
+        ActController(
+            vm = actVm, services = services, res = res, feedback = feedback, scope = scopeLabel, admin = admin, nav = nav,
+            pushNow = { remote.pushNow(serverId, deviceId) },
+            onReload = vm::retry,
+            onTab = { t -> sheetOpen = false; tab = t },
+        )
+    }
+
     DeviceDetailContent(
         state = state,
-        place = DevicePlace(registry.byId(serverId), registry.isMultiServer, tenantName),
+        place = place,
         deviceId = deviceId,
         now = now,
         zone = clock.zone,
         onBack = onBack,
         onRefresh = vm::refresh,
         onRetry = vm::retry,
+        tab = tab,
+        onTab = { tab = it },
+        tabContent = { t, d ->
+            when (t) {
+                DeviceTab.SERVICES -> ServicesTab(d, act.services, act.refused, controller, clock.zone, onReload = actVm::loadServices)
+                DeviceTab.PROCESSES -> ProcessesTab(
+                    d, act.processes,
+                    onFreeze = actVm::setFrozen,
+                    onUnlock = { controller.unlock(d, "processes") },
+                    onOpen = { openProcess = it },
+                )
+                DeviceTab.TASKS -> TasksTab(d, act.tasks, clock.zone, onRefresh = actVm::loadTasks, onCancel = { controller.cancel(d, it) }, onOpen = { openTask = it })
+                DeviceTab.OVERVIEW -> Unit
+            }
+        },
+        bottomBar = { d ->
+            act.last?.let { last ->
+                val cmd = act.lastCommand
+                if (last.awaitingApproval || cmd != null) TrackLine(last, cmd, !DeviceActions.reachable(d.statusKind), clock.zone)
+            }
+            DeviceActionBar(
+                d,
+                onSlot = { slot ->
+                    when (slot) {
+                        BarSlot.TERMINAL -> controller.act(if (DeviceActions.DeviceWindows(d)) ActKind.TERMINAL_POWERSHELL else ActKind.TERMINAL_SSH, d, act.refused)
+                        BarSlot.SCRIPT -> controller.act(ActKind.RUN_SCRIPT, d, act.refused)
+                        BarSlot.PROCESSES -> tab = DeviceTab.PROCESSES
+                        BarSlot.SERVICES -> tab = DeviceTab.SERVICES
+                        BarSlot.TASKS -> tab = DeviceTab.TASKS
+                        BarSlot.UNLOCK -> controller.unlock(d, if (tab == DeviceTab.PROCESSES) "processes" else "remote")
+                    }
+                },
+                onAct = { sheetOpen = true },
+            )
+        },
     )
+
+    if (device != null && sheetOpen) {
+        ActSheet(onDismiss = { sheetOpen = false }) { close ->
+            val target = actVm.tenantTarget(device)
+            ActSheetContent(
+                device = device,
+                items = DeviceActions.items(device, controller.context(act.refused)),
+                reasonOf = controller::reason,
+                last = act.last,
+                tenantName = target?.name,
+                zone = clock.zone,
+                onSwitchTenant = { actVm.switchTenant(device) },
+                onItem = { kind -> close { controller.act(kind, device, act.refused) } },
+                onClose = { close {} },
+            )
+        }
+    }
+    val proc = openProcess
+    if (device != null && proc != null) {
+        ActSheet(onDismiss = { openProcess = null }) { close ->
+            ProcessSheetContent(
+                proc, device,
+                canKill = admin,
+                blocked = controller.serviceBlocked(device, "kill_process", act.refused),
+                onKill = { close { controller.kill(device, proc, act.refused) } },
+                onClose = { close {} },
+            )
+        }
+    }
+    val task = openTask
+    if (task != null) {
+        ActSheet(onDismiss = { openTask = null }) { close -> TaskSheetContent(task, onClose = { close {} }) }
+    }
+}
+
+/** A modal bottom sheet whose content can close it (animated) before running an action. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ActSheet(onDismiss: () -> Unit, content: @Composable (close: (then: () -> Unit) -> Unit) -> Unit) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
+    val c = ObliTheme.colors
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = c.chrome) {
+        Column(Modifier.verticalScroll(rememberScrollState())) {
+            content { then ->
+                scope.launch { sheetState.hide() }.invokeOnCompletion {
+                    onDismiss()
+                    then()
+                }
+            }
+        }
+    }
 }
 
 /** Where the device lives: server (tile when 2+ servers), tenant. */
@@ -126,6 +284,10 @@ internal fun DeviceDetailContent(
     onBack: () -> Unit,
     onRefresh: () -> Unit,
     onRetry: () -> Unit,
+    tab: DeviceTab = DeviceTab.OVERVIEW,
+    onTab: (DeviceTab) -> Unit = {},
+    tabContent: @Composable (DeviceTab, Device) -> Unit = { _, _ -> },
+    bottomBar: @Composable (Device) -> Unit = {},
 ) {
     val c = ObliTheme.colors
     val device = state.device
@@ -143,7 +305,11 @@ internal fun DeviceDetailContent(
             subtitle = subtitle,
             leading = server?.let { s -> { ObliServerTile(s.color, s.monogram, s.displayName) } },
         )
-        PullToRefreshBox(
+        val showTabs = device != null && state.problem?.kind != ProblemKind.NOT_FOUND
+        if (showTabs) DeviceTabRow(tab, onTab)
+        if (showTabs && tab != DeviceTab.OVERVIEW) {
+            Box(Modifier.fillMaxWidth().weight(1f)) { tabContent(tab, device!!) }
+        } else PullToRefreshBox(
             isRefreshing = state.refreshing,
             onRefresh = onRefresh,
             modifier = Modifier.fillMaxWidth().weight(1f),
@@ -184,7 +350,7 @@ internal fun DeviceDetailContent(
             }
         }
         // Nothing to act on without a device (loading, error, not found).
-        if (device != null && state.problem?.kind != ProblemKind.NOT_FOUND) ActionBar()
+        if (showTabs) bottomBar(device!!)
     }
 }
 
@@ -457,42 +623,6 @@ private fun IdentityCard(device: Device, state: DeviceDetailState, now: Long, zo
 }
 
 private class IdRow(val label: Int, val value: String?, val mono: Boolean = false)
-
-/**
- * Bottom action bar (§5 S30 item 8), the only divider line. Actions are not
- * in this alpha: "Agir" is visible but disabled, with its reason.
- */
-@Composable
-private fun ActionBar() {
-    val c = ObliTheme.colors
-    val divider = c.divider
-    val a11y = stringResource(R.string.devices_act_a11y)
-    Row(
-        Modifier.fillMaxWidth().height(64.dp).background(c.chrome)
-            .drawBehind { drawLine(divider, Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx()) }
-            .padding(horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(stringResource(R.string.devices_actions), style = ObliTypography.label, color = c.text2)
-            Text(stringResource(R.string.devices_soon), style = ObliTypography.monoCaption, color = c.textMuted)
-        }
-        Row(
-            Modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(8.dp)).background(c.surface2)
-                .semantics(mergeDescendants = true) {
-                    contentDescription = a11y
-                    disabled()
-                }
-                .padding(horizontal = 20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Icon(DeviceIcons.Zap, contentDescription = null, tint = c.textFaint, modifier = Modifier.size(18.dp))
-            Text(stringResource(R.string.devices_act), style = ObliTypography.label.copy(fontWeight = FontWeight.SemiBold), color = c.textFaint)
-        }
-    }
-}
 
 @Composable
 private fun DetailSkeleton() {

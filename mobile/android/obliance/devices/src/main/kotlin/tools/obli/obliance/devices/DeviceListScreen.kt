@@ -10,6 +10,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,6 +48,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -64,6 +67,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -93,9 +99,14 @@ import tools.obli.obliance.api.Device
 import tools.obli.obliance.api.DeviceStatus
 import tools.obli.obliance.data.LocalObliServices
 
-/** S20: devices of the ACTIVE server, in its session tenant (design doc §5 S20). */
+/**
+ * S20: devices of the ACTIVE server, in its session tenant (design doc §5 S20).
+ * A long press starts a multi-selection (§7.7) whose contextual bar offers
+ * "Exécuter un script sur N": [onRunScript] gets the server and the selected
+ * device ids (all of one tenant); the default does nothing.
+ */
 @Composable
-fun DeviceListScreen(onOpenDevice: (ServerId, Long) -> Unit) {
+fun DeviceListScreen(onOpenDevice: (ServerId, Long) -> Unit, onRunScript: (ServerId, List<Long>) -> Unit = { _, _ -> }) {
     val services = LocalObliServices.current
     val clock = LocalDevicesClock.current
     val vm = viewModel { DeviceListViewModel(services, clock) }
@@ -105,14 +116,23 @@ fun DeviceListScreen(onOpenDevice: (ServerId, Long) -> Unit) {
     // Live status and metrics only while visible (§7.4 "Cycle de vie du socket").
     LaunchedEffect(vm, lifecycle) { lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { vm.followRealtime() } }
     val now = rememberNow(clock)
+    // Multi-selection (§7.7): ids of the current server and tenant; dropped when either changes.
+    var selected by rememberSaveable(state.serverId?.value, state.tenantId) { mutableStateOf(emptyList<Long>()) }
 
     DeviceListContent(
         state = state,
         live = realtime == ConnectionState.CONNECTED,
         now = now,
         zone = clock.zone,
+        selection = selected,
         actions = ListActions(
-            onOpen = { d -> state.serverId?.let { onOpenDevice(it, d.id) } },
+            onOpen = { d ->
+                if (selected.isNotEmpty()) selected = selected.toggle(d.id)
+                else state.serverId?.let { onOpenDevice(it, d.id) }
+            },
+            onSelect = { d -> selected = selected.toggle(d.id) },
+            onClearSelection = { selected = emptyList() },
+            onRunScript = { ids -> state.serverId?.let { onRunScript(it, ids) } },
             onSearch = vm::setSearch,
             onStatus = vm::toggleStatus,
             onOs = vm::toggleOs,
@@ -124,8 +144,14 @@ fun DeviceListScreen(onOpenDevice: (ServerId, Long) -> Unit) {
     )
 }
 
+private fun List<Long>.toggle(id: Long): List<Long> = if (id in this) this - id else this + id
+
 internal class ListActions(
     val onOpen: (Device) -> Unit = {},
+    /** Long press: add or remove the row from the selection. */
+    val onSelect: (Device) -> Unit = {},
+    val onClearSelection: () -> Unit = {},
+    val onRunScript: (List<Long>) -> Unit = {},
     val onSearch: (String) -> Unit = {},
     val onStatus: (StatusChip) -> Unit = {},
     val onOs: (OsChip) -> Unit = {},
@@ -149,7 +175,7 @@ internal fun rememberNow(clock: DevicesClock): Long {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun DeviceListContent(state: DeviceListState, live: Boolean, now: Long, zone: ZoneId, actions: ListActions) {
+internal fun DeviceListContent(state: DeviceListState, live: Boolean, now: Long, zone: ZoneId, actions: ListActions, selection: List<Long> = emptyList()) {
     val c = ObliTheme.colors
     val updated = state.updatedAt?.let { DeviceFormat.hhmm(it, zone) }
     val freshness = when {
@@ -159,7 +185,11 @@ internal fun DeviceListContent(state: DeviceListState, live: Boolean, now: Long,
         else -> null
     }
     Column(Modifier.fillMaxSize().background(c.bg)) {
-        ObliScreenHeader(stringResource(R.string.devices_title), freshness = freshness, liveLabel = stringResource(R.string.devices_live))
+        if (selection.isEmpty()) {
+            ObliScreenHeader(stringResource(R.string.devices_title), freshness = freshness, liveLabel = stringResource(R.string.devices_live))
+        } else {
+            SelectionBar(selection, state, actions)
+        }
         SearchField(state.filters.search, actions.onSearch, Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp))
         QuickChips(state, actions)
         Box(Modifier.fillMaxWidth().height(2.dp)) {
@@ -177,7 +207,7 @@ internal fun DeviceListContent(state: DeviceListState, live: Boolean, now: Long,
                     ProblemCard(state.problem, onRetry = actions.onRefresh.takeIf { state.problem.kind.retryable })
                 }
                 state.devices.isEmpty() && state.loaded -> EmptyState(state, actions)
-                else -> DeviceRows(state, now, zone, listState, actions)
+                else -> DeviceRows(state, now, zone, listState, actions, selection)
             }
             if (state.pendingChanges > 0) {
                 ChangesPill(state.pendingChanges, actions.onRefresh, Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp))
@@ -190,7 +220,7 @@ private val ProblemKind.retryable: Boolean get() = this != ProblemKind.SESSION_E
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun DeviceRows(state: DeviceListState, now: Long, zone: ZoneId, listState: LazyListState, actions: ListActions) {
+private fun DeviceRows(state: DeviceListState, now: Long, zone: ZoneId, listState: LazyListState, actions: ListActions, selection: List<Long>) {
     val c = ObliTheme.colors
     LaunchedEffect(listState, state.hasMore) {
         if (!state.hasMore) return@LaunchedEffect
@@ -229,6 +259,8 @@ private fun DeviceRows(state: DeviceListState, now: Long, zone: ZoneId, listStat
                     zone = zone,
                     flash = state.flashes[d.id] ?: 0,
                     onClick = { actions.onOpen(d) },
+                    selected = if (selection.isEmpty()) null else d.id in selection,
+                    onLongClick = { actions.onSelect(d) },
                 )
             }
         }
@@ -260,7 +292,17 @@ private const val LOAD_MORE_AHEAD = 10
 internal const val LARGE_FONT_SCALE = 1.3f
 
 @Composable
-internal fun DeviceRow(device: Device, globalView: Boolean, now: Long, zone: ZoneId, flash: Int, onClick: () -> Unit) {
+internal fun DeviceRow(
+    device: Device,
+    globalView: Boolean,
+    now: Long,
+    zone: ZoneId,
+    flash: Int,
+    onClick: () -> Unit,
+    /** Null outside selection mode. */
+    selected: Boolean? = null,
+    onLongClick: (() -> Unit)? = null,
+) {
     val c = ObliTheme.colors
     // Merge, do not jump (§7.4): a changed row flashes 600 ms on `active`, never in a status colour.
     val flashAlpha = remember { Animatable(0f) }
@@ -280,13 +322,20 @@ internal fun DeviceRow(device: Device, globalView: Boolean, now: Long, zone: Zon
         Modifier
             .fillMaxWidth()
             .heightIn(min = 72.dp)
-            .background(c.active.copy(alpha = flashAlpha.value))
-            .clickable(onClick = onClick)
+            .background(if (selected == true) c.active else c.active.copy(alpha = flashAlpha.value))
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .then(if (selected != null) Modifier.semantics { this.selected = selected } else Modifier)
             .padding(horizontal = 16.dp, vertical = if (large) 10.dp else 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        OsTile(device, ringColor = c.bg)
+        if (selected == true) {
+            Box(Modifier.size(36.dp).clip(CircleShape).background(c.text), contentAlignment = Alignment.Center) {
+                Icon(ObliIcons.Check, contentDescription = stringResource(R.string.devices_selected_a11y), tint = c.bg, modifier = Modifier.size(20.dp))
+            }
+        } else {
+            OsTile(device, ringColor = c.bg)
+        }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(if (large) 4.dp else 2.dp)) {
             if (large) {
                 Text(device.label, style = ObliTypography.rowTitle, color = c.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -578,3 +627,44 @@ internal val INFO = Color(ObliTokens.UNREAD.toInt())
 
 /** Privacy mode orange (#FB923C). */
 internal val PRIVACY = Color(ObliTokens.Status.PENDING_UNINSTALL.argb.toInt())
+
+/**
+ * Contextual bar of the multi-selection (§7.7): "N sélectionnés · ACME",
+ * "Exécuter un script sur N" (one tenant per selection), ×.
+ */
+@Composable
+private fun SelectionBar(selection: List<Long>, state: DeviceListState, actions: ListActions) {
+    val c = ObliTheme.colors
+    val picked = state.devices.filter { it.id in selection }
+    val tenants = picked.mapNotNull { it.tenantName?.takeIf { n -> n.isNotBlank() } }.distinct()
+    val mixed = picked.map { it.tenantId }.distinct().size > 1
+    Column(Modifier.fillMaxWidth().background(c.chrome).padding(start = 4.dp, end = 12.dp, bottom = 8.dp)) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            ObliIconButton(ObliIcons.X, stringResource(R.string.devices_select_exit), actions.onClearSelection, tint = c.text)
+            Column(Modifier.weight(1f)) {
+                Text(
+                    pluralStringResource(R.plurals.devices_selected_count, selection.size, selection.size),
+                    style = ObliTypography.cardTitle,
+                    color = c.text,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                )
+                if (!mixed && tenants.size == 1 && state.globalView) Text(tenants.first(), style = ObliTypography.monoCaption, color = c.textMuted)
+            }
+        }
+        if (mixed) {
+            Text(stringResource(R.string.devices_select_mixed), style = ObliTypography.body, color = c.text2, modifier = Modifier.padding(start = 12.dp, bottom = 8.dp))
+        }
+        val label = pluralStringResource(R.plurals.devices_run_script_on, selection.size, selection.size)
+        Row(
+            Modifier.padding(start = 12.dp).heightIn(min = 48.dp).clip(RoundedCornerShape(8.dp))
+                .background(if (mixed) c.surface2 else c.accent2.copy(alpha = 0.14f))
+                .clickable(enabled = !mixed, role = Role.Button) { actions.onRunScript(selection) }
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(ActIcons.Play, contentDescription = null, tint = if (mixed) c.textFaint else c.accent2, modifier = Modifier.size(18.dp))
+            Text(label, style = ObliTypography.label.copy(fontWeight = FontWeight.SemiBold), color = if (mixed) c.textFaint else c.accent2)
+        }
+    }
+}

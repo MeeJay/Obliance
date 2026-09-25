@@ -111,10 +111,7 @@
     <string name="devices_id_reboot">Restart</string>
     <string name="devices_id_timezone">Time zone</string>
     <string name="devices_reboot_pending">pending</string>
-    <string name="devices_actions">Actions</string>
-    <string name="devices_soon">Coming soon</string>
     <string name="devices_act">Act</string>
-    <string name="devices_act_a11y">Act, coming soon</string>
 
     <!-- Statuses (design doc §7.8) -->
     <string name="devices_status_online">Online</string>

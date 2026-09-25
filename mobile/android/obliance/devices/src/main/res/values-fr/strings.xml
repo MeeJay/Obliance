@@ -114,10 +114,7 @@
     <string name="devices_id_reboot">Redémarrage</string>
     <string name="devices_id_timezone">Fuseau horaire</string>
     <string name="devices_reboot_pending">en attente</string>
-    <string name="devices_actions">Actions</string>
-    <string name="devices_soon">Bientôt disponible</string>
     <string name="devices_act">Agir</string>
-    <string name="devices_act_a11y">Agir, bientôt disponible</string>
 
     <!-- Statuts (document de conception §7.8) -->
     <string name="devices_status_online">En ligne</string>
