@@ -14,6 +14,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -22,16 +23,21 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import tools.obli.core.auth.AuthState
 import tools.obli.core.model.NotifyScope
 import tools.obli.core.model.ServerId
 import tools.obli.core.model.ServerProfile
+import tools.obli.obliance.api.AlertsApi
+import tools.obli.obliance.api.ObliEvents
 import tools.obli.obliance.data.ObliServices
 
 /**
@@ -224,6 +230,70 @@ internal class NotificationRuntime(
         coroutineScope {
             launch { followRegistry() }
             launch { followAuth() }
+            launch { followResolutions() }
+        }
+    }
+
+    /**
+     * 0.3.1: NOTIFICATION_RESOLVED on the active server's socket (connected only
+     * while the app is in front, and 30 s after): the notifications of those
+     * alerts go at once, without waiting for the next pass.
+     *
+     * The collector never waits: [onResolved] may wait for [PassLock] (a pass can
+     * hold it for a while), and a collector that falls behind the socket's
+     * buffer (every agent push emits an event) would lose later events. A
+     * failure only loses that event (the next pass decides) and never stops the
+     * sibling followers.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private suspend fun followResolutions() {
+        services.sessions.active
+            .flatMapLatest { s ->
+                if (s == null) emptyFlow() else s.realtime.events.filter { it.name == ObliEvents.NOTIFICATION_RESOLVED }.map { s.id to it }
+            }
+            .collect { (id, event) ->
+                val ids = AlertsApi.decodeResolved(event.payload)?.takeIf { it.isNotEmpty() } ?: return@collect
+                scope.launch {
+                    try {
+                        onResolved(id, ids)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        // DataStore / publisher failure: the next pass withdraws them.
+                    }
+                }
+            }
+    }
+
+    /**
+     * Alerts [alertIds] of server [id] were resolved (or deleted): their
+     * notifications and reminders go now, then once more after a pass in
+     * progress (it may have read them just before and be posting them), and
+     * they leave the engine's record. The group summary goes with the last one.
+     */
+    internal suspend fun onResolved(id: ServerId, alertIds: Set<Long>) {
+        withdraw(id, alertIds, store.read().server(id).postedAlerts)
+        PassLock.mutex.withLock {
+            val posted = store.read().server(id).postedAlerts
+            withdraw(id, alertIds, posted)
+            if (posted.any { it.alertId in alertIds }) {
+                store.updateServer(id) { s -> s.copy(postedAlerts = s.postedAlerts.filterNot { it.alertId in alertIds }) }
+            }
+            val summaryId = NotificationIds.summary(id)
+            val active = publisher.activeIds(id)
+            if (summaryId in active && (active - summaryId).isEmpty()) publisher.cancel(id, summaryId)
+        }
+    }
+
+    /** Cancels what is on screen (or recorded as posted) for [alertIds], with the reminders. */
+    private fun withdraw(id: ServerId, alertIds: Set<Long>, posted: List<PostedAlert>) {
+        val shown = publisher.activeIds(id)
+        val recorded = posted.mapTo(HashSet()) { it.alertId }
+        for (alertId in alertIds) {
+            val known = alertId in recorded
+            val nid = NotificationIds.alert(id, alertId)
+            if (known || nid in shown) publisher.cancel(id, nid)
+            if (known) work.cancelReminder(id, alertId)
         }
     }
 

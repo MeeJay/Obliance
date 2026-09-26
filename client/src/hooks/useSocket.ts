@@ -5,7 +5,7 @@ import { useGroupStore } from '../store/groupStore';
 import { useAuthStore } from '../store/authStore';
 import { useLiveAlertsStore } from '../store/liveAlertsStore';
 import { SocketEvents } from '@obliance/shared';
-import type { Device, DeviceMetrics, DeviceGroup, LiveAlert } from '@obliance/shared';
+import type { Device, DeviceMetrics, DeviceGroup, LiveAlert, LiveAlertsResolvedEvent } from '@obliance/shared';
 
 /** Notify the native desktop app overlay (if running inside Electron). */
 function notifyNative(type: 'device_alert' | 'device_ok' | 'device_critical') {
@@ -36,6 +36,22 @@ export function useSocket() {
       if (!data || !Array.isArray(data.ids) || data.ids.length === 0) return;
       useLiveAlertsStore.getState().markReadFromServer(data.ids, data.readAt ?? new Date().toISOString());
     });
+    // Alerts resolved server-side (device back online, metrics back to
+    // normal, escalation replaced by a new alert…) disappear at once.
+    socket.on(SocketEvents.NOTIFICATION_RESOLVED, (data: Partial<LiveAlertsResolvedEvent> | null) => {
+      if (!data || !Array.isArray(data.ids) || data.ids.length === 0) return;
+      useLiveAlertsStore.getState().resolveFromServer(data.ids);
+    });
+    // Events emitted while the socket was down (sleep, network cut) are
+    // lost: re-read the active alerts on every REconnect so resolved ones
+    // don't linger in the bell. The first connect is covered by the login
+    // fetch (authStore).
+    let hadConnected = socket.connected;
+    const onConnect = () => {
+      if (hadConnected) void useLiveAlertsStore.getState().fetchAlerts();
+      hadConnected = true;
+    };
+    socket.on('connect', onConnect);
 
     // ── Device lifecycle ───────────────────────────────────────────────────────
     // The server emits DEVICE_UPDATED with multiple payload shapes depending
@@ -158,6 +174,8 @@ export function useSocket() {
     return () => {
       socket.off(SocketEvents.NOTIFICATION_NEW);
       socket.off(SocketEvents.NOTIFICATION_READ);
+      socket.off(SocketEvents.NOTIFICATION_RESOLVED);
+      socket.off('connect', onConnect);
       socket.off(SocketEvents.DEVICE_UPDATED);
       socket.off(SocketEvents.DEVICE_METRICS_PUSHED);
       socket.off(SocketEvents.DEVICE_ONLINE);

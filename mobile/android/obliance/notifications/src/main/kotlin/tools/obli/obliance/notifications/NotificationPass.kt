@@ -34,6 +34,7 @@ import tools.obli.obliance.domain.AlertCategory
 import tools.obli.obliance.domain.AlertClassification
 import tools.obli.obliance.domain.AlertClassifier
 import tools.obli.obliance.domain.DeviceHints
+import tools.obli.obliance.domain.Incidents
 import tools.obli.shell.alerts.AlertSeverity
 import tools.obli.shell.alerts.LiveAlert
 import tools.obli.shell.alerts.LiveAlerts
@@ -77,6 +78,14 @@ internal data class ServerPassReport(val serverId: ServerId, val result: PassRes
  * for platform admins; enrolments with `agent_config:approval`; one group
  * summary. On-call, notify scope and "app in the foreground" decide what may
  * ring.
+ *
+ * 0.3.1 (server resolves alerts): the feed lists ACTIVE alerts only, read and
+ * unread, and `activeIds` names every active one (the list stops at 200 rows).
+ * A notification whose alert is no longer active (resolved by a recovery or an
+ * escalation, deleted) goes; a newer alert of the same incident (device + kind,
+ * [Incidents]) replaces the earlier notification instead of stacking. A server
+ * older than 0.3.1 still sends « retour à la normale » rows: they keep the
+ * 0.3.0 behaviour (the notification of the kind they answer turns « Rétabli »).
  *
  * Every network step has its own [stepTimeoutMs], and each part is SAVED as
  * soon as it is done (alerts, then escalations, then enrolments): a slow or
@@ -263,6 +272,12 @@ internal class NotificationPass(
 
         private fun post(n: PlannedNotification): Boolean = publisher.post(n).also { if (it) postedCount++ }
 
+        /** The notification of [p] goes, with its reminder. */
+        private fun withdraw(p: PostedAlert) {
+            publisher.cancel(id, NotificationIds.alert(id, p.alertId))
+            work.cancelReminder(id, p.alertId)
+        }
+
         private suspend fun expired(state: ServerNotifState): ServerPassReport {
             val posted = !state.expiredNotified && post(factory.expired(profile, multi, now))
             store.updateServer(id) {
@@ -286,20 +301,29 @@ internal class NotificationPass(
             val hints = step { deviceHints(session, fresh) } ?: emptyMap()
             val classified = fresh.map { it to AlertClassifier.classify(it, hints[it.id] ?: DeviceHints()) }
 
-            // Alerts read elsewhere, gone or now excluded: their notification goes.
+            // Alerts no longer active (resolved or deleted on the server: absent from the
+            // feed and from its `activeIds`, 0.3.1), read elsewhere or now excluded: their
+            // notification goes. Only decided from a feed that was read in full (a failed
+            // read never gets here); an alert the feed cannot vouch for (older than the
+            // oldest row of a full feed, from a server without `activeIds`) is kept.
             val posted = state.postedAlerts.toMutableList()
             posted.removeAll { p ->
                 val a = byId[p.alertId]
-                val gone = a == null || a.readAt != null || !visible(a)
-                if (gone) {
-                    publisher.cancel(id, NotificationIds.alert(id, p.alertId))
-                    work.cancelReminder(id, p.alertId)
-                }
+                val gone = if (a == null) feed.isActive(p.alertId) == false else a.readAt != null || !visible(a)
+                if (gone) withdraw(p)
                 gone
             }
 
             // New incidents: the 5 most urgent (rank, then newest); the rest is overflow.
-            val candidates = classified.mapNotNull { (a, c) -> candidate(a, c, state) }
+            // Of several notifiable new alerts of one incident (warning then critical…), only
+            // the newest counts. Chosen AFTER the notify scope / on-call / foreground filter:
+            // on an older server (earlier rows stay active), a newer alert that may not ring
+            // never hides an older one that may.
+            val mayRing = classified.mapNotNull { (a, c) -> candidate(a, c, state) }
+            val newestOfIncident = mayRing.mapNotNull { cand -> Incidents.key(cand.a)?.let { it to cand.a.id } }
+                .groupBy({ it.first }, { it.second })
+                .mapValues { (_, ids) -> ids.max() }
+            val candidates = mayRing.filter { cand -> Incidents.key(cand.a)?.let { newestOfIncident[it] == cand.a.id } ?: true }
             val chosen = candidates
                 .sortedWith(compareBy<Candidate> { it.c.rank }.thenByDescending { NotificationTexts.parseTime(it.a.createdAt) ?: 0L }.thenByDescending { it.a.id })
                 .take(MAX_PER_SERVER)
@@ -308,12 +332,21 @@ internal class NotificationPass(
             for (cand in chosen.asReversed()) {
                 val n = factory.alert(profile, multi, cand.a, cand.c, cand.kind, tenants, silent = cand.delivery == Delivery.SILENT)
                 if (post(n)) {
-                    posted.removeAll { it.alertId == cand.a.id }
+                    // 0.3.1: an escalation or a new occurrence REPLACES the earlier notification of
+                    // its incident (same device and kind), whatever it shows (alert or « Rétabli »).
+                    val incident = Incidents.key(cand.a)
+                    posted.removeAll { p ->
+                        val same = p.alertId == cand.a.id
+                        val replaced = !same && incident != null && p.incidentKey() == incident
+                        if (replaced) withdraw(p)
+                        same || replaced
+                    }
                     posted += PostedAlert(
                         cand.a.id,
                         NotificationRoutes.deviceIdOf(cand.a.navigateTo),
                         critical = cand.kind == AlertKind.CRITICAL,
                         category = cand.c.category.name,
+                        incident = incident,
                     )
                     if (cand.kind == AlertKind.CRITICAL) criticalPosted += n
                     if (cand.kind == AlertKind.CRITICAL && cand.delivery == Delivery.NORMAL && remind) {
@@ -322,17 +355,25 @@ internal class NotificationPass(
                 }
             }
 
-            // Recoveries: update the device's earlier notification OF THE SAME KIND in place
-            // (« De retour en ligne » → its « Hors ligne »…), the newest one; else (ALL only) a silent one.
+            // Recoveries (servers older than 0.3.1): update the device's earlier notification
+            // OF THE SAME KIND in place (« De retour en ligne » → its « Hors ligne »…), the newest
+            // one OLDER than the recovery; else (ALL only) a silent one. A recovery that a newer
+            // alert of its incident already superseded (it went critical again) does nothing.
             var newRecoveries = 0
             for ((a, c) in classified.filter { it.second.category == AlertCategory.RECOVERY }.sortedBy { it.first.id }) {
                 val device = NotificationRoutes.deviceIdOf(a.navigateTo)
                 val answers = RecoveryMatch.answeredCategory(a.title)
+                val incident = Incidents.key(device, answers)
+                val superseded = incident != null &&
+                    ((newestOfIncident[incident] ?: 0L) > a.id || posted.any { it.alertId > a.id && it.incidentKey() == incident })
+                if (superseded) continue
                 val target = if (device == null || answers == null) {
                     null
                 } else {
-                    posted.filter { it.deviceId == device && !it.recovered && it.category == answers.name && publisher.isShown(id, NotificationIds.alert(id, it.alertId)) }
-                        .maxByOrNull { it.alertId }
+                    posted.filter {
+                        it.alertId < a.id && it.deviceId == device && !it.recovered && it.category == answers.name &&
+                            publisher.isShown(id, NotificationIds.alert(id, it.alertId))
+                    }.maxByOrNull { it.alertId }
                 }
                 if (target != null) {
                     if (post(factory.recovery(profile, multi, a, c, tenants, byId[target.alertId], target.alertId))) {
@@ -344,7 +385,8 @@ internal class NotificationPass(
                     OnCallPolicy.delivery(onCall, state.inOnCall, at, Urgency.NORMAL) != Delivery.DROP
                 ) {
                     if (post(factory.recovery(profile, multi, a, c, tenants, original = null, originalId = null))) {
-                        posted += PostedAlert(a.id, device, critical = false, recovered = true, category = AlertCategory.RECOVERY.name)
+                        // The next occurrence of the incident it answers replaces it too.
+                        posted += PostedAlert(a.id, device, critical = false, recovered = true, category = AlertCategory.RECOVERY.name, incident = incident)
                         newRecoveries++
                     }
                 }

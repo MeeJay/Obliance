@@ -156,16 +156,14 @@ export const diskHealthService = {
       );
     } catch (err) { logger.error(err, 'disk-health notification failed'); }
 
+    // Live alert = the disk-health incident (liveAlert.service): caution →
+    // bad resolves the caution row and inserts a critical one; recovery
+    // RESOLVES the active row instead of adding a "back to normal" row
+    // (the channels above still send it).
     try {
       const { liveAlertService } = await import('./liveAlert.service');
       if (recovered) {
-        await liveAlertService.add(tenantId, {
-          severity: 'info',
-          title: `${dispName}: santé disque revenue à la normale`,
-          message: 'Tous les disques sont repassés à un état sain.',
-          navigateTo: `/devices/${deviceId}`,
-          stableKey: null,
-        });
+        await liveAlertService.resolveIncidents('diskhealth', [deviceId]);
       } else {
         await liveAlertService.add(tenantId, {
           severity: worst === 'bad' ? 'critical' : 'warning',

@@ -12,7 +12,9 @@ export async function getAlerts(req: Request, res: Response, next: NextFunction)
 
 /**
  * GET /api/live-alerts/all — all tenants accessible by this user.
- * Returns { alerts, tenants } where alerts are enriched with tenantName.
+ * Returns { alerts, tenants, activeIds } where alerts are enriched with
+ * tenantName (newest 200 active) and activeIds lists every active alert id
+ * of the same tenants (the Android app withdraws notifications with it).
  */
 export async function getAllTenantAlerts(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -22,8 +24,11 @@ export async function getAllTenantAlerts(req: Request, res: Response, next: Next
       .select('tenants.id', 'tenants.name') as { id: number; name: string }[];
 
     const tenantIds = tenants.map((t) => t.id);
-    const alerts = await liveAlertService.getForTenants(tenantIds, 200);
-    res.json({ alerts, tenants });
+    const [alerts, activeIds] = await Promise.all([
+      liveAlertService.getForTenants(tenantIds, 200),
+      liveAlertService.getActiveIds(tenantIds),
+    ]);
+    res.json({ alerts, tenants, activeIds });
   } catch (err) { next(err); }
 }
 

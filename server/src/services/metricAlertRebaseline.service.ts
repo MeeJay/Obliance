@@ -24,9 +24,10 @@ import {
 //     `last_metric_status` (trigger memory) untouched;
 //   - never raises the level: un-muting a breaching metric alerts on the
 //     next push, as a new breach;
-//   - when the alertable level drops to ok, the device's unread metric live
-//     alerts (stable_key device:{id}:metric:*) are marked read so they leave
-//     the web bell and the mobile "À traiter" inbox.
+//   - when the alertable level drops to ok, the device's metric incident is
+//     over: its active live alerts (stable_key device:{id}:metric:*) are
+//     resolved (and marked read) so they leave the web bell and the mobile
+//     "À traiter" inbox (NOTIFICATION_RESOLVED).
 //
 // Runs asynchronously after the save response, one job at a time (a
 // promise chain), in chunks. Only devices whose stored alertable level is
@@ -78,7 +79,7 @@ async function candidateIds(scope: RebaselineScope): Promise<number[]> {
   return rows.map((r) => r.id);
 }
 
-async function processChunk(ids: number[]): Promise<{ lowered: number; markedRead: number }> {
+async function processChunk(ids: number[]): Promise<{ lowered: number; resolvedAlerts: number }> {
   const { thresholdService } = await import('./threshold.service');
   const rows = await db('devices as d')
     .leftJoin('device_groups as g', 'g.id', 'd.group_id')
@@ -92,7 +93,7 @@ async function processChunk(ids: number[]): Promise<{ lowered: number; markedRea
       metric_alerts_enabled: boolean | null; group_metric_alerts_enabled: boolean | null;
     }>;
   const thresholdMap = await thresholdService.resolveMany(ids);
-  const toMarkRead: number[] = [];
+  const toResolve: number[] = [];
   let lowered = 0;
 
   for (const r of rows) {
@@ -120,31 +121,31 @@ async function processChunk(ids: number[]): Promise<{ lowered: number; markedRea
       .update({ last_metric_alert_status: next });
     if (!updated) continue;
     lowered++;
-    if (next === 'ok') toMarkRead.push(r.id);
+    if (next === 'ok') toResolve.push(r.id);
   }
 
-  let markedRead = 0;
-  if (toMarkRead.length > 0) {
+  let resolvedAlerts = 0;
+  if (toResolve.length > 0) {
     // Not tenant-scoped on purpose: a device transferred to another tenant
     // left its metric alerts in the source tenant's inbox.
     const { liveAlertService } = await import('./liveAlert.service');
-    markedRead = (await liveAlertService.markDeviceMetricAlertsRead(toMarkRead)).length;
+    resolvedAlerts = (await liveAlertService.resolveMutedMetricAlerts(toResolve)).length;
   }
-  return { lowered, markedRead };
+  return { lowered, resolvedAlerts };
 }
 
 async function run(scope: RebaselineScope, reason: string): Promise<void> {
   const ids = await candidateIds(scope);
   if (ids.length === 0) return;
   let lowered = 0;
-  let markedRead = 0;
+  let resolvedAlerts = 0;
   for (let i = 0; i < ids.length; i += CHUNK) {
     const res = await processChunk(ids.slice(i, i + CHUNK));
     lowered += res.lowered;
-    markedRead += res.markedRead;
+    resolvedAlerts += res.resolvedAlerts;
   }
   if (lowered > 0) {
-    logger.info({ scope: scope.kind, reason, candidates: ids.length, lowered, markedRead }, 'metric alert level re-baselined');
+    logger.info({ scope: scope.kind, reason, candidates: ids.length, lowered, resolvedAlerts }, 'metric alert level re-baselined');
   }
 }
 

@@ -240,7 +240,7 @@ internal fun AboutContent(ui: AboutUi, actions: AboutActions, message: Int? = nu
     }
 }
 
-/** App card: Ance mark, "Obliance pour Android", "0.3.0-alpha (3)". */
+/** App card: Ance mark, "Obliance pour Android", "0.3.1-alpha (4)". */
 @Composable
 private fun AppCard(ui: AboutUi) {
     val c = ObliTheme.colors

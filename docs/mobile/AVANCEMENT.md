@@ -13,6 +13,7 @@
 | Android Phase 0 (socle `core:*`, preuves) | Fait sauf déplacement de la coquille WebView | Build, tests JVM/Robolectric, lint | — |
 | **Android alpha 0.1.0 « Obliance Next »** | APK de debug livré | 880 tests, lint, captures | **Jamais lancé sur un vrai téléphone ni contre un vrai serveur** |
 | **Android alpha 0.3.0** (notifications, enrôlements, filtre, réglages) | APK release signé `mobile/release-native/Obliance-0.3.0.apk` | 1 383 tests, lint, signataire | Pas encore installé sur le téléphone (0.2.0 : oui, fonctionne) |
+| **Android alpha 0.3.1** (alertes résolues, escalade qui remplace) | APK release signé `mobile/release-native/Obliance-0.3.1.apk` | 1 413 tests, lint, signataire | Ni téléphone ni serveur réel : exige le prochain build **server + client** (> 5.1.113 / 5.1.105) ; champ serveur `activeIds` (grand parc) encore à faire |
 
 ### Ce que fait l'alpha 0.1.0
 - Connexion Obligate (WebView) ou compte local + 2FA ; plusieurs serveurs, bascule, gestion (nom, couleur, retrait).
@@ -120,6 +121,45 @@ Notifications de fond multi-serveurs (Worker + canaux par serveur, escalades pou
 ### À faire côté propriétaire
 - Désinstaller la 0.2.0, installer `Obliance-0.3.0.apk`, dérouler la liste « Pas vérifié ».
 - Git : rien n'est commité ; le commit `4d91c96` contenait une version intermédiaire de `NotificationChannelsTest.kt` qui ne compile pas, la bonne est dans l'arbre de travail.
+
+## Livré — alpha 0.3.1 (versionCode 4, `0.3.1-alpha`, build local du 26/09/2026) — un rétablissement remplace l'alerte
+
+**APK release signé : `mobile/release-native/Obliance-0.3.1.apk`** (git-ignoré, 30,1 Mo, `tools.obli.obliance.next`, non minifié, SHA-256 du fichier `E125BEE1…6467B72E`). Signataire (apksigner, schéma v2, un signataire) : certificat SHA-256 `8C:7E:67:F8:…:6D:82:AC:8D`, égal à `RELEASE-FINGERPRINT.txt`. S'installe par-dessus la 0.3.0 (même clé) ; depuis la 0.2.0 (clé de debug du cloud), désinstaller d'abord.
+
+> **Exige le serveur et le web suivants** (build **server + client** après 5.1.113 / 5.1.105, migration 126). Contre un serveur plus ancien, l'app garde le comportement 0.3.0 (« Rétabli à HH:mm »), en remplaçant au lieu d'empiler.
+
+Demande du propriétaire : « une notification de rétablissement remplace voire supprime une notification d'alerte/critique », pour ne pas noyer les notifications sous le flap. Côté serveur (fait en parallèle, contrat S1–S8) : une alerte dont l'incident se rétablit ou s'aggrave est **résolue** (cachée de toutes les listes, plus de ligne « retour à la normale »), et l'événement socket `NOTIFICATION_RESOLVED {ids}` part vers les mêmes salons que `NOTIFICATION_NEW`.
+
+### Contenu (app)
+- **À traiter** : alertes actives seulement ; `NOTIFICATION_RESOLVED` du serveur actif les retire aussitôt, badge compris ; un rafraîchissement en vol ne les fait pas revenir.
+- **Notifications de fond** : à chaque passe, une notification dont l'alerte n'est plus active (résolue, supprimée) disparaît avec son rappel. Décidé seulement sur une liste lue en entier : échec, délai dépassé ou forme inattendue ne retirent rien. La liste s'arrête à 200 lignes, seuil atteint chaque soir sur un grand parc (chaque poste éteint garde une alerte « Hors ligne » active) : le champ `activeIds` de la réponse (tous les ids actifs, sans plafond) tranche pour les plus anciennes. Sans lui (serveur qui ne l'envoie pas) ou s'il est douteux (malformé, ou il y manque plus de quelques lignes listées), une liste pleine garde ce qui est plus ancien que sa dernière ligne. Un serveur 0.3.1 ne produit plus de « Rétabli » : la notification d'alerte disparaît, tout simplement (les canaux du serveur — ntfy, mail… — gardent leur message de rétablissement).
+- **Escalade** (attention → critique, nouvelle panne après un retour) : remplace la notification précédente du même incident (appareil + type : métrique, hors ligne, santé disque, ID agent dupliqué ; `Incidents` dans `:obliance:domain`) au lieu d'empiler ; de plusieurs nouvelles alertes d'un même incident, seule la plus récente est notifiée.
+- **App ouverte** : `NOTIFICATION_RESOLVED` retire les notifications tout de suite (puis encore une fois après une passe en cours, dans une coroutine à part : l'écoute du socket n'attend jamais le verrou des passes, sinon son tampon perdrait les événements suivants).
+- **À traiter, course** : un rafraîchissement en vol ne fait pas disparaître l'alerte qu'un `NOTIFICATION_NEW` a apportée pendant sa lecture (la nouvelle moitié d'une escalade) ; le rafraîchissement suivant tranche.
+- **Serveur plus ancien** (lignes « retour à la normale ») : comportement 0.3.0 conservé (la notification devient « Rétabli à HH:mm ») ; la panne suivante du même appareil la remplace, donc une seule notification par appareil et type pendant un flap. Un retour à la normale ne vise qu'une notification plus ancienne que lui, et ne fait rien si une alerte plus récente du même incident l'a dépassé (attention → normal → critique : la critique reste critique, avec ses rappels). La plus récente alerte d'un incident est choisie parmi celles qui peuvent sonner (portée, astreinte, app au premier plan) : en « Critiques seulement », une attention plus récente ne masque plus une critique encore active.
+
+### Vérifié (26/09/2026, Windows, JDK 21)
+- `gradlew.bat --no-daemon --continue test :obliance:app:assembleRelease :obliance:app:lintDebug` → **BUILD SUCCESSFUL** (4 min 32 s).
+- **Tests : 1 413, 0 échec, 0 ignoré** (tous modules, coquille WebView comprise : 7 × 77) : `:obliance:notifications` 105 (dont 18 `NotificationResolveTest`), `:obliance:triage` 117, `:obliance:devices` 116, `:obliance:more` 81, `:obliance:app` 41, data 32, api 15, domain 13 (`IncidentsTest`). Tous les tests de la 0.3.0 passent.
+- Lint `:obliance:app:lintDebug` : 0 erreur, 7 avertissements (les mêmes qu'en 0.3.0).
+- `aapt2 dump badging` : `tools.obli.obliance.next`, versionCode 4, `0.3.1-alpha`, minSdk 26, targetSdk 37.
+- Un test 0.3.0 (« 9 alertes → 5 notifications ») utilisait 9 alertes de 2 appareils : réécrit avec 9 appareils (une notification par incident désormais).
+- Corrections de revue (26/09/2026) : `activeIds`, écoute du socket hors verrou, course escalade / rafraîchissement, retours à la normale d'un serveur ancien, plus récente alerte choisie parmi celles qui sonnent. 7 tests ajoutés (api 15, data 32, `NotificationResolveTest` 18) ; chacun échoue quand on retire sa correction (vérifié par mutation).
+
+### Pas vérifié
+- Rien n'a tourné contre un vrai serveur (build server + client pas encore lancé) ni sur le téléphone : disparition réelle des notifications au rétablissement (passe de 15 min et app ouverte), escalade attention → critique, flap hors ligne / en ligne, badge d'À traiter.
+- Côté serveur/web, seulement `tsc`, le script PGlite (17 vérifications) et le script du store web : ni migration 126 sur la vraie base, ni recette navigateur.
+
+### À faire côté propriétaire
+- Lancer le build **server + client**, puis installer `Obliance-0.3.1.apk` par-dessus la 0.3.0 et dérouler la liste « Pas vérifié ».
+
+### Dépend du serveur (à confirmer au build serveur)
+1. `GET /api/live-alerts/all` : alertes **actives** seulement, lues ET non lues, 200 au plus, id décroissant.
+2. `NOTIFICATION_RESOLVED` avec `{ids: number[]}` (ids numériques) au salon `tenant:<id>:notifications`, pour toute résolution (rétablissement, escalade, métrique mise en sourdine).
+3. Escalade ou nouvelle occurrence = nouvelle ligne à l'id plus grand (sinon le téléphone ne la notifie pas).
+4. Clés stables inchangées (`device:<id>:metric:warning|critical`, `offline`, `diskhealth:caution|bad`, `duplicate_agent_id`) ; titres inchangés (repli quand la clé manque).
+5. **À faire côté serveur** : `GET /api/live-alerts/all` renvoie aussi `activeIds: number[]`, les ids de TOUTES les alertes actives (`resolved_at IS NULL`) des mêmes tenants que `alerts` (`user_tenants`), sans plafond (index partiel `live_alerts_active_tenant_id_idx` de la migration 126). **Pas encore écrit** dans `liveAlert.controller.ts`. Sans ce champ, sur un grand parc, une notification plus ancienne que les 200 lignes listées reste affichée jusqu'à ce que la liste redescende sous 200 (souvent le lendemain matin). L'app s'en sert dès qu'il est présent et reste compatible sans.
+6. **À signaler côté serveur** : `trimTenant` garde d'abord les lignes actives, mais au-delà de 200 alertes actives dans un tenant il supprime les plus anciennes sans événement : une alerte encore ouverte disparaît alors du web et, avec `activeIds`, sa notification aussi.
 
 ### Prochain incrément conseillé (0.4.0)
 Recherche / palette (S82), « Surveiller » (suivi d'un appareil jusqu'au rétablissement), tenant restauré et piles mémorisées par serveur (§2.10), puis push UnifiedPush (v1.1, modification serveur S6).

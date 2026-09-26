@@ -142,7 +142,82 @@ class ObliApiTest {
         val alert = AlertsApi.decodeNotification(payload)!!
         assertEquals(9820L, alert.id)
         assertEquals("SRV-QUAL01: Hors ligne", alert.title)
+        assertEquals("device:5:offline", alert.stableKey)
         assertNull(AlertsApi.decodeNotification(null))
+    }
+
+    /** 0.3.1: NOTIFICATION_RESOLVED `{ids}`; a row that says it is resolved is never active. */
+    @Test fun resolvedPayloadAndResolvedRows() {
+        assertEquals(setOf(9812L, 9813L, 7L), AlertsApi.decodeResolved(Json.parseToJsonElement("""{"ids":[9812,"9813",7,7,-1,0,null,"x"]}""")))
+        assertEquals(emptySet<Long>(), AlertsApi.decodeResolved(Json.parseToJsonElement("""{"ids":[]}""")))
+        assertNull(AlertsApi.decodeResolved(Json.parseToJsonElement("""{"id":3}""")))
+        assertNull(AlertsApi.decodeResolved(Json.parseToJsonElement("""[1,2]""")))
+        assertNull(AlertsApi.decodeResolved(null))
+        val many = (1..5_000).joinToString(",", prefix = """{"ids":[""", postfix = "]}")
+        assertEquals(AlertsApi.MAX_RESOLVED_IDS, AlertsApi.decodeResolved(Json.parseToJsonElement(many))!!.size)
+
+        fun row(id: Int, resolvedAt: String) =
+            """{"id":$id,"tenantId":1,"severity":"critical","title":"SRV-AD2: Hors ligne","message":"","navigateTo":"/devices/211","stableKey":"device:211:offline","readAt":null,"createdAt":"2026-09-25T01:12:04.000Z","resolvedAt":$resolvedAt}"""
+        val resolved = "\"2026-09-25T01:19:00.000Z\""
+        val feed = AlertsApi.decodeFeed(Json.parseToJsonElement("""{"alerts":[${row(2, "null")},${row(1, resolved)}],"tenants":[]}"""))!!
+        assertEquals(listOf(2L), feed.alerts.map { it.id })
+        assertNull("a short feed covers every id", feed.truncatedBelow)
+        assertTrue(feed.covers(1))
+        assertNull(AlertsApi.decodeNotification(Json.parseToJsonElement(row(1, resolved))))
+    }
+
+    /** A feed of FEED_LIMIT rows may have left older active alerts out: ids below its oldest are "unknown". */
+    @Test fun fullFeedSaysWhereItStops() {
+        val rows = (1_000L downTo 1_000L - AlertsApi.FEED_LIMIT + 1).joinToString(",") {
+            """{"id":$it,"tenantId":1,"severity":"warning","title":"BOB01: Alerte","message":"","navigateTo":"/devices/15","stableKey":null,"readAt":null,"createdAt":"2026-09-25T01:00:00.000Z"}"""
+        }
+        val feed = AlertsApi.decodeFeed(Json.parseToJsonElement("""{"alerts":[$rows],"tenants":[]}"""))!!
+        assertEquals(AlertsApi.FEED_LIMIT, feed.alerts.size)
+        assertEquals(801L, feed.truncatedBelow)
+        assertTrue(feed.covers(801))
+        assertTrue(feed.covers(5_000))
+        assertFalse(feed.covers(800))
+        assertEquals(true, feed.isActive(801))
+        assertEquals(false, feed.isActive(5_000))
+        assertNull("older than a full feed without activeIds: unknown", feed.isActive(800))
+    }
+
+    /** 0.3.1 `activeIds`: every active id, beyond the listed rows; a list that cannot be trusted is ignored. */
+    @Test fun activeIdsSayWhatAFullFeedLeftOut() {
+        val rows = (1_000L downTo 1_000L - AlertsApi.FEED_LIMIT + 1).joinToString(",") {
+            """{"id":$it,"tenantId":1,"severity":"info","title":"PC-$it: Hors ligne","message":"","navigateTo":"/devices/$it","stableKey":"device:$it:offline","readAt":null,"createdAt":"2026-09-25T01:00:00.000Z"}"""
+        }
+        fun feed(activeIds: String) = AlertsApi.decodeFeed(Json.parseToJsonElement("""{"alerts":[$rows],"tenants":[],"activeIds":$activeIds}"""))!!
+        val listed = (801L..1_000L).toList()
+
+        val full = feed(listed.joinToString(",", prefix = "[500,\"700\",", postfix = "]"))
+        assertEquals(listed.toSet() + 500L + 700L, full.activeIds)
+        assertTrue(full.covers(1))
+        assertEquals(true, full.isActive(500))
+        assertEquals(true, full.isActive(700))
+        assertEquals(false, full.isActive(600))
+        assertEquals("listed wins over activeIds", true, full.isActive(900))
+        assertEquals(false, full.isActive(5_000))
+        // A few listed rows missing (resolved between the server's two reads): still trusted.
+        val racy = feed(listed.drop(5).joinToString(",", prefix = "[500,", postfix = "]"))
+        assertEquals(false, racy.isActive(600))
+        assertEquals(true, racy.isActive(801))
+        // Missing most listed rows (another tenant scope): not trusted.
+        assertNull(feed("[500]").activeIds)
+        assertNull(feed("[]").activeIds)
+        val short = AlertsApi.decodeFeed(Json.parseToJsonElement("""{"alerts":[],"tenants":[],"activeIds":[]}"""))!!
+        assertEquals(emptySet<Long>(), short.activeIds)
+
+        val ok = listed.joinToString(",")
+        for (bad in listOf("[500,$ok,\"x\"]", "[500,$ok,null]", "[500,$ok,-1]", "[500,$ok,0]", "[$ok,[500]]", "{\"ids\":[500,$ok]}", "\"500\"", "null")) {
+            val f = feed(bad)
+            assertNull(bad, f.activeIds)
+            assertNull(bad, f.isActive(500))
+        }
+        val tooMany = (1..AlertsApi.MAX_ACTIVE_IDS + 1).joinToString(",", prefix = "[", postfix = "]")
+        assertNull(feed(tooMany).activeIds)
+        // Without the field: as before.
+        assertNull(AlertsApi.decodeFeed(Json.parseToJsonElement("""{"alerts":[$rows],"tenants":[]}"""))!!.activeIds)
     }
 
     @Test fun approvals() = runBlocking {

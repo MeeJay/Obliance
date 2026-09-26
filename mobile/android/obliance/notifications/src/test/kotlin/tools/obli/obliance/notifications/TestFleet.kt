@@ -95,9 +95,11 @@ data class Row(
     val device: Long? = null,
     val at: String = "2026-09-25T01:00:00Z",
     val readAt: String? = null,
+    val stableKey: String? = null,
 )
 
-fun feedJson(vararg rows: Row): String = buildJsonObject {
+/** [activeIds]: the 0.3.1 `activeIds` field (every active id, beyond the 200 listed rows); absent when null. */
+fun feedJson(vararg rows: Row, activeIds: Collection<Long>? = null): String = buildJsonObject {
     put(
         "alerts",
         JsonArray(
@@ -110,7 +112,7 @@ fun feedJson(vararg rows: Row): String = buildJsonObject {
                     put("title", r.title)
                     put("message", r.message)
                     put("navigateTo", r.device?.let { JsonPrimitive("/devices/$it") } ?: JsonNull)
-                    put("stableKey", JsonNull)
+                    put("stableKey", r.stableKey?.let(::JsonPrimitive) ?: JsonNull)
                     put("readAt", r.readAt?.let(::JsonPrimitive) ?: JsonNull)
                     put("createdAt", r.at)
                 }
@@ -124,6 +126,7 @@ fun feedJson(vararg rows: Row): String = buildJsonObject {
             add(buildJsonObject { put("id", SampleData.ACME_TENANT); put("name", "ACME") })
         },
     )
+    if (activeIds != null) put("activeIds", JsonArray(activeIds.map(::JsonPrimitive)))
 }.toString()
 
 fun approvalsJson(vararg approvals: Triple<Long, String, String>): String =
@@ -198,7 +201,13 @@ internal class TestFleet(serverCount: Int = 3) : AutoCloseable {
     }
 
     val registry = ServerRegistry(MemoryStore(ServerRegistryState(SampleData.profiles.take(serverCount), prodId))).also { runBlocking { it.load() } }
-    val sessions = ServerSessions(registry, { p, now -> ServerSession(p.id, now, ObliHttp(mocks.getValue(p.id).origin, client), { SilentRealtime() }) }, scope)
+    /** The socket of each server, once its session asked for it (events can be emitted on it). */
+    val realtimes = ConcurrentHashMap<ServerId, SilentRealtime>()
+    val sessions = ServerSessions(
+        registry,
+        { p, now -> ServerSession(p.id, now, ObliHttp(mocks.getValue(p.id).origin, client), { SilentRealtime().also { rt -> realtimes[p.id] = rt } }) },
+        scope,
+    )
     val services = DefaultObliServices(registry, sessions, httpFor = { ObliHttp(it, client) }, clearCookies = {}, scope = scope)
     val store = InMemoryNotificationStore()
     val work = RecordingWork()

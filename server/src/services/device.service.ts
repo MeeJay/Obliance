@@ -913,9 +913,26 @@ class DeviceService {
 
   async deleteDevice(id: number, tenantId: number) {
     await this.purgeDeviceData(id);
-    await db('devices').where({ id, tenant_id: tenantId }).delete();
+    const deleted = await db('devices').where({ id, tenant_id: tenantId }).delete(['id']) as Array<{ id: number }>;
+    await this.resolveDeletedDeviceAlerts(deleted.map((r) => r.id));
     if (this.io) {
       this.io.to(`tenant:${tenantId}`).emit(SocketEvents.DEVICE_DELETED, { id });
+    }
+  }
+
+  /**
+   * A deleted device can never recover: its active live-alert incidents
+   * (offline, metric, disk health, duplicate id) are resolved so they leave
+   * the web bell and the mobile "À traiter" instead of staying listed for
+   * good. cleanOrphans catches any path that misses this.
+   */
+  private async resolveDeletedDeviceAlerts(ids: number[]) {
+    if (ids.length === 0) return;
+    try {
+      const { liveAlertService } = await import('./liveAlert.service');
+      await liveAlertService.resolveDeviceIncidents(ids);
+    } catch (err) {
+      logger.error({ err, count: ids.length }, 'resolving the live alerts of deleted devices failed');
     }
   }
 
@@ -975,6 +992,18 @@ class DeviceService {
       total += c?.rowCount ?? 0;
     } catch { /* ignore */ }
 
+    // Live alerts: active incident rows of devices that no longer exist are
+    // resolved (NOT deleted — resolved rows age out through the trim).
+    try {
+      const { liveAlertService } = await import('./liveAlert.service');
+      const resolved = await liveAlertService.resolveOrphanIncidents();
+      if (resolved.length > 0) {
+        logger.warn({ count: resolved.length }, 'cleanOrphans: resolved live alerts of deleted devices');
+      }
+    } catch (err) {
+      logger.error(err, 'cleanOrphans: resolving orphaned live alerts failed');
+    }
+
     if (total > 0) {
       logger.warn({ total }, 'cleanOrphans: self-healing complete');
     }
@@ -989,7 +1018,8 @@ class DeviceService {
 
   async bulkDelete(ids: number[], tenantId: number) {
     await Promise.all(ids.map(id => this.purgeDeviceData(id)));
-    await db('devices').whereIn('id', ids).where({ tenant_id: tenantId }).delete();
+    const deleted = await db('devices').whereIn('id', ids).where({ tenant_id: tenantId }).delete(['id']) as Array<{ id: number }>;
+    await this.resolveDeletedDeviceAlerts(deleted.map((r) => r.id));
   }
 
   // ─── Agent registration ───────────────────────────────────────────────────
@@ -1178,6 +1208,15 @@ class DeviceService {
       } catch (alertErr) {
         logger.error({ alertErr, deviceId }, 'duplicate-agent-id live-alert failed');
       }
+    } else if (wasFlagged && !newFlag) {
+      // The evidence decayed out of the window: the suspicion is over, its
+      // live alert leaves the bell / "À traiter" (resolved, not deleted).
+      try {
+        const { liveAlertService } = await import('./liveAlert.service');
+        await liveAlertService.resolveIncidents('duplicate_agent_id', [deviceId]);
+      } catch (alertErr) {
+        logger.error({ alertErr, deviceId }, 'duplicate-agent-id live-alert resolve failed');
+      }
     }
 
     if (this.io && wasFlagged !== newFlag) {
@@ -1208,6 +1247,15 @@ class DeviceService {
       duplicate_agent_id_suspected: false,
       duplicate_agent_id_acknowledged_at: new Date(),
     });
+
+    // Acknowledged = the admin handled it: its live alert is resolved. A
+    // renewed duplication re-flags and raises a fresh alert.
+    try {
+      const { liveAlertService } = await import('./liveAlert.service');
+      await liveAlertService.resolveIncidents('duplicate_agent_id', [deviceId]);
+    } catch (alertErr) {
+      logger.error({ alertErr, deviceId }, 'duplicate-agent-id live-alert resolve failed');
+    }
 
     if (this.io) {
       this.io.to(`tenant:${tenantId}`).emit(SocketEvents.DEVICE_UPDATED, {
@@ -1397,15 +1445,27 @@ class DeviceService {
     // The stored column still holds the pre-mute level: always persist the
     // fresh alertable level when the inline re-baseline kicked in.
     if (rebasedPrevAlert != null) plan.levelUpdate.last_metric_alert_status = alertStatus;
-    if (rebasedPrevAlert === 'ok') {
-      // Same as the background job: the muted metric's unread alerts leave
-      // the web bell and the mobile "À traiter" (before any new alert of
-      // this push, so its stable-key dedupe sees them as read).
+    // The metric incident ends silently (no notification, no "back to
+    // normal") when:
+    //   - the inline re-baseline lowered the alertable level to ok (same as
+    //     the background job: a muted metric was the only breach);
+    //   - the push was not evaluated (`thresholds` null: legacy all-metrics
+    //     switch off, no metrics in the push, or the threshold resolution
+    //     threw): both levels reset to ok silently below, as before. The
+    //     incident must end with the stored level, otherwise its row would
+    //     outlive it and swallow the next real ok → warning alert (same
+    //     incident + severity still active → no new row).
+    // Its active live alerts are resolved so they leave the web bell and
+    // the mobile "À traiter" — before any new alert of this push, which
+    // then starts a fresh incident.
+    const prevAlertLevel = effRawPrevAlert ?? prevMetricStatus;
+    const levelsResetUnevaluated = !thresholds && (prevAlertLevel === 'warning' || prevAlertLevel === 'critical');
+    if (rebasedPrevAlert === 'ok' || levelsResetUnevaluated) {
       try {
         const { liveAlertService } = await import('./liveAlert.service');
-        await liveAlertService.markDeviceMetricAlertsRead([deviceId]);
+        await liveAlertService.resolveMutedMetricAlerts([deviceId]);
       } catch (markErr) {
-        logger.error(markErr, 'marking muted metric alerts read failed');
+        logger.error(markErr, 'resolving muted metric alerts failed');
       }
     }
     if (Object.keys(plan.levelUpdate).length > 0) {
@@ -1444,28 +1504,17 @@ class DeviceService {
         logger.error(notifyErr, 'metric-threshold notification failed');
       }
 
-      // In-app bell — write a row into live_alerts so the bell icon
-      // surfaces what the Slack/email channel just received. Severity
-      // mirrors the alertable state ('critical' / 'warning' / 'info' on
-      // recovery). Message embeds the offending metrics so the admin
-      // can see WHY without opening the device page.
+      // In-app bell — the metric incident (web bell, mobile "À traiter").
+      // Alert: a row whose severity mirrors the alertable state
+      // ('critical' / 'warning'); its message embeds the offending metrics
+      // so the admin can see WHY without opening the device page.
+      // Recovery: the incident's active rows are RESOLVED (they leave the
+      // lists) — no "back to normal" row any more, so a flapping device
+      // doesn't flood the inbox; the channels above still send it.
       try {
         const { liveAlertService } = await import('./liveAlert.service');
         if (alertRecovered) {
-          await liveAlertService.add(tenantId, {
-            severity: 'info',
-            title: `${dispName}: retour à la normale`,
-            // A muted metric may still be over its threshold (status
-            // colour unchanged): don't claim "all metrics" then.
-            message: metricStatus === 'ok'
-              ? 'Toutes les métriques sont revenues sous les seuils configurés.'
-              : 'Les métriques avec alertes actives sont revenues sous les seuils configurés.',
-            navigateTo: `/devices/${deviceId}`,
-            // No stable key on recovery: every fresh recovery should
-            // ping (admin wants to know the issue cleared, even if a
-            // previous "back to normal" alert is still unread).
-            stableKey: null,
-          });
+          await liveAlertService.resolveIncidents('metric', [deviceId]);
         } else {
           await liveAlertService.add(tenantId, {
             severity: alertStatus === 'critical' ? 'critical' : 'warning',
@@ -1474,11 +1523,11 @@ class DeviceService {
               ? violations.join(' · ')
               : 'Une métrique a franchi le seuil configuré.',
             navigateTo: `/devices/${deviceId}`,
-            // Per-state dedup: while the device is stuck in critical,
-            // only one unread "Critical" alert sits in the bell. As
-            // soon as the admin marks it read, the next event for the
-            // same state pings again (so a flapping device stays
-            // visible).
+            // Incident key (liveAlert.service): while this state lasts a
+            // single row stays active, read or not; an escalation
+            // warning → critical resolves the warning row and inserts
+            // a new critical one. The next occurrence after a recovery
+            // is a new row (the previous one was resolved).
             stableKey: `device:${deviceId}:metric:${alertStatus}`,
           });
         }
@@ -1528,6 +1577,21 @@ class DeviceService {
       });
     }
 
+    // Back from 'offline': the offline incident is over. Its live alert is
+    // resolved (it leaves the web bell and the mobile "À traiter") instead
+    // of adding a "back online" row: a flapping device leaves nothing but
+    // its current state. Outside the socket block on purpose — it must
+    // happen even without Socket.io. The WS command channel resolves it too
+    // when it reconnects first (agentHub.register).
+    if (prevStatus === 'offline') {
+      try {
+        const { liveAlertService } = await import('./liveAlert.service');
+        await liveAlertService.resolveIncidents('offline', [deviceId]);
+      } catch (alertErr) {
+        logger.error(alertErr, 'live-alert (back-online resolve) failed');
+      }
+    }
+
     // Emit real-time metrics update
     if (this.io) {
       // The metrics blob (1-4 KB) broadcast to the whole tenant room on every
@@ -1568,27 +1632,6 @@ class DeviceService {
             logger.error({ err, deviceId, offlineSeconds }, 'Failed to fire agent_back_online trigger');
           });
         }).catch(() => { /* import error — non-fatal */ });
-
-        // Bell notification — pair with the offline alert above. We
-        // don't reuse the offline stable_key because the offline alert
-        // may already be marked read; instead we fire a fresh `info`
-        // alert that mentions the outage duration so the admin can see
-        // both rows in their history.
-        try {
-          const { liveAlertService } = await import('./liveAlert.service');
-          const dev = await db('devices').where({ id: deviceId }).select('hostname', 'display_name').first() as { hostname: string; display_name: string | null } | undefined;
-          const dispName = dev?.display_name || dev?.hostname || `#${deviceId}`;
-          const minutes = Math.max(1, Math.round(offlineSeconds / 60));
-          await liveAlertService.add(tenantId, {
-            severity: 'info',
-            title: `${dispName}: De retour en ligne`,
-            message: `Outage d'environ ${minutes} min, l'agent re-pushe maintenant.`,
-            navigateTo: `/devices/${deviceId}`,
-            stableKey: null,
-          });
-        } catch (alertErr) {
-          logger.error(alertErr, 'live-alert (back-online) failed');
-        }
       }
       // Clear last_offline_at now that the device is back online so
       // subsequent transitions get a clean slate.
@@ -1818,15 +1861,24 @@ class DeviceService {
             continue;
           }
 
-          await db('devices').where({ id: device.id }).update({
-            status: 'offline',
-            // Record the moment this device went offline so the
-            // 'agent_back_online' trigger can compute the outage
-            // duration on the next push and decide whether the gap
-            // qualifies as a real outage vs a transient flap.
-            last_offline_at: now,
-            updated_at: now,
-          });
+          // Conditional: a push or a command-channel reconnect that landed
+          // since the SELECT above (fresh last_push_at, or already
+          // offline) wins — the device is not flipped offline and no
+          // offline alert is raised for it.
+          const flipped = await db('devices')
+            .where({ id: device.id })
+            .whereIn('status', ['online', 'warning', 'critical'])
+            .where('last_push_at', '<', threshold)
+            .update({
+              status: 'offline',
+              // Record the moment this device went offline so the
+              // 'agent_back_online' trigger can compute the outage
+              // duration on the next push and decide whether the gap
+              // qualifies as a real outage vs a transient flap.
+              last_offline_at: now,
+              updated_at: now,
+            });
+          if (!flipped) continue;
 
           if (this.io) {
             this.io.to(`tenant:${device.tenant_id}`).emit(SocketEvents.DEVICE_OFFLINE, {
@@ -1837,10 +1889,11 @@ class DeviceService {
 
           // Bell notification — a device going offline is the most
           // common reason the user expects a ping, so this is wired
-          // first. Stable key per-device-per-state means a single
-          // unread offline alert sits in the bell while the device
-          // stays down; if the user marks it read the next outage
-          // (or the same one after a flap) re-fires.
+          // first. Incident key (liveAlert.service): a single offline
+          // row stays active while the device is down; coming back
+          // resolves it, so the next outage raises a new row. add()
+          // re-checks under the incident lock that the device is still
+          // offline (it may reconnect right after the update above).
           try {
             const { liveAlertService } = await import('./liveAlert.service');
             const dispName = (device as any).display_name || device.hostname || `#${device.id}`;

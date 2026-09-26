@@ -286,9 +286,10 @@ class NotificationPassTest {
         fleet.pass()
         val rows = (1..9).map { i ->
             if (i <= 3) {
-                Row(9900L + i, "critical", "SRV-AD2: Hors ligne", "Aucun push reçu depuis $i min.", SampleData.ACME_TENANT, device = 211, at = "2026-09-25T01:0$i:00Z")
+                Row(9900L + i, "critical", "SRV-AD$i: Hors ligne", "Aucun push reçu depuis $i min.", SampleData.ACME_TENANT, device = 210L + i, at = "2026-09-25T01:0$i:00Z")
             } else {
-                Row(9900L + i, "warning", "BOB01: Alerte", "Disque / 9$i % (seuil 90 %)", device = 15, at = "2026-09-25T00:0$i:00Z")
+                // Nine devices: 0.3.1 posts one notification per incident (device + kind).
+                Row(9900L + i, "warning", "PC-0$i: Alerte", "Disque / 9$i % (seuil 90 %)", device = 10L + i, at = "2026-09-25T00:0$i:00Z")
             }
         }
         fleet.prod.on("GET /api/live-alerts/all", feedJson(*rows.toTypedArray()))

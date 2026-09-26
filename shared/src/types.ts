@@ -1809,6 +1809,14 @@ export interface SmtpServer {
 
 export type AlertSeverity = 'info' | 'warning' | 'critical' | 'down' | 'up';
 
+/**
+ * A live alert (web bell, mobile "À traiter"). Only ACTIVE alerts reach the
+ * clients: once the incident behind an alert recovers (device back online,
+ * metrics back under threshold, disk health good again…) or escalates to a
+ * new row, the server resolves it — it disappears from every list and a
+ * `NOTIFICATION_RESOLVED` socket event (`LiveAlertsResolvedEvent`) tells
+ * open clients to drop it. No "back to normal" alert is created any more.
+ */
 export interface LiveAlert {
   id: number;
   tenantId: number;
@@ -1821,6 +1829,12 @@ export interface LiveAlert {
   createdAt: string;
   /** Optional: tenant name (populated for cross-tenant alerts) */
   tenantName?: string;
+}
+
+/** Payload of the `NOTIFICATION_RESOLVED` socket event. */
+export interface LiveAlertsResolvedEvent {
+  /** Ids of the live alerts that were just resolved (hidden). */
+  ids: number[];
 }
 
 // ─── REPORTS ─────────────────────────────────────────────────────────────────

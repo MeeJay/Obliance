@@ -54,9 +54,10 @@ android {
         minSdk = 26
         targetSdk = 37
         // 0.3.0: background notifications, enrolments, global-view filter, app settings.
+        // 0.3.1: resolved alerts leave À traiter and their notifications; an escalation replaces.
         // (mobile/android/VERSION belongs to the WebView :app and is not used here.)
-        versionCode = 3
-        versionName = "0.3.0-alpha"
+        versionCode = 4
+        versionName = "0.3.1-alpha"
     }
 
     signingConfigs {

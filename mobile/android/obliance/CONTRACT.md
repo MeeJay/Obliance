@@ -303,7 +303,7 @@ server origin therefore signs the native session in too: open
 
 | Member | Semantics |
 |---|---|
-| `snapshot: StateFlow<AlertsSnapshot>` | Hot while collected: refresh every 60 s + `NOTIFICATION_NEW` / `APPROVAL_*` of the active server's socket. `alerts: List<ServerAlert>` (each with its `serverId`), `escalations: List<ServerApproval>` (pending two-person approvals of servers where the user is platform admin), `feeds` (per server: `LOADING`, `OK`, `EXPIRED`, `UNREACHABLE`, `SIGNED_OUT`, `EXCLUDED`; expired/unreachable servers keep their last items), `refreshing`, `updatedAt`, `badgeCount`, `triage(serverFilter, severityFilter)` → domain `TriageList` (unread by priority, read, site outages, unread per server). |
+| `snapshot: StateFlow<AlertsSnapshot>` | Hot while collected: refresh every 60 s + `NOTIFICATION_NEW` / `NOTIFICATION_RESOLVED` (0.3.1) / `APPROVAL_*` of the active server's socket. ACTIVE alerts only (0.3.1): the server leaves resolved ones out of its lists, and `NOTIFICATION_RESOLVED {ids}` removes them at once (list, `triage`, `badgeCount`); a refresh in flight never brings a resolved id back, nor drops an alert that `NOTIFICATION_NEW` brought while it was reading (the new half of an escalation). `alerts: List<ServerAlert>` (each with its `serverId`), `escalations: List<ServerApproval>` (pending two-person approvals of servers where the user is platform admin), `feeds` (per server: `LOADING`, `OK`, `EXPIRED`, `UNREACHABLE`, `SIGNED_OUT`, `EXCLUDED`; expired/unreachable servers keep their last items), `refreshing`, `updatedAt`, `badgeCount`, `triage(serverFilter, severityFilter)` → domain `TriageList` (unread by priority, read, site outages, unread per server). |
 | `refresh()` | Pull to refresh (all servers in parallel). |
 | `markRead(alert)` / `delete(alert)` | `PATCH /api/live-alerts/:id/read` / `DELETE /api/live-alerts/:id` on the ALERT'S server; local state updated on success. Never switches server. |
 | `markAllRead(serverId)` | `POST /api/live-alerts/read-all` on that server — its SESSION tenant only; then reloads that server. |
@@ -408,7 +408,8 @@ you need `@Serializable`, add `alias(libs.plugins.kotlin.serialization)` to your
 module's `plugins { }`. Socket event names: `ObliEvents` (values of shared
 `SocketEvents`); the socket only surfaces the names in `ObliEvents.LISTENED`.
 (0.2.0 adds `SCENARIO_RUN_UPDATED` and `SCENARIO_NODE_UPDATED`: S58 refreshes on
-them, with its 5 s polling kept as the fallback.)
+them, with its 5 s polling kept as the fallback. 0.3.1 adds `NOTIFICATION_RESOLVED`,
+payload `{ids: number[]}`, decoded by `AlertsApi.decodeResolved`.)
 
 ## 8. Strings
 
@@ -458,7 +459,7 @@ The APK is `obliance/app/build/outputs/apk/debug/app-debug.apk`
 (applicationId `tools.obli.obliance.next`, "Obliance Next", installs next to
 the WebView app). Report exactly what you compiled and tested.
 
-Release (`:obliance:app:assembleRelease`, 0.3.0): signed with the
+Release (`:obliance:app:assembleRelease`, since 0.3.0; 0.3.1 = versionCode 4): signed with the
 `obli.keystore.*` key when all four values are set (`-P`, `local.properties`
 or `OBLI_KEYSTORE_FILE`…), unsigned when none is, a build error naming the
 missing KEYS when only some are. The certificate SHA-256 must equal
@@ -480,9 +481,32 @@ uninstall it before the first release-signed install (different signer).
   publisher cancels the oldest non-critical notifications before the app
   reaches 40 (Android drops silently past ~50); the criticals of a pass are
   checked 1.5 s later and posted again if missing. A recovery replaces only the
-  newest notification of the kind it answers (`PostedAlert.category`). Before
+  newest notification of the kind it answers (`PostedAlert.category`; servers
+  older than 0.3.1, which still send « retour à la normale » rows). Before
   Android 12 an enrolment notification offers « Examiner » only, and an action
   from a locked phone sends nothing.
+- Notifications (0.3.1, « un rétablissement remplace voire supprime l'alerte »):
+  the server resolves an alert when its incident recovers or escalates (a NEW
+  row, higher id) and lists ACTIVE alerts only. An incident is one device + one
+  kind (`Incidents.key` in `:obliance:domain`: `device:<id>:metric|offline|
+  diskhealth|duplicate_agent_id`, from the stable key, else from `navigateTo` +
+  title). Each pass withdraws (notification + reminder) every posted alert no
+  longer active, only from a feed read in full (a failure, a timeout or an
+  unexpected shape decides nothing). The feed lists 200 rows at most; its
+  `activeIds` (every active id of the user's tenants, uncapped) decides for the
+  older ones (`AlertsFeed.isActive`). Without `activeIds`, or when it cannot be
+  trusted (malformed, or missing more than a few listed rows), a full feed keeps
+  what is older than its oldest row (`AlertsFeed.covers`). A new alert of an
+  incident replaces the earlier notification of that incident (alert or
+  « Rétabli »), and of several new alerts of one incident that may ring (notify
+  scope, on-call, foreground) only the newest is posted. While the app runs,
+  `NOTIFICATION_RESOLVED` of the active server's socket withdraws them at once
+  (again after a pass in progress, under `PassLock`, in a coroutine of its own:
+  the socket collector never waits for the lock). A resolution is never
+  notified by the app: « rétabli » messages stay the job of the server's
+  notification channels (ntfy, mail…). Older server: a « retour à la normale »
+  row only answers a notification OLDER than itself, and does nothing when a
+  newer alert of its incident superseded it.
 - Notifications (0.3.0): background alerts come from a 15-minute WorkManager
   poll only (Android may defer it under Doze); push (UnifiedPush, server S6) is
   v1.1. « Surveiller » (the watch engine: follow a device until it recovers)

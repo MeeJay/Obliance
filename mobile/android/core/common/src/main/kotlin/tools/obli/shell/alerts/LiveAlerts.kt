@@ -23,6 +23,9 @@ enum class AlertSeverity { INFO, WARNING, CRITICAL;
  * (server/src/services/liveAlert.service.ts rowToAlert):
  * {id, tenantId, tenantName?, severity, title, message, navigateTo|null,
  *  stableKey|null, readAt|null, createdAt}
+ *
+ * [stableKey] (e.g. `device:211:metric:critical`) names the incident the row
+ * belongs to on the server; null for rows without one.
  */
 data class LiveAlert(
     val id: Long,
@@ -34,6 +37,7 @@ data class LiveAlert(
     val navigateTo: String?,
     val readAt: String?,
     val createdAt: String?,
+    val stableKey: String? = null,
 )
 
 data class HighWaterResult(
@@ -48,6 +52,7 @@ data class HighWaterResult(
 object LiveAlerts {
     const val MAX_TITLE = 120
     const val MAX_MESSAGE = 1_000
+    const val MAX_STABLE_KEY = 200
 
     /** Null when [body] is not the expected shape (treated as a transient error). */
     fun parse(body: String?): List<LiveAlert>? {
@@ -66,6 +71,7 @@ object LiveAlerts {
                 navigateTo = o.str("navigateTo"),
                 readAt = o.str("readAt"),
                 createdAt = o.str("createdAt"),
+                stableKey = o.str("stableKey")?.takeIf { it.isNotBlank() }?.take(MAX_STABLE_KEY),
             )
         }
     }

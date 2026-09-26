@@ -36,6 +36,10 @@ class LiveAlertsTest {
         assertEquals("2026-09-24T09:59:00.000Z", alerts[1].readAt)
         assertEquals(AlertSeverity.INFO, alerts[2].severity)
         assertNull(alerts[2].tenantName)
+        // The incident key of the row (null or absent: none).
+        assertEquals("offline:12", a.stableKey)
+        assertNull(alerts[1].stableKey)
+        assertNull(alerts[2].stableKey)
     }
 
     @Test fun invalidBodiesAreNull() {

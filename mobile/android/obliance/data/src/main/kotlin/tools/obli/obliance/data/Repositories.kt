@@ -240,9 +240,12 @@ data class AlertsSnapshot(
 
 /**
  * The multi-server "À traiter" feed. [snapshot] is hot while collected: it
- * refreshes every 60 s and listens to `NOTIFICATION_NEW` / `APPROVAL_*` on the
- * active server's socket; nothing is polled when nobody collects it. Every
- * action goes to the item's OWN server (never a switch, design doc §2.10 item 4).
+ * refreshes every 60 s and listens to `NOTIFICATION_NEW` / `NOTIFICATION_RESOLVED`
+ * / `APPROVAL_*` on the active server's socket; nothing is polled when nobody
+ * collects it. Every action goes to the item's OWN server (never a switch,
+ * design doc §2.10 item 4). Only ACTIVE alerts are listed: since 0.3.1 the
+ * server leaves resolved ones out, and a `NOTIFICATION_RESOLVED` removes them
+ * at once (list and badge).
  */
 interface AlertsRepository {
     val snapshot: StateFlow<AlertsSnapshot>

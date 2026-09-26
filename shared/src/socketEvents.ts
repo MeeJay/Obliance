@@ -45,6 +45,10 @@ export const SocketEvents = {
   NOTIFICATION_SENT:      'NOTIFICATION_SENT',
   NOTIFICATION_NEW:       'NOTIFICATION_NEW',         // live alert created
   NOTIFICATION_READ:      'NOTIFICATION_READ',        // live alerts marked read server-side ({ ids, readAt })
+  // Live alerts resolved server-side ({ ids: number[] }): their incident
+  // recovered, escalated to a new row or was muted. Resolved rows are
+  // hidden from every live-alert list; clients drop them.
+  NOTIFICATION_RESOLVED:  'NOTIFICATION_RESOLVED',
 
   // Settings
   SETTINGS_UPDATED:       'SETTINGS_UPDATED',

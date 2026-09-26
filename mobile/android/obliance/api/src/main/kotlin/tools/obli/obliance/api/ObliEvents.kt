@@ -31,6 +31,13 @@ object ObliEvents {
     // Live alerts (liveAlert.service.ts: payload = one LiveAlertRow with tenantName)
     const val NOTIFICATION_NEW = "NOTIFICATION_NEW"
 
+    /**
+     * 0.3.1: live alerts resolved server-side (a recovery, an escalation of the
+     * same incident, a muted metric): payload `{ids: number[]}`, emitted to the
+     * same rooms as NOTIFICATION_NEW. Resolved rows are hidden from every list.
+     */
+    const val NOTIFICATION_RESOLVED = "NOTIFICATION_RESOLVED"
+
     // Maintenance and processes
     const val MAINTENANCE_CHANGED = "MAINTENANCE_CHANGED"
     const val DEVICE_PROCESSES_UPDATED = "DEVICE_PROCESSES_UPDATED"
@@ -51,7 +58,7 @@ object ObliEvents {
         DEVICE_APPROVED, DEVICE_DELETED, DEVICE_ONLINE, DEVICE_OFFLINE,
         COMMAND_UPDATED, COMMAND_RESULT, EXECUTION_UPDATED, EXECUTION_OUTPUT,
         SCENARIO_RUN_UPDATED, SCENARIO_NODE_UPDATED,
-        NOTIFICATION_NEW, MAINTENANCE_CHANGED, DEVICE_PROCESSES_UPDATED,
+        NOTIFICATION_NEW, NOTIFICATION_RESOLVED, MAINTENANCE_CHANGED, DEVICE_PROCESSES_UPDATED,
         APPROVAL_CREATED, APPROVAL_UPDATED,
     )
 }

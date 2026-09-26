@@ -20,6 +20,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import tools.obli.core.model.NotifyScope
 import tools.obli.core.model.ServerId
+import tools.obli.obliance.domain.Incidents
 
 /** Outcome of the last background pass of one server (S84 "Acheminement", S81, diagnostics). */
 @Serializable
@@ -55,7 +56,15 @@ internal data class PostedAlert(
      * replaces a notification of the kind it answers (RecoveryMatch). Null = unknown: never replaced.
      */
     val category: String? = null,
-)
+    /**
+     * 0.3.1: the incident (device + kind, [Incidents]) the notification is about:
+     * a newer alert of the same incident (escalation, new occurrence) replaces it.
+     * Null in a 0.3.0 record: deduced from [deviceId] and [category].
+     */
+    val incident: String? = null,
+) {
+    fun incidentKey(): String? = incident ?: Incidents.key(deviceId, category)
+}
 
 /** What the notification engine keeps for ONE server. */
 @Serializable

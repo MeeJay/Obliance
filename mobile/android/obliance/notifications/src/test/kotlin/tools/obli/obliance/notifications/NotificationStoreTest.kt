@@ -12,7 +12,10 @@ class NotificationStoreTest {
         servers = mapOf(
             SampleData.PROD.value to ServerNotifState(
                 alertsMark = 9812, approvalsMark = 17, enrolmentsMark = 240, expiredNotified = true,
-                postedAlerts = listOf(PostedAlert(9812, 211, critical = true), PostedAlert(9790, 15, recovered = true)),
+                postedAlerts = listOf(
+                    PostedAlert(9812, 211, critical = true, category = "OFFLINE", incident = "device:211:offline"),
+                    PostedAlert(9790, 15, recovered = true),
+                ),
                 postedApprovals = listOf(17), postedEnrolments = listOf(240),
                 knownTenants = mapOf(1L to "Default", 4L to "ACME"), excludedTenants = setOf(4L), inOnCall = false,
                 lastPass = LastPass(1_758_763_200_000, PassResult.UNREACHABLE, since = 1_758_762_120_000), lastCriticalUnread = 2,
@@ -33,6 +36,16 @@ class NotificationStoreTest {
         assertEquals(NotificationState(), DataStoreNotificationStore.decode(null))
         // Unknown fields of a newer version are ignored.
         assertEquals(NotificationState(permissionAsked = true), DataStoreNotificationStore.decode("""{"permissionAsked":true,"future":1}"""))
+    }
+
+    /** A 0.3.0 record (no incident) still names its incident from its device and category. */
+    @Test fun a030RecordKnowsItsIncident() {
+        val blob = """{"servers":{"sample-obliance-prod":{"postedAlerts":[{"alertId":9790,"deviceId":15,"category":"METRIC"},{"alertId":9813,"deviceId":211,"recovered":true,"category":"RECOVERY"}]}}}"""
+        val posted = DataStoreNotificationStore.decode(blob).server(SampleData.PROD).postedAlerts
+        assertEquals(listOf(9790L, 9813L), posted.map { it.alertId })
+        assertEquals(listOf(null, null), posted.map { it.incident })
+        assertEquals("device:15:metric", posted[0].incidentKey())
+        assertEquals(null, posted[1].incidentKey())
     }
 
     @Test fun defaultsMatchTheDesign() {

@@ -179,6 +179,96 @@ class ObliServicesTest {
         collector.cancel()
     }
 
+    /**
+     * 0.3.1: NOTIFICATION_RESOLVED of the active server takes the alerts out of
+     * À traiter and the badge at once; a stale feed (a refresh in flight when
+     * the event came) never brings them back; another server's alert with the
+     * same id is untouched (ids are per server).
+     */
+    @Test fun resolvedAlertsLeaveTriageAndTheBadgeAtOnce() = runBlocking {
+        val feed = alertsJson(Triple(9812, "critical", "SRV-AD2: Hors ligne"), Triple(9790, "warning", "BOB01: Alerte"))
+        prod.on("GET /api/auth/me", body = ME_USER)
+        prod.on("GET /api/live-alerts/all", body = feed)
+        qual.on("GET /api/auth/me", body = ME_USER)
+        qual.on("GET /api/live-alerts/all", body = alertsJson(Triple(9812, "critical", "SRV-QUAL01: Hors ligne")))
+        val s = services()
+        val collector = launch(Dispatchers.Default) { s.alerts.snapshot.collect { } }
+        withTimeout(5_000) { s.alerts.snapshot.first { snap -> snap.feeds.all { it.status == FeedStatus.OK } } }
+        assertEquals(3, s.alerts.snapshot.value.badgeCount)
+
+        val resolved = Json.parseToJsonElement("""{"ids":[9812]}""")
+        withTimeout(5_000) {
+            while (s.alerts.snapshot.value.alerts.any { it.serverId == prodId && it.alert.id == 9812L }) {
+                realtimes.getValue(prodId).flow.emit(RealtimeEvent(ObliEvents.NOTIFICATION_RESOLVED, resolved))
+                delay(20)
+            }
+        }
+        val snap = s.alerts.snapshot.value
+        assertEquals(listOf(9790L), snap.alerts.filter { it.serverId == prodId }.map { it.alert.id })
+        assertEquals("Obliance Qual's #9812 is another alert", listOf(9812L), snap.alerts.filter { it.serverId == qualId }.map { it.alert.id })
+        assertEquals(2, snap.badgeCount)
+        assertEquals(listOf(9790L), snap.triage(serverFilter = setOf(prodId)).unread.map { it.alert.id })
+
+        // A feed read before the resolution (same body) does not bring it back.
+        s.alerts.refresh()
+        assertTrue(s.alerts.snapshot.value.alerts.none { it.serverId == prodId && it.alert.id == 9812L })
+        assertEquals(2, s.alerts.snapshot.value.badgeCount)
+        // Nor does a late NOTIFICATION_NEW of it.
+        val late = Json.parseToJsonElement(
+            """{"id":9812,"tenantId":1,"tenantName":"Default","severity":"critical","title":"SRV-AD2: Hors ligne","message":"","navigateTo":null,"stableKey":null,"readAt":null,"createdAt":"2026-09-25T01:12:04.000Z"}""",
+        )
+        realtimes.getValue(prodId).flow.emit(RealtimeEvent(ObliEvents.NOTIFICATION_NEW, late))
+        delay(100)
+        assertTrue(s.alerts.snapshot.value.alerts.none { it.serverId == prodId && it.alert.id == 9812L })
+        collector.cancel()
+    }
+
+    /**
+     * 0.3.1 escalation while a refresh is in flight: the feed was read with the
+     * warning (#9790); then RESOLVED{9790} and NEW #9795 (critical) arrive. The
+     * stale feed must not wipe the critical: it stays until a refresh that
+     * started after it says otherwise.
+     */
+    @Test fun aStaleFeedNeverWipesTheNewHalfOfAnEscalation() = runBlocking {
+        prod.on("GET /api/auth/me", body = ME_USER)
+        prod.on("GET /api/live-alerts/all", body = alertsJson(Triple(9790, "warning", "BOB01: Alerte")))
+        qual.on("GET /api/auth/me", body = ME_USER)
+        qual.on("GET /api/live-alerts/all", body = alertsJson())
+        val s = services()
+        val collector = launch(Dispatchers.Default) { s.alerts.snapshot.collect { } }
+        withTimeout(5_000) { s.alerts.snapshot.first { snap -> snap.feeds.all { it.status == FeedStatus.OK } } }
+        val rt = realtimes.getValue(prodId)
+        withTimeout(5_000) { while (rt.flow.subscriptionCount.value == 0) delay(10) }
+
+        // A refresh reads the feed (still the warning) and its answer is held back.
+        prod.delays["GET /api/live-alerts/all"] = 600
+        val before = prod.count("GET /api/live-alerts/all")
+        val stale = launch(Dispatchers.Default) { s.alerts.refresh() }
+        withTimeout(5_000) { while (prod.count("GET /api/live-alerts/all") == before) delay(10) }
+
+        val critical = Json.parseToJsonElement(
+            """{"id":9795,"tenantId":1,"tenantName":"Default","severity":"critical","title":"BOB01: Critique","message":"","navigateTo":"/devices/15","stableKey":"device:15:metric:critical","readAt":null,"createdAt":"2026-09-25T01:02:00.000Z"}""",
+        )
+        rt.flow.emit(RealtimeEvent(ObliEvents.NOTIFICATION_RESOLVED, Json.parseToJsonElement("""{"ids":[9790]}""")))
+        rt.flow.emit(RealtimeEvent(ObliEvents.NOTIFICATION_NEW, critical))
+        withTimeout(5_000) { s.alerts.snapshot.first { snap -> snap.alerts.map { it.alert.id } == listOf(9795L) } }
+
+        stale.join()
+        assertEquals("the stale feed kept the critical", listOf(9795L), s.alerts.snapshot.value.alerts.map { it.alert.id })
+        assertEquals(1, s.alerts.snapshot.value.badgeCount)
+
+        // A refresh that lists it: once, no duplicate.
+        prod.delays.remove("GET /api/live-alerts/all")
+        prod.on("GET /api/live-alerts/all", body = alertsJson(Triple(9795, "critical", "BOB01: Critique")))
+        s.alerts.refresh()
+        assertEquals(listOf(9795L), s.alerts.snapshot.value.alerts.map { it.alert.id })
+        // A refresh started after it that no longer lists it (deleted elsewhere): gone.
+        prod.on("GET /api/live-alerts/all", body = alertsJson())
+        s.alerts.refresh()
+        assertTrue(s.alerts.snapshot.value.alerts.isEmpty())
+        collector.cancel()
+    }
+
     @Test fun openOnSwitchesAndReturnsThePreviousServer() = runBlocking {
         qual.on("GET /api/auth/me", body = ME_USER)
         val s = services()

@@ -1,6 +1,7 @@
 package tools.obli.obliance.data
 
 import java.time.Instant
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -52,6 +53,24 @@ internal class DefaultAlertsRepository(
     private val parts = MutableStateFlow<Map<ServerId, Part>>(emptyMap())
     private val state = MutableStateFlow(AlertsSnapshot())
     private val refreshMutex = Mutex()
+
+    /**
+     * Ids resolved on each server (NOTIFICATION_RESOLVED, 0.3.1), newest last,
+     * at most [MAX_RESOLVED] per server. A resolved alert never becomes active
+     * again (the server inserts a NEW row for a new occurrence), so a refresh
+     * already in flight when the event came can never bring one back.
+     */
+    private val resolvedIds = HashMap<ServerId, LinkedHashSet<Long>>()
+
+    /**
+     * Alerts merged from NOTIFICATION_NEW, per server: id → arrival number
+     * ([arrivalSeq]), at most [MAX_ARRIVALS] per server. A refresh that started
+     * before an arrival may have read the feed before that row existed: it keeps
+     * the alert (an escalation's NEW half is never wiped by a stale feed), and
+     * the next refresh decides.
+     */
+    private val arrivals = HashMap<ServerId, LinkedHashMap<Long, Long>>()
+    private val arrivalSeq = AtomicLong()
 
     override val snapshot: StateFlow<AlertsSnapshot> = state.asStateFlow()
 
@@ -107,7 +126,9 @@ internal class DefaultAlertsRepository(
                 when (event.name) {
                     ObliEvents.NOTIFICATION_NEW -> {
                         val alert = AlertsApi.decodeNotification(event.payload) ?: return@collect
-                        if (!included(s.id)) return@collect
+                        if (!included(s.id) || isResolved(s.id, alert.id)) return@collect
+                        // Recorded first: a refresh landing in between keeps it (see [arrivals]).
+                        recordArrival(s.id, alert.id)
                         parts.update { map ->
                             val part = map[s.id] ?: Part(status = FeedStatus.OK)
                             if (part.alerts.any { it.alert.id == alert.id }) map
@@ -115,9 +136,54 @@ internal class DefaultAlertsRepository(
                         }
                         publish()
                     }
+                    ObliEvents.NOTIFICATION_RESOLVED -> {
+                        val ids = AlertsApi.decodeResolved(event.payload)?.takeIf { it.isNotEmpty() } ?: return@collect
+                        onResolved(s.id, ids)
+                    }
                     ObliEvents.APPROVAL_CREATED, ObliEvents.APPROVAL_UPDATED -> refreshServer(s)
                 }
             }
+    }
+
+    /** 0.3.1: alerts of [serverId] resolved server-side leave À traiter (and the badge) at once. */
+    private fun onResolved(serverId: ServerId, ids: Set<Long>) {
+        synchronized(resolvedIds) {
+            val set = resolvedIds.getOrPut(serverId) { LinkedHashSet() }
+            set.addAll(ids)
+            val oldest = set.iterator()
+            while (set.size > MAX_RESOLVED) {
+                oldest.next()
+                oldest.remove()
+            }
+        }
+        parts.update { map ->
+            val part = map[serverId] ?: return@update map
+            if (part.alerts.none { it.alert.id in ids }) map else map + (serverId to part.copy(alerts = part.alerts.filterNot { it.alert.id in ids }))
+        }
+        publish()
+    }
+
+    private fun isResolved(serverId: ServerId, alertId: Long): Boolean = synchronized(resolvedIds) { resolvedIds[serverId]?.contains(alertId) == true }
+
+    private fun recordArrival(serverId: ServerId, alertId: Long) = synchronized(arrivals) {
+        val map = arrivals.getOrPut(serverId) { LinkedHashMap() }
+        map.remove(alertId)
+        map[alertId] = arrivalSeq.incrementAndGet()
+        val oldest = map.entries.iterator()
+        while (map.size > MAX_ARRIVALS) {
+            oldest.next()
+            oldest.remove()
+        }
+    }
+
+    /** Ids of [serverId] merged from NOTIFICATION_NEW after arrival number [since]. */
+    private fun arrivedAfter(serverId: ServerId, since: Long): Set<Long> = synchronized(arrivals) {
+        arrivals[serverId]?.filterValues { it > since }?.keys?.toSet().orEmpty()
+    }
+
+    /** A feed read after arrival number [since] accounts for every earlier arrival. */
+    private fun forgetArrivals(serverId: ServerId, since: Long) = synchronized(arrivals) {
+        arrivals[serverId]?.values?.removeAll { it <= since }
     }
 
     override suspend fun refresh() {
@@ -147,22 +213,41 @@ internal class DefaultAlertsRepository(
             AuthState.Expired -> return setPart(s.id) { it.copy(status = FeedStatus.EXPIRED) }
             else -> Unit
         }
+        // Socket arrivals after this point may be newer than what the feed lists.
+        val since = arrivalSeq.get()
         val feed = AlertsApi(s.http).all().watchedBy(s)
         val isAdmin = (s.auth.value as? AuthState.SignedIn)?.probe?.user?.isPlatformAdmin == true
         val approvals = if (isAdmin && feed is ApiOutcome.Ok) ApprovalsApi(s.http).list().watchedBy(s) else null
         val now = clock()
         setPart(s.id) { previous ->
             when (feed) {
-                is ApiOutcome.Ok -> Part(
-                    alerts = feed.value.alerts.map { ServerAlert(s.id, it) },
-                    approvals = (approvals as? ApiOutcome.Ok)?.value.orEmpty().filter { it.isPending && !it.isExpiredAt(now) }.map { ServerApproval(s.id, it) },
-                    status = FeedStatus.OK,
-                    updatedAt = now,
-                )
+                is ApiOutcome.Ok -> {
+                    val listed = feed.value.alerts.filterNot { isResolved(s.id, it.id) }.map { ServerAlert(s.id, it) }
+                    Part(
+                        alerts = arrivedDuring(s.id, since, previous.alerts, listed) + listed,
+                        approvals = (approvals as? ApiOutcome.Ok)?.value.orEmpty().filter { it.isPending && !it.isExpiredAt(now) }.map { ServerApproval(s.id, it) },
+                        status = FeedStatus.OK,
+                        updatedAt = now,
+                    )
+                }
                 ApiOutcome.SessionExpired -> previous.copy(status = FeedStatus.EXPIRED)
                 else -> previous.copy(status = FeedStatus.UNREACHABLE)
             }
         }
+        if (feed is ApiOutcome.Ok) forgetArrivals(s.id, since)
+    }
+
+    /**
+     * The alerts of [current] that NOTIFICATION_NEW brought while the feed was
+     * being read (after arrival [since]), missing from [listed] and not resolved
+     * since: the feed may predate them (the NEW half of an escalation, whose
+     * RESOLVED half already took the old alert out).
+     */
+    private fun arrivedDuring(serverId: ServerId, since: Long, current: List<ServerAlert>, listed: List<ServerAlert>): List<ServerAlert> {
+        val arrived = arrivedAfter(serverId, since)
+        if (arrived.isEmpty()) return emptyList()
+        val listedIds = listed.mapTo(HashSet()) { it.alert.id }
+        return current.filter { it.alert.id in arrived && it.alert.id !in listedIds && !isResolved(serverId, it.alert.id) }
     }
 
     private fun setPart(id: ServerId, change: (Part) -> Part) {
@@ -233,6 +318,12 @@ internal class DefaultAlertsRepository(
 
     companion object {
         const val POLL_MS = 60_000L
+
+        /** Resolved ids remembered per server (a refresh in flight never brings one back). */
+        const val MAX_RESOLVED = 2_000
+
+        /** Socket arrivals remembered per server between two refreshes. */
+        const val MAX_ARRIVALS = 500
     }
 }
 

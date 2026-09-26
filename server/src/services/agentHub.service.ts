@@ -149,6 +149,17 @@ class AgentHubService {
           getIO().to(`tenant:${tenantId}`).emit(SocketEvents.DEVICE_UPDATED, { deviceId, status: 'online' });
         } catch {}
       }
+      // Back from 'offline' through the command channel (the next push
+      // then no longer sees 'offline'): the offline incident is over, its
+      // live alert is resolved (leaves the bell / "À traiter").
+      if (prevStatus === 'offline') {
+        try {
+          const { liveAlertService } = await import('./liveAlert.service');
+          await liveAlertService.resolveIncidents('offline', [deviceId]);
+        } catch (e) {
+          logger.error(e, 'agentHub: failed to resolve the offline live alert');
+        }
+      }
     } catch (e) {
       logger.error(e, 'agentHub: failed to refresh status on WS connect');
     }
