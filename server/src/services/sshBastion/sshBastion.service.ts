@@ -132,6 +132,20 @@ let started = false;
 let openConnections = 0;
 const perIpConnections = new Map<string, number>();
 
+// Authenticated connections per user, so a user whose access is taken away
+// (disabled, deleted, demoted — killSessionsForUser, P6) loses the open
+// bastion shells and jumps at once, not at the idle / 8 h cap.
+const userConnections = new Map<number, Set<{ end: () => void }>>();
+
+/** Ends every authenticated bastion connection of `userId`. Returns the count. */
+export function endBastionConnectionsForUser(userId: number): number {
+  const set = userConnections.get(userId);
+  if (!set) return 0;
+  userConnections.delete(userId);
+  for (const client of set) { try { client.end(); } catch { /* already closed */ } }
+  return set.size;
+}
+
 export function startSshBastion(): void {
   if (started || !config.sshBastion.enabled) return;
   try {
@@ -161,6 +175,10 @@ export function startSshBastion(): void {
       const authTimer = setTimeout(() => { if (!authenticated) { try { client.end(); } catch { /* */ } } }, AUTH_TIMEOUT_MS);
 
       client.on('close', () => {
+        if (userId != null) {
+          const set = userConnections.get(userId);
+          if (set) { set.delete(client); if (set.size === 0) userConnections.delete(userId); }
+        }
         clearTimeout(authTimer);
         if (idleTimer) clearTimeout(idleTimer);
         if (sessionTimer) clearTimeout(sessionTimer);
@@ -227,6 +245,11 @@ export function startSshBastion(): void {
         authenticated = true;
         clearTimeout(authTimer);
         sessionTimer = setTimeout(() => { try { client.end(); } catch { /* */ } }, MAX_SESSION_MS);
+        if (userId != null) {
+          let set = userConnections.get(userId);
+          if (!set) { set = new Set(); userConnections.set(userId, set); }
+          set.add(client);
+        }
 
         client.on('session', (accept) => {
           const session = accept();

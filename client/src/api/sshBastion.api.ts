@@ -1,4 +1,4 @@
-import apiClient from './client';
+import apiClient, { isStepUpHandled } from './client';
 import type { SshPublicKey } from '@obliance/shared';
 
 // ─── SSH bastion (ObliJump) ──────────────────────────────────────────────────
@@ -129,5 +129,8 @@ export function apiErrorMessage(err: unknown, fallback: string): string | null {
   if (!e?.response) return e?.isAxiosError ? fallback : null;
   const msg = e.response.data?.error;
   if ([401, 403, 423].includes(e.response.status) && typeof msg === 'string') return null;
+  // Step-up caps (429) and an unreachable Obligate (503): already toasted,
+  // translated, by the api client.
+  if (isStepUpHandled(err)) return null;
   return typeof msg === 'string' && msg ? msg : fallback;
 }

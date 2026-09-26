@@ -175,7 +175,13 @@
     "ssoRedirecting": "Redirecting to login...",
     "clientVersion": "client v{{version}}",
     "serverVersion": "server v{{version}}",
-    "ssoFailed": "SSO authentication failed. Please try local login."
+    "ssoFailed": "SSO authentication failed. Please try local login.",
+    "accountDisabled": "Your account is disabled on this server. Ask an administrator to re-enable it.",
+    "ssoLoginRequired": {
+      "title": "This account signs in through Obligate",
+      "body": "Its password and two-factor authentication are managed in Obligate. Local sign-in is only possible with an authenticator app set up on this server.",
+      "button": "Sign in with Obligate"
+    }
   },
   "forgotPassword": {
     "title": "Reset your password",
@@ -728,6 +734,8 @@
     "emailLabel": "Email address",
     "emailPlaceholder": "you@example.com",
     "emailHint": "Used for password reset and email 2FA.",
+    "ssoEmailManaged": "The e-mail address of an SSO account is managed in Obligate.",
+    "ssoEmailManagedHint": "This address comes from Obligate and is updated at each Obligate sign-in. Change it in your Obligate account.",
     "preferredLanguage": "Interface language",
     "saveProfile": "Save Profile",
     "profileUpdated": "Profile updated",
@@ -783,7 +791,11 @@
       "invalidCode": "Invalid code",
       "openAuthenticator": "Open in authenticator app",
       "openAuthenticatorFailed": "No authenticator app could be opened. Copy the secret instead.",
-      "copySecret": "Copy secret"
+      "copySecret": "Copy secret",
+      "codesSentTo": "Codes will be sent to the address of your profile:",
+      "emailRequired": "Add an e-mail address to your profile (above) and save it first.",
+      "emailChangedRestart": "Your e-mail address changed during the setup. Start again.",
+      "totpChangedRestart": "Two-factor authentication was enabled in the meantime. Start again."
     },
     "appearance": {
       "title": "APPEARANCE",
@@ -885,7 +897,10 @@
       "adminNotice": "Platform admins automatically access all tenants. No per-tenant assignment is needed.",
       "none": "No tenants available",
       "role": "Role:",
-      "member": "Member"
+      "member": "Member",
+      "failedLoad": "Failed to load tenant assignments",
+      "saved": "Tenant assignments saved",
+      "failedSave": "Failed to save tenant assignments"
     },
     "capabilities": {
       "execute": {
@@ -917,7 +932,10 @@
     },
     "permissionSets": "Permission Sets",
     "tabPermissionSets": "Permissions",
-    "tabRestrictions": "Restrictions"
+    "tabRestrictions": "Restrictions",
+    "sentForApproval": "Sent for approval to a second administrator",
+    "passwordChanged": "Password changed",
+    "failedPassword": "Failed to change password"
   },
   "agents": {
     "tabKeys": "API Keys",
@@ -3262,7 +3280,25 @@
     "verify": "Verify & execute",
     "codeLabel": "TOTP code",
     "trustIp": "Trust this IP for 24h",
-    "trustIpHint": "Skips the TOTP prompt for sensitive actions from this IP only. Revocable any time from your profile."
+    "trustIpHint": "Skips the TOTP prompt for sensitive actions from this IP only. Revocable any time from your profile.",
+    "codeMustBeNew": "Enter a new code: a code already used (for example to sign in) is refused. If needed, wait for the next one.",
+    "codeLocked": "Too many wrong codes. Sign in again to unlock code entry.",
+    "tooManyAttempts": "Too many wrong codes. Try again in {{minutes}} min.",
+    "verifierUnavailable": "Two-factor verification is temporarily unavailable. Try again in a moment.",
+    "codeUsed": "This code was already used. Wait for the next code, then try again.",
+    "passwordInvalid": "Wrong password.",
+    "invalidCode": "Invalid code.",
+    "passwordTitle": "Confirm your password",
+    "confirm": "Confirm",
+    "passwordDescription": "Enter your current password to confirm this change.",
+    "builtinDescription": "Enter your current 6-digit code to confirm.",
+    "passwordLabel": "Current password",
+    "actions": {
+      "totpManage": "Change your authenticator app",
+      "emailOtpManage": "Change your e-mail sign-in codes",
+      "sshKeyAdd": "Add an SSH key",
+      "sshAuthorizeIp": "Authorize this IP on the SSH bastion"
+    }
   },
   "tenantBadge": {
     "title": "Tenant: {{name}}"

@@ -20,6 +20,11 @@ import { IconButton } from '@/components/common/IconButton';
 import { useConfirm } from '@/components/common/ConfirmDialog';
 import { useIsCoarsePointer } from '@/hooks/useMediaQuery';
 import { openExternal } from '@/utils/openExternal';
+import { isStepUpHandled } from '@/api/client';
+
+// A cancelled 2FA / password prompt, or a failure the api client already
+// reported (wrong code, caps, Obligate unreachable), needs no extra toast.
+const isQuietStepUpError = (err: unknown): boolean => isStepUpHandled(err);
 
 // Invisible ≥40px hit area around small hand-rolled switches (touch only).
 const TOUCH_HIT = "coarse:after:absolute coarse:after:-inset-2.5 coarse:after:content-['']";
@@ -29,6 +34,9 @@ export function ProfilePage() {
  const coarse = useIsCoarsePointer();
  const { user: sessionUser, requires2faSetup } = useAuthStore();
  const [obligateUrl, setObligateUrl] = useState<string | null>(null);
+ // SSO (Obligate) account: its e-mail address is Obligate's, resynced at each
+ // SSO sign-in — read-only here (the server refuses a change: ssoEmailManaged).
+ const isSso = sessionUser?.foreignSource === 'obligate';
 
  useEffect(() => {
  if (sessionUser?.foreignSource === 'obligate') {
@@ -42,6 +50,8 @@ export function ProfilePage() {
 
  const [displayName, setDisplayName] = useState('');
  const [email, setEmail] = useState('');
+ // Address as SAVED on the profile: e-mail sign-in codes always go there.
+ const [savedEmail, setSavedEmail] = useState('');
  const [preferredLanguage, setPreferredLanguage] = useState('');
  const [savingProfile, setSavingProfile] = useState(false);
 
@@ -77,6 +87,7 @@ export function ProfilePage() {
  profileApi.get().then((profile) => {
  setDisplayName(profile.displayName || '');
  setEmail((profile as any).email || '');
+ setSavedEmail((profile as any).email || '');
  setPreferredLanguage((profile as any).preferredLanguage || '');
  setAvatar(profile.avatar ?? null);
  if (profile.preferences?.preferredTheme) {
@@ -94,8 +105,14 @@ export function ProfilePage() {
  e.preventDefault();
  setSavingProfile(true);
  try {
- await profileApi.update({ displayName: displayName || null, email: email || null, preferredLanguage: preferredLanguage || undefined });
+ await profileApi.update({
+ displayName: displayName || null,
+ ...(isSso ? {} : { email: email || null }),
+ preferredLanguage: preferredLanguage || undefined,
+ });
  toast.success(t('profile.profileUpdated'));
+ // Re-read: the saved address drives the e-mail code setup below.
+ profileApi.get().then((profile) => setSavedEmail((profile as any).email || '')).catch(() => {});
  } catch {
  toast.error(t('profile.failedProfile'));
  } finally {
@@ -355,10 +372,17 @@ export function ProfilePage() {
  label={t('profile.emailLabel')}
  type="email"
  value={email}
- onChange={(e) => setEmail(e.target.value)}
- placeholder={t('profile.emailPlaceholder')}
+ onChange={(e) => { if (!isSso) setEmail(e.target.value); }}
+ placeholder={isSso ? undefined : t('profile.emailPlaceholder')}
+ readOnly={isSso}
+ aria-readonly={isSso || undefined}
+ className={isSso ? 'cursor-not-allowed opacity-70 focus:ring-0' : undefined}
  />
- <p className="mt-1 text-xs text-text-muted">{t('profile.emailHint')}</p>
+ <p className="mt-1 text-xs text-text-muted">
+ {isSso
+ ? t('profile.ssoEmailManagedHint', 'This address comes from Obligate and is updated at each Obligate sign-in. Change it in your Obligate account.')
+ : t('profile.emailHint')}
+ </p>
  </div>
 
  <div className="space-y-1">
@@ -593,7 +617,9 @@ export function ProfilePage() {
  </div>
 
  {/* Security / 2FA section */}
- {(allow2fa || requires2faSetup) && (
+ {/* A user who already has a factor always keeps access to it (replace /
+     disable), even when the admin turned "Allow 2FA" off afterwards. */}
+ {(allow2fa || requires2faSetup || !!tfaStatus?.totpEnabled || !!tfaStatus?.emailOtpEnabled) && (
  <div>
  <h2 className="text-lg font-semibold text-text-primary mb-4">{t('profile.security.title')}</h2>
 
@@ -624,7 +650,7 @@ export function ProfilePage() {
  await twoFactorApi.totpDisable();
  setTfaStatus((s) => s ? { ...s, totpEnabled: false } : s);
  toast.success(t('profile.security.totpDisabled'));
- } catch { toast.error(t('profile.security.failedDisableTotp')); }
+ } catch (err) { if (!isQuietStepUpError(err)) toast.error(t('profile.security.failedDisableTotp')); }
  }}
  >
  {t('common.disable')}
@@ -637,7 +663,7 @@ export function ProfilePage() {
  const data = await twoFactorApi.totpSetup();
  setTotpSetupData(data);
  setTotpCode('');
- } catch { toast.error(t('profile.security.failedStartTotp')); }
+ } catch (err) { if (!isQuietStepUpError(err)) toast.error(t('profile.security.failedStartTotp')); }
  }}
  >
  {t('common.enable')}
@@ -675,7 +701,17 @@ export function ProfilePage() {
  setTotpSetupData(null);
  setTotpCode('');
  toast.success(t('profile.security.totpEnabled'));
- } catch { toast.error(t('profile.security.invalidCode')); }
+ } catch (err) {
+ if ((err as { response?: { status?: number } } | null)?.response?.status === 409) {
+ // Another session enabled an authenticator meanwhile.
+ toast.error(t('profile.security.totpChangedRestart', 'Two-factor authentication was enabled in the meantime. Start again.'));
+ setTotpSetupData(null);
+ setTotpCode('');
+ twoFactorApi.getStatus().then(setTfaStatus).catch(() => {});
+ } else {
+ toast.error(t('profile.security.invalidCode'));
+ }
+ }
  finally { setTotpSaving(false); }
  }}
  >
@@ -709,7 +745,7 @@ export function ProfilePage() {
  await twoFactorApi.emailDisable();
  setTfaStatus((s) => s ? { ...s, emailOtpEnabled: false, email: null } : s);
  toast.success(t('profile.security.emailOtpDisabled'));
- } catch { toast.error(t('profile.security.failedDisableEmailOtp')); }
+ } catch (err) { if (!isQuietStepUpError(err)) toast.error(t('profile.security.failedDisableEmailOtp')); }
  }}
  >
  {t('common.disable')}
@@ -721,25 +757,30 @@ export function ProfilePage() {
 
  {!tfaStatus?.emailOtpEnabled && emailSetupStep === 'entering' && (
  <div className="space-y-3">
- <Input
- label={t('profile.security.yourEmail')}
- type="email"
- value={emailInput}
- onChange={(e) => setEmailInput(e.target.value)}
- placeholder={t('profile.security.emailPlaceholder')}
- autoFocus
- />
+ {/* Codes go to the address SAVED on the profile (changed in the
+ profile section above, under the tenant's profile policy). */}
+ {savedEmail ? (
+ <p className="text-xs text-text-muted">
+ {t('profile.security.codesSentTo', 'Codes will be sent to the address of your profile:')}{' '}
+ <span className="text-text-primary break-all">{savedEmail}</span>
+ </p>
+ ) : (
+ <p className="text-xs text-amber-400">
+ {t('profile.security.emailRequired', 'Add an e-mail address to your profile (above) and save it first.')}
+ </p>
+ )}
  <div className="flex gap-2">
  <Button
- disabled={!emailInput || emailSaving}
+ disabled={!savedEmail || emailSaving}
  loading={emailSaving}
  onClick={async () => {
  setEmailSaving(true);
  try {
- await twoFactorApi.emailSetup(emailInput);
+ await twoFactorApi.emailSetup(savedEmail);
+ setEmailInput(savedEmail);
  setEmailSetupStep('sent');
  toast.success(t('profile.security.codeSent'));
- } catch { toast.error(t('profile.security.failedSendCode')); }
+ } catch (err) { if (!isQuietStepUpError(err)) toast.error(t('profile.security.failedSendCode')); }
  finally { setEmailSaving(false); }
  }}
  >
@@ -779,7 +820,13 @@ export function ProfilePage() {
  setEmailInput('');
  setEmailCode('');
  toast.success(t('profile.security.emailOtpEnabled'));
- } catch { toast.error(t('profile.security.invalidCode')); }
+ } catch (err) {
+ const status = (err as { response?: { status?: number } } | null)?.response?.status;
+ toast.error(status === 409
+ ? t('profile.security.emailChangedRestart', 'Your e-mail address changed during the setup. Start again.')
+ : t('profile.security.invalidCode'));
+ if (status === 409) { setEmailSetupStep('idle'); setEmailCode(''); }
+ }
  finally { setEmailSaving(false); }
  }}
  >

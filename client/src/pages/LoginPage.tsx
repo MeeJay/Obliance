@@ -17,11 +17,20 @@ export function LoginPage() {
 
  const [username, setUsername] = useState('');
  const [password, setPassword] = useState('');
- const [error, setError] = useState(searchParams.get('error') === 'sso_failed' ? t('login.ssoFailed', 'SSO authentication failed. Please try local login.') : '');
+ const errorParam = searchParams.get('error');
+ const [error, setError] = useState(
+ errorParam === 'sso_failed' ? t('login.ssoFailed', 'SSO authentication failed. Please try local login.')
+ // SSO worked but the linked local account is disabled in Obliance.
+ : errorParam === 'account_disabled' ? t('login.accountDisabled', 'Your account is disabled on this server. Ask an administrator to re-enable it.')
+ : '',
+ );
  const [serverVersion, setServerVersion] = useState<string | null>(null);
+ // The account is an SSO (Obligate) account without a local TOTP: it can
+ // only sign in through Obligate (server answer 403 ssoLoginRequired).
+ const [ssoLoginRequired, setSsoLoginRequired] = useState(false);
 
- // If we arrived here with ?error=sso_failed, don't auto-redirect to Obligate again
- const ssoFailed = searchParams.get('error') === 'sso_failed';
+ // If we arrived here with ?error=sso_failed (or account_disabled), don't auto-redirect to Obligate again
+ const ssoFailed = errorParam === 'sso_failed' || errorParam === 'account_disabled';
  // Break-glass: ?local=1 forces the local username/password form and skips
  // the automatic SSO redirect. Lets a local admin sign in even when SSO is
  // enabled and Obligate is up — the escape hatch when SSO is misconfigured
@@ -95,6 +104,7 @@ export function LoginPage() {
  const handleSubmit = async (e: FormEvent) => {
  e.preventDefault();
  setError('');
+ setSsoLoginRequired(false);
  try {
  const result = await login(username, password);
  if (result.requires2fa) {
@@ -106,6 +116,11 @@ export function LoginPage() {
  navigate('/', { replace: true });
  }
  } catch (err) {
+ if ((err as { code?: string } | null)?.code === 'ssoLoginRequired') {
+ setPassword('');
+ setSsoLoginRequired(true);
+ return;
+ }
  setError(err instanceof Error ? err.message : t('login.loginFailed'));
  }
  };
@@ -205,6 +220,19 @@ export function LoginPage() {
  {error && (
  <div className="rounded-md bg-status-down-bg border border-status-down/30 p-3">
  <p className="text-sm text-status-down">{error}</p>
+ </div>
+ )}
+ {ssoLoginRequired && (
+ <div role="alert" className="rounded-md bg-status-pending-bg border border-status-pending/30 p-3 space-y-3">
+ <p className="text-sm font-medium text-text-primary">
+ {t('login.ssoLoginRequired.title', 'This account signs in through Obligate')}
+ </p>
+ <p className="text-xs text-text-secondary">
+ {t('login.ssoLoginRequired.body', 'Its password and two-factor authentication are managed in Obligate. Local sign-in is only possible with an authenticator app set up on this server.')}
+ </p>
+ <Button type="button" variant="secondary" className="w-full" onClick={() => { window.location.href = '/auth/sso-redirect'; }}>
+ {t('login.ssoLoginRequired.button', 'Sign in with Obligate')}
+ </Button>
  </div>
  )}
  <Button type="submit" className="w-full" loading={isLoading}>

@@ -408,21 +408,21 @@ export function SettingsPage() {
  </div>
  <button
  role="switch"
- aria-checked={(appConfig?.allow_2fa ?? false) as boolean | "true" | "false" | "mixed"}
+ aria-checked={appConfig?.allow_2fa === 'true'}
  disabled={configSaving || !appConfig}
- onClick={() => setConfigKey('allow_2fa', !appConfig?.allow_2fa)}
+ onClick={() => setConfigKey('allow_2fa', appConfig?.allow_2fa !== 'true')}
  aria-label={t('settings.security.allow2fa')}
  className={cn(
  'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none disabled:opacity-50',
  TOUCH_HIT,
- appConfig?.allow_2fa ? 'bg-primary' : 'bg-bg-tertiary',
+ appConfig?.allow_2fa === 'true' ? 'bg-primary' : 'bg-bg-tertiary',
  )}
  >
- <span className={cn('pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transition-transform', appConfig?.allow_2fa ? 'translate-x-4' : 'translate-x-0')} />
+ <span className={cn('pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transition-transform', appConfig?.allow_2fa === 'true' ? 'translate-x-4' : 'translate-x-0')} />
  </button>
  </div>
 
- <div className={cn('flex items-start justify-between gap-4 p-4', !appConfig?.allow_2fa && 'opacity-50 pointer-events-none')}>
+ <div className={cn('flex items-start justify-between gap-4 p-4', appConfig?.allow_2fa !== 'true' && 'opacity-50 pointer-events-none')}>
  <div className="flex items-start gap-3">
  <Shield size={16} className="text-text-muted mt-0.5 shrink-0" />
  <div>
@@ -436,21 +436,21 @@ export function SettingsPage() {
  </div>
  <button
  role="switch"
- aria-checked={(appConfig?.force_2fa ?? false) as boolean | "true" | "false" | "mixed"}
- disabled={configSaving || !appConfig || !appConfig.allow_2fa}
- onClick={() => setConfigKey('force_2fa', !appConfig?.force_2fa)}
+ aria-checked={appConfig?.force_2fa === 'true'}
+ disabled={configSaving || !appConfig || appConfig.allow_2fa !== 'true'}
+ onClick={() => setConfigKey('force_2fa', appConfig?.force_2fa !== 'true')}
  aria-label={t('settings.security.force2fa')}
  className={cn(
  'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none disabled:opacity-50',
  TOUCH_HIT,
- appConfig?.force_2fa ? 'bg-primary' : 'bg-bg-tertiary',
+ appConfig?.force_2fa === 'true' ? 'bg-primary' : 'bg-bg-tertiary',
  )}
  >
- <span className={cn('pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transition-transform', appConfig?.force_2fa ? 'translate-x-4' : 'translate-x-0')} />
+ <span className={cn('pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transition-transform', appConfig?.force_2fa === 'true' ? 'translate-x-4' : 'translate-x-0')} />
  </button>
  </div>
 
- <div className={cn('flex items-start gap-4 p-4', !appConfig?.allow_2fa && 'opacity-50 pointer-events-none')}>
+ <div className={cn('flex items-start gap-4 p-4', appConfig?.allow_2fa !== 'true' && 'opacity-50 pointer-events-none')}>
  <Server size={16} className="text-text-muted mt-0.5 shrink-0" />
  <div className="flex-1 min-w-0">
  <p className="text-sm font-medium text-text-primary">{t('settings.security.otpSmtp')}</p>
@@ -458,7 +458,7 @@ export function SettingsPage() {
  <select
  className="mt-2 w-full max-w-xs rounded-md bg-bg-primary px-3 py-1.5 coarse:py-2 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
  value={appConfig?.otp_smtp_server_id ?? ''}
- disabled={configSaving || !appConfig || !appConfig.allow_2fa}
+ disabled={configSaving || !appConfig || appConfig.allow_2fa !== 'true'}
  onChange={(e) => setConfigKey('otp_smtp_server_id', e.target.value ? parseInt(e.target.value, 10) : null)}
  >
  <option value="">{t('settings.security.noneOption')}</option>

@@ -46,3 +46,7 @@ mobile/android/**/build/
 *.jks
 *.keystore
 .secrets/
+
+# Reprise locale Claude (handoff + harnais de vérification, jamais publiés)
+REPRISE-CLAUDE.md
+.local-verify/

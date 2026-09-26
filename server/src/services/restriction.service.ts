@@ -1,6 +1,5 @@
 import { db } from '../db';
 import type { Request, Response } from 'express';
-import { twoFactorService } from './twoFactor.service';
 import { approvalService, type ApprovalRequestType } from './approval.service';
 
 // ── Restriction model ───────────────────────────────────────────────────────
@@ -269,6 +268,22 @@ export const restrictionService = {
   },
 
   /**
+   * Strictest level of `actionKey` over several tenants ('restricted' >
+   * 'sensitive' > 'none'), with the tenant it comes from. For actions on
+   * USER-GLOBAL data (own profile, own password): the level must not depend
+   * on which of the user's tenants the session currently has selected.
+   */
+  async getStrictestLevel(tenantIds: number[], actionKey: string): Promise<{ level: RestrictionLevel; tenantId: number | null }> {
+    const rank: Record<RestrictionLevel, number> = { none: 0, sensitive: 1, restricted: 2 };
+    let best: { level: RestrictionLevel; tenantId: number | null } = { level: 'none', tenantId: null };
+    for (const tenantId of [...new Set(tenantIds.filter((t) => Number.isInteger(t) && t > 0))]) {
+      const level = await this.getLevelFor({ tenantId, actionKey });
+      if (rank[level] > rank[best.level]) best = { level, tenantId };
+    }
+    return best;
+  },
+
+  /**
    * Main enforcement entry point — call from route handlers. Writes a 202
    * (pending approval) or 401/403 response when the action must be blocked
    * or gated; returns { ok: true } when the handler can proceed.
@@ -280,81 +295,43 @@ export const restrictionService = {
     approvalRequestType?: ApprovalRequestType;
     approvalDescription?: string;
     approvalPayload?: Record<string, unknown>;
+    /** User-global action: the level is the strictest over these tenants
+     *  (the approval, if any, is filed in the tenant that imposes it). */
+    levelTenantIds?: number[];
   }): Promise<
     | { ok: true }
-    | { ok: false; status: number; body: any }
+    | { ok: false; status: number; body: any; headers?: Record<string, string> }
     | { ok: false; approval: any; status: 202 }
   > {
     const { req, actionKey } = params;
     const tenantId = (req as any).tenantId as number;
     const userId = (req.session as any).userId as number;
+    if (!tenantId) throw new Error('restrictionService.enforce called without req.tenantId');
 
-    const level = await this.getLevelFor({ tenantId, actionKey, deviceIds: params.deviceIds });
+    let level: RestrictionLevel;
+    let approvalTenantId = tenantId;
+    if (params.levelTenantIds?.length) {
+      const strictest = await this.getStrictestLevel([tenantId, ...params.levelTenantIds], actionKey);
+      level = strictest.level;
+      if (strictest.tenantId) approvalTenantId = strictest.tenantId;
+    } else {
+      level = await this.getLevelFor({ tenantId, actionKey, deviceIds: params.deviceIds });
+    }
     if (level === 'none') return { ok: true };
 
     if (level === 'sensitive') {
-      const user = await db('users')
-        .where({ id: userId })
-        .first('totp_enabled', 'totp_secret', 'username', 'foreign_source', 'foreign_id');
-      if (!user) return { ok: false, status: 401, body: { error: 'Unauthenticated' } };
-
-      const hasLocalTotp = !!(user.totp_enabled && user.totp_secret);
-      const isObligateSso = user.foreign_source === 'obligate' && user.foreign_id;
-
-      if (!hasLocalTotp && !isObligateSso) {
-        return {
-          ok: false, status: 403,
-          body: { error: 'This action is marked sensitive — enable TOTP 2FA on your profile before you can use it.' },
-        };
-      }
-
-      // ── Trusted-IP shortcut ───────────────────────────────────────────
-      // If the user previously completed a TOTP step-up from this IP AND
-      // checked "Trust this IP for 24h" in the prompt, skip the 2FA prompt
-      // for the rest of the trust window. See tfaTrust.service.ts.
-      const { tfaTrustService } = await import('./tfaTrust.service');
-      // A relay address (our proxy / Docker gateway, or an edge proxy missing
-      // from TRUSTED_PROXIES) is shared by everyone behind it: never honour
-      // nor grant an IP trust for it.
-      const { clientAddress } = await import('../utils/clientIp');
-      const { ip, relay } = clientAddress(req);
-      const ipTrustUsable = !relay;
-      if (ipTrustUsable && await tfaTrustService.isTrusted(userId, ip)) {
-        return { ok: true };
-      }
-
-      const code = (req.body?.twoFactorCode || '').trim();
-      if (!code) {
-        return {
-          ok: false, status: 401,
-          body: {
-            error: 'twoFactorCode required',
-            twoFactorRequired: true,
-            action: actionKey,
-            currentIp: ip,          // surface to the UI so the user can
-                                    // verify before ticking "trust this IP"
-          },
-        };
-      }
-
-      let valid = false;
-      if (hasLocalTotp) {
-        valid = twoFactorService.verifyTotp(user.totp_secret, code);
-      } else if (isObligateSso) {
-        const { obligateService } = await import('./obligate.service');
-        valid = await obligateService.verifyTotp(user.foreign_id, code);
-      }
-      if (!valid) {
-        return { ok: false, status: 401, body: { error: 'Invalid 2FA code' } };
-      }
-
-      // Grant IP trust ONLY if the user explicitly opted in. Default off.
-      // Duration comes from the tenant's `tfaTrustHours` setting (0 disables).
-      if (ipTrustUsable && req.body?.trustIp === true) {
-        await tfaTrustService.grant(userId, ip, tenantId);
-      }
-
-      return { ok: true };
+      // One verifier for every step-up (services/deviceKey/stepUpProof.ts):
+      // trusted-IP shortcut, TOTP (anti-replay, caps) or Obligate TOTP for
+      // SSO accounts. Proofs come from req.stepUpProof (P5), never req.body.
+      const { checkSecondFactor } = await import('./deviceKey/stepUpProof');
+      const outcome = await checkSecondFactor(req, {
+        actionKey,
+        deviceIds: params.deviceIds,
+        allowTrustedIp: true,
+        allowDevice: true,
+      });
+      if (outcome.ok) return { ok: true };
+      return { ok: false, status: outcome.status, body: outcome.body, headers: outcome.headers };
     }
 
     if (level === 'restricted') {
@@ -365,7 +342,7 @@ export const restrictionService = {
         };
       }
       const approval = await approvalService.create({
-        tenantId,
+        tenantId: approvalTenantId,
         userId,
         requestType: params.approvalRequestType,
         description: params.approvalDescription ?? actionKey,
@@ -392,6 +369,7 @@ export async function applyRestriction(
   if ((outcome as any).approval) {
     res.status(202).json({ data: { approvalId: (outcome as any).approval.id, status: 'pending_approval' } });
   } else {
+    for (const [k, v] of Object.entries(((outcome as any).headers ?? {}) as Record<string, string>)) res.setHeader(k, v);
     res.status((outcome as any).status).json((outcome as any).body);
   }
   return false;

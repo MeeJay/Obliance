@@ -637,6 +637,22 @@ DELETE FROM session WHERE (sess::jsonb->>'userId')::int = ?;         -- P6 : tou
 Recommandés mais non bloquants (constats 12.6 et 12.8 du brouillon) :
 - `force_2fa` lu comme une chaîne ;
 - un compte SSO muni d'un mot de passe local se connecte sans MFA. La connexion par empreinte est de toute façon refusée aux comptes SSO.
+  **Livré (26/09/2026, étapes 1 et 2)** : `POST /api/auth/set-password` supprimé (et l'étape « mot de passe » de l'onboarding) ; « mot de passe oublié » et les jetons de réinitialisation ignorés pour `foreign_source='obligate'` (même réponse qu'un compte inconnu) ; e-mail d'un compte SSO non modifiable localement (403 `ssoEmailManaged`, profil et onboarding) ; connexion par mot de passe local d'un compte SSO acceptée seulement avec un TOTP local, alors exigé (codes e-mail refusés), sinon 403 `ssoLoginRequired` (mauvais mot de passe : réponse et temps identiques à un compte inconnu). Secours si Obligate est en panne : un administrateur local non SSO avec TOTP.
+
+**Livré (lot P1–P6, 2026-09-26, codé et vérifié sur PGlite, non déployé).** Vérificateur unique : `services/deviceKey/stepUpProof.ts` (`checkSecondFactor` avec la forme d'options du §6.2 ; `allowDevice` accepté mais ignoré jusqu'au lot des clés).
+- **P1.** Règles dans `services/userScope.service.ts`, partagées avec l'exécuteur d'approbations. *Écart (renforcement)* : un gestionnaire qui n'est pas administrateur de plateforme ne vise qu'un compte qu'il **domine** dans **chacun** de ses tenants. Il faut être administrateur du tenant pour viser un administrateur de tenant. Ailleurs, il faut `users.manage` là-bas et toutes les capacités du jeu de permissions de la cible. Les lectures `GET /:id`, `/:id/tenants` et `/:id/teams` suivent la même population que la liste (404 hors portée). Le panneau des tenants se limite au tenant courant, et les autres lignes sont conservées. `setTenants` passe par l'enveloppe. Au niveau `restricted`, la réinitialisation 2FA et l'accès aux tenants sont **exécutés** à l'approbation, en tant que demandeur (`approval.service._executeUserAction`). La réinitialisation du mot de passe demande un step-up au lieu d'une approbation : un mot de passe ne va jamais dans une charge. Le rôle `member` (d'avant 091) est lu et écrit `user`. Les routes `/:id/device-keys` viendront avec le lot des clés.
+- **P2.** Conforme. *Écart (renforcement)* : un premier enrôlement TOTP, sans facteur, exige le **mot de passe actuel** (`stepUpPassword`, 401 `passwordRequired`). La gestion des codes par e-mail exige la même preuve (code actuel, ou mot de passe), et `emailEnable` n'écrit plus `users.email` : les codes partent vers l'adresse du profil. L'activation est une mise à jour conditionnelle, qui renvoie 409 en cas de course. Un e-mail d'information est envoyé à chaque ajout ou retrait de facteur.
+- **P3.** Migration `127` conforme au §5.1, fenêtre ±1 et plafonds du §6.8 (e-mail au 5e échec via `otp_smtp_server_id`). Compléments :
+  - un bon code refusé par l'anti-rejeu n'est **pas** compté (401 `codeUsed`) ;
+  - Obligate injoignable donne 503 `verifierUnavailable`, non compté ;
+  - un code verrouillé, ou une fenêtre pleine, reçoit un 429 avant toute invite ;
+  - un code décalé de ±2 pas est audité `auth.totp_drift` ;
+  - les mauvais mots de passe comptent dans le même compteur `code`.
+- **P4.** `attachSessionTenant` sur `/api/profile` et `/api/profile/2fa`. *Écart (renforcement)* : le niveau `tenant.manage_profile` d'une écriture du profil est le **plus strict** parmi les tenants de l'utilisateur, et non celui du tenant sélectionné.
+- **P5.** Conforme : `captureStepUpProof` après la session, et `validate.ts` n'est pas modifié.
+- **P6.** Conforme (`services/userSessions.service.ts`), avec deux ajouts. D'abord, `middleware/sessionUserGuard.ts` relit `is_active` et `role` à chaque requête (cache de 5 s, vidé par le kill) : une session réécrite par une requête en vol meurt à son usage suivant, ou perd le rôle admin. Ensuite, le kill ferme aussi les sessions distantes lancées par l'utilisateur et ses connexions au bastion SSH. Un compte local lié et désactivé qui tente le SSO est renvoyé vers `/login?error=account_disabled`.
+- **`force_2fa`** est lu comme une chaîne. Avant le déploiement, vérifiez les valeurs stockées de `allow_2fa` et `force_2fa` : l'ancien interrupteur ne savait écrire que `'false'` tout en affichant « activé ».
+- **Compte SSO avec mot de passe local** : comportement inchangé. L'analyse figure dans le rapport du lot.
 
 ### 6.1 Nouveaux fichiers
 

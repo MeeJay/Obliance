@@ -484,6 +484,36 @@ class RemoteService {
     }
   }
 
+  /**
+   * P6: ends every open remote session STARTED BY a user whose access was
+   * just taken away (disabled, deleted, demoted). The live relay (browser /
+   * in-process bastion end AND agent end) is closed, and sessions that never
+   * paired are closed the same way through endSession. Returns the count.
+   */
+  async closeSessionsForUser(userId: number, reason: string): Promise<number> {
+    const rows = await db('remote_sessions')
+      .where({ started_by: userId })
+      .whereIn('status', ['waiting', 'connecting', 'active'])
+      .select('id', 'tenant_id', 'session_token') as Array<{ id: string; tenant_id: number; session_token: string }>;
+    for (const row of rows) {
+      try {
+        // Same teardown as handleTunnelClose, but awaited (errors stay here):
+        // the entry is removed first, so the close handlers of both ends
+        // find nothing left to do.
+        const tunnel = this.tunnels.get(row.session_token);
+        if (tunnel) {
+          this.tunnels.delete(row.session_token);
+          try { tunnel.browser?.close(); } catch { /* already closed */ }
+          try { tunnel.agent?.close(); } catch { /* already closed */ }
+        }
+        await this.endSession(row.id, row.tenant_id, reason);
+      } catch (err) {
+        logger.warn({ err, sessionId: row.id }, 'remote session close (user access removed) failed');
+      }
+    }
+    return rows.length;
+  }
+
   // Expire stale sessions and notify the UI
   async cleanupStaleSessions() {
     const timeout = await db('app_config').where({ key: 'remote_session_timeout_minutes' }).first();

@@ -124,7 +124,8 @@ router.post('/', async (req, res, next) => {
     // ── Action restriction gate ───────────────────────────────────────────
     // Consults the tenant's per-action restriction map (configured under
     // /admin/users → Restrictions). If the action is "sensitive", we require
-    // a valid TOTP code in req.body.twoFactorCode; if "restricted", we
+    // a valid TOTP code (sent as `twoFactorCode`, moved to req.stepUpProof by
+    // captureStepUpProof); if "restricted", we
     // queue a pending approval instead of executing.
     const { applyRestriction } = await import('../services/restriction.service');
     const approved = await applyRestriction(res, {

@@ -28,7 +28,43 @@ export const authController = {
         throw new AppError(401, 'Invalid username or password');
       }
 
-      const hasMfa = user.totpEnabled || user.emailOtpEnabled;
+      let methods = { totp: user.totpEnabled ?? false, email: user.emailOtpEnabled ?? false };
+
+      // SSO account (Obligate, og_): it signs in through Obligate. A local
+      // password alone must never open a session — it would bypass the
+      // Obligate password / MFA and survive their change. Accepted only with
+      // a LOCAL TOTP, which is then required (e-mail codes are not enough).
+      // Evaluated only once the password is proven: a wrong password answers
+      // exactly like any other account (no enumeration).
+      if (user.foreignSource === 'obligate') {
+        const f = await db('users').where({ id: user.id }).first('totp_enabled', 'totp_secret') as
+          { totp_enabled: boolean | null; totp_secret: string | null } | undefined;
+        if (!(f?.totp_enabled && f?.totp_secret)) {
+          try {
+            const tenant = await tenantService.getFirstTenantForUser(user.id);
+            const { auditService } = await import('../services/audit.service');
+            await auditService.log({
+              tenantId: tenant?.id ?? 1,
+              userId: user.id,
+              action: 'auth.login_refused',
+              resourceType: 'user',
+              resourcePath: String(user.id),
+              details: { username: user.username, reason: 'sso_login_required', via: 'password' },
+              ipAddress: clientIp(req) || undefined,
+            });
+          } catch {}
+          res.status(403).json({
+            success: false,
+            error: 'This account signs in through Obligate (SSO).',
+            code: 'ssoLoginRequired',
+            ssoLoginRequired: true,
+          });
+          return;
+        }
+        methods = { totp: true, email: false };
+      }
+
+      const hasMfa = methods.totp || methods.email;
 
       // New session id once the password is proven (session fixation): an id
       // planted before sign-in never reaches the pending-2FA or signed-in state.
@@ -41,7 +77,7 @@ export const authController = {
         // If email OTP is enabled, auto-send a code. We store ONLY a
         // SHA-256 hash of the code in the session — a session-store
         // dump can't pre-empt the user typing the OTP from email.
-        if (user.emailOtpEnabled && user.email) {
+        if (methods.email && user.email) {
           const cfg = await appConfigService.getAll();
           if (cfg.otp_smtp_server_id) {
             const code = twoFactorService.generateEmailOtp();
@@ -56,7 +92,7 @@ export const authController = {
           success: true,
           data: {
             requires2fa: true,
-            methods: { totp: user.totpEnabled ?? false, email: user.emailOtpEnabled ?? false },
+            methods,
           },
         });
         return;
@@ -143,7 +179,8 @@ export const authController = {
       let requires2faSetup = false;
       if (!config.disable2faForce) {
         const cfg = await appConfigService.getAll();
-        if (cfg.force_2fa && !user.totpEnabled && !user.emailOtpEnabled) {
+        // app_config values are strings: 'false' is truthy — compare explicitly.
+        if (cfg.force_2fa === 'true' && !user.totpEnabled && !user.emailOtpEnabled) {
           requires2faSetup = true;
         }
       }

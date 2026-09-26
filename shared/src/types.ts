@@ -2087,7 +2087,9 @@ export interface UserTenantAssignment {
   tenantName: string;
   tenantSlug: string;
   isMember: boolean;
-  role: 'admin' | 'member';
+  /** 'admin' (tenant administrator) or a permission set slug ('user' by
+   *  default). 'member' is the pre-091 name of 'user' and is never returned. */
+  role: string;
 }
 
 // ─── MAINTENANCE ──────────────────────────────────────────────────────────────

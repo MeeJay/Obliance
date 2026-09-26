@@ -27,6 +27,13 @@ export interface BatchCommandPayload {
   params?: Record<string, any>;
 }
 
+/** tenant.manage_users requests (users.controller.ts). */
+export interface UserActionPayload {
+  action: string;              // 'user_2fa_reset' | 'user_tenants_set' | ...
+  userId: number;
+  assignments?: unknown;
+}
+
 export interface DeviceUninstallPayload {
   deviceId: number;
 }
@@ -267,6 +274,15 @@ export const approvalService = {
       await this._executeManualScript(tenantId, userId, payload);
       return;
     }
+    // User-management requests (tenant.manage_users envelope) carry a
+    // userId, no deviceIds.
+    if (typeof payload.action === 'string' && (payload.action.startsWith('user_') || payload.action.startsWith('profile_'))) {
+      await this._executeUserAction(tenantId, userId, payload as unknown as UserActionPayload);
+      return;
+    }
+    if (!Array.isArray(payload.deviceIds)) {
+      throw new Error(`approval action '${String(payload.action)}' has no device list — nothing to execute`);
+    }
     for (const deviceId of payload.deviceIds) {
       try {
         await commandService.enqueue({
@@ -280,6 +296,62 @@ export const approvalService = {
       } catch (err) {
         logger.error({ err, deviceId }, 'batch approval execution: enqueue failed');
       }
+    }
+  },
+
+  /**
+   * Approved user-management request, executed AS THE REQUESTER: the P1
+   * scope (services/userScope.service.ts) is re-checked now, since rights
+   * may have changed while the request waited.
+   *  - user_2fa_reset   : second factors removed, code lock and IP trusts lifted
+   *  - user_tenants_set : tenant memberships (same resolution as the route)
+   * Other user actions (create / update / delete / password reset / profile
+   * update) cannot be executed from an approval: they fail with a clear
+   * error and the request stays 'approved'. A password reset never reaches
+   * this point (the route asks a step-up instead: a password must never sit
+   * in a payload).
+   */
+  async _executeUserAction(tenantId: number, requesterId: number, payload: UserActionPayload): Promise<void> {
+    const requester = await db('users').where({ id: requesterId }).first('role', 'is_active') as { role: string; is_active: boolean } | undefined;
+    if (!requester?.is_active) throw new Error('requester is no longer active');
+    const actor = { userId: requesterId, isPlatformAdmin: requester.role === 'admin', tenantId };
+    if (!actor.isPlatformAdmin) {
+      const { permissionService } = await import('./permission.service');
+      if (!(await permissionService.userHasTenantCapability(requesterId, tenantId, 'users.manage'))) {
+        throw new Error('requester no longer holds users.manage in this tenant');
+      }
+    }
+    const targetId = Number(payload.userId);
+    if (!Number.isInteger(targetId) || targetId <= 0) throw new Error('user approval without a valid userId');
+    if (targetId === requesterId) throw new Error('a user-management request cannot target its requester');
+    const { userScope, resetSecondFactors } = await import('./userScope.service');
+
+    switch (payload.action) {
+      case 'user_2fa_reset': {
+        const target = await userScope.assertManageableTarget(actor, targetId);
+        if (!(await resetSecondFactors(targetId))) throw new Error('user not found');
+        await auditService.log({
+          tenantId, userId: requesterId, action: 'user.2fa_reset',
+          resourceType: 'user', resourcePath: String(targetId),
+          details: { username: target.username, viaApproval: true },
+        }).catch(() => {});
+        return;
+      }
+      case 'user_tenants_set': {
+        const target = await userScope.assertManageableTarget(actor, targetId);
+        if (target.foreign_source === 'obligate') throw new Error('SSO user tenant access is managed from Obligate');
+        const assignments = await userScope.resolveTenantAssignments(actor, targetId, payload.assignments);
+        const { userService } = await import('./user.service');
+        await userService.setUserTenantAssignments(targetId, assignments);
+        await auditService.log({
+          tenantId, userId: requesterId, action: 'user.tenants_changed',
+          resourceType: 'user', resourcePath: String(targetId),
+          details: { username: target.username, assignments, viaApproval: true },
+        }).catch(() => {});
+        return;
+      }
+      default:
+        throw new Error(`approval action '${payload.action}' cannot be executed automatically — redo it once the restriction allows it`);
     }
   },
 

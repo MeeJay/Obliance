@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { db } from '../db';
 import { AppError } from '../middleware/errorHandler';
 import { z } from 'zod';
+import { refuseSsoEmailChange } from './profile.controller';
 
 export const REQUIRED_ENROLLMENT_VERSION = 2;
 
@@ -28,7 +29,12 @@ export const enrollmentController = {
       // Skip for Obligate SSO users — their email comes from Obligate and may
       // already exist on an older local account (before SSO migration).
       const currentUser = await db('users').where({ id: req.session.userId }).select('foreign_source').first() as { foreign_source: string | null } | undefined;
-      if (currentUser?.foreign_source !== 'obligate') {
+      const isSso = currentUser?.foreign_source === 'obligate';
+      // An SSO account's address is Obligate's (resynced at each SSO sign-in):
+      // enrollment may send it back, never change it.
+      const emailData: { email?: string | null } = { email };
+      if (isSso && await refuseSsoEmailChange(req.session.userId!, emailData, res)) return;
+      if (!isSso) {
         const existing = await db('users')
           .where({ email })
           .whereNot({ id: req.session.userId })
@@ -44,7 +50,7 @@ export const enrollmentController = {
         .where({ id: req.session.userId })
         .update({
           display_name: displayName !== undefined ? displayName : db.raw('display_name'),
-          email,
+          email: isSso ? db.raw('email') : email,
           preferred_language: preferredLanguage,
           preferences: JSON.stringify(preferences),
           enrollment_version: REQUIRED_ENROLLMENT_VERSION,

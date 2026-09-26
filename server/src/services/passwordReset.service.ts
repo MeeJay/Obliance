@@ -9,10 +9,21 @@ import { logger } from '../utils/logger';
 
 const TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
 
+/**
+ * An SSO account (Obligate, og_) never gets a local password by e-mail: its
+ * password lives in Obligate. A local one planted here would sign in and
+ * survive an Obligate password / MFA change.
+ */
+const notSso = (q: any) => q.whereNull('users.foreign_source').orWhereNot('users.foreign_source', 'obligate');
+
 export const passwordResetService = {
-  /** Generate a reset token, store its hash, send the email. Always resolves (no enumeration). */
+  /**
+   * Generate a reset token, store its hash, send the email. Always resolves
+   * (no enumeration): an unknown address and an SSO account get the same
+   * answer, and nothing is stored or sent for them.
+   */
   async requestReset(email: string): Promise<void> {
-    const user = await db('users').where({ email }).first();
+    const user = await db('users').where({ email }).where(notSso).orderBy('id').first();
     if (!user) {
       // Silently succeed to prevent email enumeration
       return;
@@ -76,25 +87,27 @@ export const passwordResetService = {
 
   /** Validate a raw token. Returns the user_id if valid, null otherwise. */
   async validateToken(rawToken: string): Promise<number | null> {
+    const row = await this.findUsableToken(rawToken);
+    return row ? row.user_id : null;
+  },
+
+  /** A live token of a non-SSO account (a token issued to an SSO account
+   *  before it was refused at the request is never honoured). */
+  async findUsableToken(rawToken: string): Promise<{ id: number; user_id: number } | null> {
     const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
     const row = await db('password_reset_tokens')
-      .where({ token_hash: tokenHash })
-      .whereNull('used_at')
-      .where('expires_at', '>', new Date())
-      .first();
-
-    return row ? row.user_id : null;
+      .join('users', 'users.id', 'password_reset_tokens.user_id')
+      .where({ 'password_reset_tokens.token_hash': tokenHash })
+      .whereNull('password_reset_tokens.used_at')
+      .where('password_reset_tokens.expires_at', '>', new Date())
+      .where(notSso)
+      .first('password_reset_tokens.id', 'password_reset_tokens.user_id') as { id: number; user_id: number } | undefined;
+    return row ?? null;
   },
 
   /** Consume a raw token and update the user's password. */
   async resetPassword(rawToken: string, newPassword: string): Promise<boolean> {
-    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-    const row = await db('password_reset_tokens')
-      .where({ token_hash: tokenHash })
-      .whereNull('used_at')
-      .where('expires_at', '>', new Date())
-      .first();
-
+    const row = await this.findUsableToken(rawToken);
     if (!row) return false;
 
     const newHash = await hashPassword(newPassword);

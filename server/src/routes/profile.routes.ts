@@ -1,5 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { requireAuth } from '../middleware/auth';
+import { attachSessionTenant } from '../middleware/tenant';
 import { validate } from '../middleware/validate';
 import { profileController } from '../controllers/profile.controller';
 import { updateProfileSchema, changePasswordSchema } from '../validators/profile.schema';
@@ -9,6 +10,9 @@ const router = Router();
 
 // All routes require authentication (any role)
 router.use(requireAuth);
+// This router is not under the tenant router: expose the session tenant as
+// req.tenantId (restriction envelope, "Trust this IP" duration, audit — P4).
+router.use(attachSessionTenant);
 
 // Gate profile writes — skip the 2FA step for SSO users (their identity
 // is managed by the SSO provider and can't be mutated locally anyway).
@@ -20,9 +24,14 @@ async function gateProfileWrite(req: Request, res: Response, next: NextFunction)
     if (!userId) return next();
     const row = await db('users').where({ id: userId }).first('foreign_source');
     if (row?.foreign_source === 'obligate') return next(); // SSO user → no local gate
+    // The profile is global: its level is the STRICTEST of the user's
+    // tenants, not the one of the tenant the session has selected (switching
+    // to the laxest tenant must not skip the code).
+    const tenantIds = (await db('user_tenants').where({ user_id: userId }).pluck('tenant_id')).map(Number);
     const { applyRestriction } = await import('../services/restriction.service');
     const approved = await applyRestriction(res, {
       req,
+      levelTenantIds: tenantIds,
       actionKey: 'tenant.manage_profile',
       approvalRequestType: 'batch_command',
       approvalDescription: `Update own profile (${req.method} ${req.path})`,
@@ -91,7 +100,10 @@ router.post('/ssh-keys', async (req, res, next) => {
     const userId = (req.session as any).userId as number;
     const { requireFreshTotp } = await import('../services/sshBastion/stepUp');
     const step = await requireFreshTotp(req, 'profile.ssh_key_add');
-    if (!step.ok) return res.status(step.status).json(step.body);
+    if (!step.ok) {
+      for (const [k, v] of Object.entries(step.headers ?? {})) res.setHeader(k, v);
+      return res.status(step.status).json(step.body);
+    }
 
     const { userKeysService } = await import('../services/sshBastion/userKeys.service');
     const key = await userKeysService.add(userId, req.body?.name, req.body?.publicKey);
@@ -140,7 +152,10 @@ router.post('/ssh-authorize-ip', async (req, res, next) => {
     }
     const { requireFreshTotp } = await import('../services/sshBastion/stepUp');
     const step = await requireFreshTotp(req, 'profile.ssh_authorize_ip');
-    if (!step.ok) return res.status(step.status).json(step.body);
+    if (!step.ok) {
+      for (const [k, v] of Object.entries(step.headers ?? {})) res.setHeader(k, v);
+      return res.status(step.status).json(step.body);
+    }
 
     const { clientIp } = await import('../services/tfaTrust.service');
     const ip = clientIp(req);

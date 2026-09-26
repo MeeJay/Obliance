@@ -175,7 +175,13 @@
     "ssoRedirecting": "Redirection vers la page de connexion...",
     "clientVersion": "client v{{version}}",
     "serverVersion": "serveur v{{version}}",
-    "ssoFailed": "Échec de l'authentification SSO. Utilisez la connexion locale."
+    "ssoFailed": "Échec de l'authentification SSO. Utilisez la connexion locale.",
+    "accountDisabled": "Votre compte est désactivé sur ce serveur. Demandez à un administrateur de le réactiver.",
+    "ssoLoginRequired": {
+      "title": "Ce compte se connecte par Obligate",
+      "body": "Son mot de passe et sa double authentification sont gérés dans Obligate. La connexion locale n'est possible qu'avec une application d'authentification configurée sur ce serveur.",
+      "button": "Se connecter avec Obligate"
+    }
   },
   "forgotPassword": {
     "title": "Réinitialiser votre mot de passe",
@@ -728,6 +734,8 @@
     "emailLabel": "Adresse e-mail",
     "emailPlaceholder": "vous@exemple.com",
     "emailHint": "Utilisé pour la réinitialisation du mot de passe et le 2FA par e-mail.",
+    "ssoEmailManaged": "L'adresse e-mail d'un compte SSO est gérée dans Obligate.",
+    "ssoEmailManagedHint": "Cette adresse vient d'Obligate et est mise à jour à chaque connexion par Obligate. Modifiez-la dans votre compte Obligate.",
     "preferredLanguage": "Langue de l'interface",
     "saveProfile": "Enregistrer le profil",
     "profileUpdated": "Profil mis à jour",
@@ -783,7 +791,11 @@
       "invalidCode": "Code invalide",
       "openAuthenticator": "Ouvrir dans l'application d'authentification",
       "openAuthenticatorFailed": "Aucune application d'authentification n'a pu être ouverte. Copiez plutôt la clé secrète.",
-      "copySecret": "Copier la clé secrète"
+      "copySecret": "Copier la clé secrète",
+      "codesSentTo": "Les codes seront envoyés à l'adresse de votre profil :",
+      "emailRequired": "Ajoutez d'abord une adresse e-mail à votre profil (ci-dessus) et enregistrez-la.",
+      "emailChangedRestart": "Votre adresse e-mail a changé pendant la configuration. Recommencez.",
+      "totpChangedRestart": "L'authentification à deux facteurs a été activée entre-temps. Recommencez."
     },
     "appearance": {
       "title": "APPARENCE",
@@ -885,7 +897,10 @@
       "adminNotice": "Les administrateurs de la plateforme accèdent automatiquement à tous les tenants. Aucune affectation par tenant n'est nécessaire.",
       "none": "Aucun tenant disponible",
       "role": "Rôle :",
-      "member": "Membre"
+      "member": "Membre",
+      "failedLoad": "Impossible de charger les accès aux tenants",
+      "saved": "Accès aux tenants enregistrés",
+      "failedSave": "Échec de l'enregistrement des accès aux tenants"
     },
     "capabilities": {
       "execute": {
@@ -917,7 +932,10 @@
     },
     "permissionSets": "Ensembles de permissions",
     "tabPermissionSets": "Permissions",
-    "tabRestrictions": "Restrictions"
+    "tabRestrictions": "Restrictions",
+    "sentForApproval": "Envoyé pour approbation à un second administrateur",
+    "passwordChanged": "Mot de passe modifié",
+    "failedPassword": "Échec du changement de mot de passe"
   },
   "agents": {
     "tabKeys": "Clés API",
@@ -3264,7 +3282,25 @@
     "verify": "Vérifier et exécuter",
     "codeLabel": "Code TOTP",
     "trustIp": "Faire confiance à cette IP pendant 24 h",
-    "trustIpHint": "Le code TOTP n'est plus demandé pour les actions sensibles depuis cette IP uniquement. Révocable à tout moment depuis votre profil."
+    "trustIpHint": "Le code TOTP n'est plus demandé pour les actions sensibles depuis cette IP uniquement. Révocable à tout moment depuis votre profil.",
+    "codeMustBeNew": "Saisissez un nouveau code : un code déjà utilisé (par exemple pour vous connecter) est refusé. Au besoin, attendez le suivant.",
+    "codeLocked": "Trop de codes incorrects. Reconnectez-vous pour débloquer la saisie de code.",
+    "tooManyAttempts": "Trop de codes incorrects. Réessayez dans {{minutes}} min.",
+    "verifierUnavailable": "La vérification en deux étapes est momentanément indisponible. Réessayez dans un instant.",
+    "codeUsed": "Ce code a déjà été utilisé. Attendez le code suivant, puis réessayez.",
+    "passwordInvalid": "Mot de passe incorrect.",
+    "invalidCode": "Code incorrect.",
+    "passwordTitle": "Confirmez votre mot de passe",
+    "confirm": "Confirmer",
+    "passwordDescription": "Saisissez votre mot de passe actuel pour confirmer cette modification.",
+    "builtinDescription": "Saisissez votre code actuel à 6 chiffres pour confirmer.",
+    "passwordLabel": "Mot de passe actuel",
+    "actions": {
+      "totpManage": "Modifier votre application d'authentification",
+      "emailOtpManage": "Modifier vos codes de connexion par e-mail",
+      "sshKeyAdd": "Ajouter une clé SSH",
+      "sshAuthorizeIp": "Autoriser cette IP sur le bastion SSH"
+    }
   },
   "tenantBadge": {
     "title": "Tenant : {{name}}"

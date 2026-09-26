@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { TwoFactorPromptModal } from './TwoFactorPromptModal';
-import { setTwoFactorListener } from '@/utils/twoFactorGate';
+import { setTwoFactorListener, TWO_FACTOR_CANCELLED } from '@/utils/twoFactorGate';
 
 // Mount this ONCE at the app root. It registers a listener the axios
 // response interceptor calls into when the server demands a fresh 2FA
@@ -13,6 +13,9 @@ import { setTwoFactorListener } from '@/utils/twoFactorGate';
 interface Pending {
   actionLabel: string;
   currentIp?: string;
+  trustIpAllowed?: boolean;
+  codeMustBeNew?: boolean;
+  mode?: 'code' | 'password';
   resolve: (result: { code: string; trustIp: boolean }) => void;
   reject: (err: Error) => void;
 }
@@ -31,8 +34,11 @@ export function TwoFactorGate() {
     <TwoFactorPromptModal
       actionLabel={pending.actionLabel}
       currentIp={pending.currentIp}
+      trustIpAllowed={pending.trustIpAllowed !== false}
+      codeMustBeNew={pending.codeMustBeNew === true}
+      mode={pending.mode === 'password' ? 'password' : 'code'}
       onClose={() => {
-        pending.reject(new Error('Two-factor verification cancelled'));
+        pending.reject(new Error(TWO_FACTOR_CANCELLED));
         setPending(null);
       }}
       onSubmit={async (code, { trustIp }) => {

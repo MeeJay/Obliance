@@ -22,9 +22,22 @@ import { useIsCoarsePointer } from '@/hooks/useMediaQuery';
 // touch screen a stray backdrop tap (e.g. to dismiss the keyboard) does NOT
 // cancel the pending request.
 
+// Built-in step-ups (not from the tenant's Restrictions matrix): shown with a
+// readable label and a neutral sentence instead of the raw key and "marked
+// sensitive by your tenant admin".
+const BUILTIN_ACTIONS: Record<string, [key: string, fallback: string]> = {
+ 'profile.totp_manage': ['twoFactorPrompt.actions.totpManage', 'Change your authenticator app'],
+ 'profile.email_otp_manage': ['twoFactorPrompt.actions.emailOtpManage', 'Change your e-mail sign-in codes'],
+ 'profile.ssh_key_add': ['twoFactorPrompt.actions.sshKeyAdd', 'Add an SSH key'],
+ 'profile.ssh_authorize_ip': ['twoFactorPrompt.actions.sshAuthorizeIp', 'Authorize this IP on the SSH bastion'],
+};
+
 export function TwoFactorPromptModal({
  actionLabel,
  currentIp,
+ trustIpAllowed = true,
+ codeMustBeNew = false,
+ mode = 'code',
  onClose,
  onSubmit,
 }: {
@@ -33,6 +46,15 @@ export function TwoFactorPromptModal({
  * checkbox so the user verifies before opting in. Passed from the
  * 401 response body (`currentIp`). */
  currentIp?: string;
+ /** `false` (401 `trustIpAllowed:false`): the server neither honours nor
+ * grants an IP trust for this action — the checkbox is hidden. */
+ trustIpAllowed?: boolean;
+ /** 401 `codeMustBeNew:true`: a code already used (e.g. at sign-in) is
+ * refused — tell the user to wait for the next one. */
+ codeMustBeNew?: boolean;
+ /** 'password': 401 `passwordRequired` — the CURRENT PASSWORD is asked
+ * (account without a code to give); submitted as the `code` argument. */
+ mode?: 'code' | 'password';
  onClose: () => void;
  onSubmit: (code: string, opts: { trustIp: boolean }) => Promise<void>;
 }) {
@@ -46,15 +68,21 @@ export function TwoFactorPromptModal({
 
  useEffect(() => { inputRef.current?.focus(); }, []);
 
+ const isPassword = mode === 'password';
+ const builtin = BUILTIN_ACTIONS[actionLabel];
+ const label = builtin ? t(builtin[0], builtin[1]) : actionLabel;
+ const ready = isPassword ? code.length > 0 : code.length === 6;
+
  const submit = async () => {
  setError(null);
- if (!/^\d{6}$/.test(code)) {
+ if (!isPassword && !/^\d{6}$/.test(code)) {
  setError(t('twoFactorPrompt.invalidFormat', 'Enter a 6-digit TOTP code from your authenticator app.'));
  return;
  }
+ if (isPassword && !code) return;
  setBusy(true);
  try {
- await onSubmit(code, { trustIp });
+ await onSubmit(code, { trustIp: trustIpAllowed && trustIp });
  onClose();
  } catch (err: any) {
  setError(err?.response?.data?.error || err?.message || t('twoFactorPrompt.failed', 'Verification failed'));
@@ -69,7 +97,7 @@ export function TwoFactorPromptModal({
  <Modal
  open
  onClose={onClose}
- title={t('twoFactorPrompt.title', 'Sensitive action')}
+ title={isPassword ? t('twoFactorPrompt.passwordTitle', 'Confirm your password') : t('twoFactorPrompt.title', 'Sensitive action')}
  icon={<ShieldCheck className="w-4 h-4 text-accent" />}
  size="sm"
  phoneLayout="center"
@@ -90,19 +118,49 @@ export function TwoFactorPromptModal({
  <button
  type="button"
  onClick={submit}
- disabled={busy || code.length !== 6}
+ disabled={busy || !ready}
  className="px-3 py-1.5 text-xs bg-accent text-white rounded hover:bg-accent/90 disabled:opacity-50 flex items-center gap-1.5 coarse:min-h-10 coarse:px-4"
  >
  {busy && <Loader2 className="w-3 h-3 animate-spin" />}
- {t('twoFactorPrompt.verify', 'Verify & execute')}
+ {isPassword ? t('twoFactorPrompt.confirm', 'Confirm') : t('twoFactorPrompt.verify', 'Verify & execute')}
  </button>
  </>
  }
  >
+ {isPassword ? (
  <p className="text-xs text-text-muted">
- <strong className="text-text-primary">{actionLabel}</strong>{' '}
+ <strong className="text-text-primary">{label}</strong>{' — '}
+ {t('twoFactorPrompt.passwordDescription', 'Enter your current password to confirm this change.')}
+ </p>
+ ) : builtin ? (
+ <p className="text-xs text-text-muted">
+ <strong className="text-text-primary">{label}</strong>{' — '}
+ {t('twoFactorPrompt.builtinDescription', 'Enter your current 6-digit code to confirm.')}
+ </p>
+ ) : (
+ <p className="text-xs text-text-muted">
+ <strong className="text-text-primary">{label}</strong>{' '}
  {t('twoFactorPrompt.description', 'is marked sensitive by your tenant admin. Enter your current 6-digit TOTP code to confirm.')}
  </p>
+ )}
+ {!isPassword && codeMustBeNew && (
+ <p className="text-[11px] text-text-muted">
+ {t('twoFactorPrompt.codeMustBeNew', 'Enter a new code: a code already used (for example to sign in) is refused. If needed, wait for the next one.')}
+ </p>
+ )}
+ {isPassword ? (
+ <input
+ ref={inputRef}
+ type="password"
+ autoComplete="current-password"
+ enterKeyHint="go"
+ aria-label={t('twoFactorPrompt.passwordLabel', 'Current password')}
+ value={code}
+ onChange={(e) => setCode(e.target.value.slice(0, 1024))}
+ onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+ className="w-full px-3 py-2 text-sm bg-bg-tertiary rounded text-text-primary focus:outline-none focus:border-accent"
+ />
+ ) : (
  <input
  ref={inputRef}
  type="text"
@@ -118,9 +176,12 @@ export function TwoFactorPromptModal({
  placeholder="123456"
  className="w-full px-3 py-2 text-center text-lg font-mono tracking-[0.5em] bg-bg-tertiary rounded text-text-primary focus:outline-none focus:border-accent"
  />
+ )}
  {/* Explicit opt-in: skip the prompt for 24h for THIS user + THIS
  IP only. If the cookie is stolen from a different IP the
- trust does not follow — a step-up is still required. */}
+ trust does not follow — a step-up is still required.
+ Hidden when the server says the action never uses IP trust. */}
+ {trustIpAllowed && !isPassword && (
  <label className="flex items-start gap-2 cursor-pointer select-none coarse:py-1">
  <input
  type="checkbox"
@@ -138,6 +199,7 @@ export function TwoFactorPromptModal({
  </span>
  </span>
  </label>
+ )}
  {error && <p className="text-xs text-red-400">{error}</p>}
  </Modal>
  );

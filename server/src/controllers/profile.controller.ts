@@ -4,6 +4,33 @@ import { comparePassword, hashPassword } from '../utils/crypto';
 import { AppError } from '../middleware/errorHandler';
 import type { UpdateProfileInput, ChangePasswordInput } from '../validators/profile.schema';
 
+const normEmail = (v: unknown): string => (typeof v === 'string' ? v.trim().toLowerCase() : '');
+
+/**
+ * The e-mail address of an SSO account (Obligate, og_) is Obligate's: it is
+ * resynced at each SSO sign-in and must not be changed locally (a stolen
+ * cookie would move the address the account's notices go to). Sending the
+ * current address back (a profile form re-saved) is accepted and left as is.
+ * Returns true when the request was answered (403).
+ */
+export async function refuseSsoEmailChange(userId: number, data: { email?: string | null }, res: Response): Promise<boolean> {
+  if (!('email' in data)) return false;
+  const row = await db('users').where({ id: userId }).first('email', 'foreign_source') as
+    { email: string | null; foreign_source: string | null } | undefined;
+  if (row?.foreign_source !== 'obligate') return false;
+  if (normEmail(data.email) === normEmail(row.email)) {
+    delete (data as { email?: string | null }).email;
+    return false;
+  }
+  res.status(403).json({
+    success: false,
+    error: 'The e-mail address of an SSO account is managed in Obligate.',
+    code: 'ssoEmailManaged',
+    ssoEmailManaged: true,
+  });
+  return true;
+}
+
 function buildUserResponse(row: Record<string, unknown>) {
   return {
     id: row.id,
@@ -41,6 +68,7 @@ export const profileController = {
   async update(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const data = req.body as UpdateProfileInput;
+      if (await refuseSsoEmailChange(req.session.userId!, data, res)) return;
 
       const updatePayload: Record<string, unknown> = { updated_at: new Date() };
 

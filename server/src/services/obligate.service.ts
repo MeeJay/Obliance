@@ -61,10 +61,22 @@ export const obligateService = {
    * verification failure.
    */
   async verifyTotp(obligateUserId: number, code: string): Promise<boolean> {
+    return (await this.verifyTotpDetailed(obligateUserId, code)) === 'valid';
+  },
+
+  /**
+   * Same check, telling a rejected code ('invalid') apart from a failed
+   * verification ('unavailable': Obligate not configured, unreachable,
+   * non-2xx, unreadable answer). Only 'valid' ever passes. The step-up caps
+   * count 'invalid' only, so an Obligate outage never locks SSO users' code
+   * entry (an unavailable check cannot succeed either, so nothing is gained
+   * by an attacker).
+   */
+  async verifyTotpDetailed(obligateUserId: number, code: string): Promise<'valid' | 'invalid' | 'unavailable'> {
     const raw = await appConfigService.getObligateRaw();
     if (!raw.url || !raw.apiKey) {
       logger.warn('[Obligate verifyTotp] not configured — returning false');
-      return false;
+      return 'unavailable';
     }
 
     const url = `${raw.url}/api/oauth/verify-totp`;
@@ -76,6 +88,9 @@ export const obligateService = {
           'Authorization': `Bearer ${raw.apiKey}`,
         },
         body: JSON.stringify({ userId: obligateUserId, code }),
+        // A hung Obligate must not hold the caller (and its reserved
+        // step-up attempt): 5 s, then 'unavailable'.
+        signal: AbortSignal.timeout(5_000),
       });
       if (!res.ok) {
         // Dump the response body for diagnosis — the #1 cause of silent
@@ -86,16 +101,17 @@ export const obligateService = {
           { url, status: res.status, body: text.slice(0, 200) },
           '[Obligate verifyTotp] non-2xx — is Obligate rebuilt with the /verify-totp route?',
         );
-        return false;
+        return 'unavailable';
       }
       const data = await res.json() as { success?: boolean; data?: { valid?: boolean } };
       if (!data?.success) {
         logger.warn({ data }, '[Obligate verifyTotp] response success=false');
+        return 'unavailable';
       }
-      return !!(data?.success && data?.data?.valid);
+      return data?.data?.valid ? 'valid' : 'invalid';
     } catch (err) {
       logger.error({ err, url }, '[Obligate verifyTotp] exception');
-      return false;
+      return 'unavailable';
     }
   },
 

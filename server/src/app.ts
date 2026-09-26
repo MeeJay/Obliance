@@ -18,6 +18,8 @@ try {
 import { config } from './config';
 import { errorHandler } from './middleware/errorHandler';
 import { apiLimiter } from './middleware/rateLimiter';
+import { captureStepUpProof } from './middleware/captureStepUpProof';
+import { sessionUserGuard } from './middleware/sessionUserGuard';
 import { routes } from './routes';
 import { logger } from './utils/logger';
 
@@ -125,6 +127,18 @@ export function createApp() {
       },
     });
   app.use(sessionMiddleware);
+
+  // Step-up proofs (twoFactorCode, trustIp, …) are MOVED out of req.body into
+  // req.stepUpProof before any router: validate() can no longer strip them,
+  // and they never reach logs, approval payloads or `...req.body` inserts.
+  // See middleware/captureStepUpProof.ts.
+  app.use(captureStepUpProof);
+
+  // The session's user is re-read (is_active, role — cached a few seconds):
+  // a session of a disabled user dies, a demoted admin's session loses the
+  // role, even if an in-flight request saved the row back after
+  // killSessionsForUser deleted it (P6). See middleware/sessionUserGuard.ts.
+  app.use(sessionUserGuard);
 
   // Rate limiting — runs after session so authenticated users can be skipped.
   // Only unauthenticated endpoints (login page, public health, etc.) are limited.

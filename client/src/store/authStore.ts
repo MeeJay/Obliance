@@ -96,9 +96,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return result;
     } catch (err) {
       set({ isLoading: false });
-      const axiosErr = err as { response?: { data?: { error?: string }; status?: number }; message?: string };
+      const axiosErr = err as { response?: { data?: { error?: string; code?: string }; status?: number }; message?: string };
       const serverMessage = axiosErr?.response?.data?.error;
       const status = axiosErr?.response?.status;
+      // SSO (og_) account without a local TOTP: it signs in through Obligate.
+      // The code travels on the error so the login page can say so.
+      if (status === 403 && axiosErr?.response?.data?.code === 'ssoLoginRequired') {
+        throw Object.assign(new Error(serverMessage ?? 'This account signs in through Obligate (SSO).'), { code: 'ssoLoginRequired' });
+      }
       if (status === 429) {
         throw new Error(serverMessage ?? 'Too many login attempts, please try again later');
       } else if (status === 401) {

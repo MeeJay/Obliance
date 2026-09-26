@@ -1,9 +1,15 @@
 import { Router } from 'express';
 import { twoFactorController } from '../controllers/twoFactor.controller';
 import { requireAuth } from '../middleware/auth';
+import { attachSessionTenant } from '../middleware/tenant';
 import { mfaLimiter, mfaAccountLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
+
+// Not under the tenant router: expose the session tenant as req.tenantId for
+// the signed-in routes (audit, "Trust this IP" duration — P4). No-op for the
+// pending sign-in routes below (no userId yet).
+router.use(attachSessionTenant);
 
 // Profile 2FA routes (requires auth)
 router.get('/status', requireAuth, twoFactorController.status);

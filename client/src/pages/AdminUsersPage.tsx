@@ -29,7 +29,8 @@ import type {
  UserTenantAssignment,
 } from '@obliance/shared';
 import { isMasterTenant } from '@obliance/shared';
-import { usersApi } from '@/api/users.api';
+import { usersApi, isPendingApproval } from '@/api/users.api';
+import { isStepUpHandled } from '@/api/client';
 import { teamsApi } from '@/api/teams.api';
 import { groupsApi } from '@/api/groups.api';
 import { deviceApi } from '@/api/device.api';
@@ -63,7 +64,10 @@ type PermissionScope = 'group' | 'device' | 'ungrouped';
 type Tab = 'users' | 'teams' | 'permissionSets' | 'restrictions';
 type UserFormMode = 'create' | 'edit' | 'password' | null;
 type TeamFormMode = 'create' | 'edit' | null;
-type TenantDraft = Record<number, { isMember: boolean; role: 'admin' | 'member' }>;
+// role: 'admin' or a permission set slug ('user' = the default "Member" set;
+// 'member' is its pre-091 name and is read as 'user').
+type TenantDraft = Record<number, { isMember: boolean; role: string }>;
+const normaliseTenantRole = (role: string | null | undefined): string => (!role || role === 'member' ? 'user' : role);
 
 // Row actions: inline icons from md (hover-revealed with a mouse, always
 // visible on touch), everything in a "⋯" menu below md.
@@ -78,6 +82,8 @@ export function AdminUsersPage() {
  const coarse = useIsCoarsePointer();
  const { user: currentUser } = useAuthStore();
  const isPlatformAdmin = currentUser?.role === 'admin';
+ // 202 of a write gated 'restricted' (tenant.manage_users): not done yet.
+ const sentForApproval = () => t('users.sentForApproval', 'Sent for approval to a second administrator');
  const currentTenantId = useTenantStore((s) => s.currentTenantId);
  const allTenants = useTenantStore((s) => s.tenants);
  const [tab, setTab] = useState<Tab>('users');
@@ -218,13 +224,13 @@ export function AdminUsersPage() {
  e.preventDefault();
  setSaving(true);
  try {
- await usersApi.create({
+ const created = await usersApi.create({
  username: formUsername,
  password: formPassword,
  displayName: formDisplayName || undefined,
  role: formRole,
  });
- toast.success(t('users.created'));
+ toast.success(isPendingApproval(created) ? sentForApproval() : t('users.created'));
  resetUserForm();
  load();
  } catch {
@@ -239,12 +245,12 @@ export function AdminUsersPage() {
  if (!editingUser) return;
  setSaving(true);
  try {
- await usersApi.update(editingUser.id, {
+ const updated = await usersApi.update(editingUser.id, {
  username: formUsername,
  displayName: formDisplayName || null,
  role: formRole,
  });
- toast.success(t('users.updated'));
+ toast.success(isPendingApproval(updated) ? sentForApproval() : t('users.updated'));
  resetUserForm();
  load();
  } catch {
@@ -259,11 +265,11 @@ export function AdminUsersPage() {
  if (!editingUser) return;
  setSaving(true);
  try {
- await usersApi.changePassword(editingUser.id, formPassword);
- toast.success('Password changed');
+ const pending = await usersApi.changePassword(editingUser.id, formPassword);
+ toast.success(pending ? sentForApproval() : t('users.passwordChanged', 'Password changed'));
  resetUserForm();
- } catch {
- toast.error('Failed to change password');
+ } catch (err) {
+ if (!isStepUpHandled(err)) toast.error(t('users.failedPassword', 'Failed to change password'));
  } finally {
  setSaving(false);
  }
@@ -272,32 +278,32 @@ export function AdminUsersPage() {
  const handleDeleteUser = async (user: User) => {
  if (!(await confirm({ message: t('users.confirmDelete', { username: user.username }), danger: true }))) return;
  try {
- await usersApi.delete(user.id);
- toast.success(t('users.deleted'));
+ const pending = await usersApi.delete(user.id);
+ toast.success(pending ? sentForApproval() : t('users.deleted'));
  load();
- } catch {
- toast.error(t('users.failedDelete'));
+ } catch (err) {
+ if (!isStepUpHandled(err)) toast.error(t('users.failedDelete'));
  }
  };
 
  const handleResetMfa = async (user: User) => {
  if (!(await confirm({ message: t('users.confirmResetMfa', { username: user.username }), danger: true, confirmLabel: t('users.resetMfa') }))) return;
  try {
- await usersApi.resetMfa(user.id);
- toast.success(t('users.mfaReset', { username: user.username }));
+ const pending = await usersApi.resetMfa(user.id);
+ toast.success(pending ? sentForApproval() : t('users.mfaReset', { username: user.username }));
  load();
- } catch {
- toast.error(t('users.failedResetMfa'));
+ } catch (err) {
+ if (!isStepUpHandled(err)) toast.error(t('users.failedResetMfa'));
  }
  };
 
  const handleToggleActive = async (user: User) => {
  try {
- await usersApi.update(user.id, { isActive: !user.isActive });
- toast.success(user.isActive ? t('users.disabled') : t('users.enabled'));
+ const updated = await usersApi.update(user.id, { isActive: !user.isActive });
+ toast.success(isPendingApproval(updated) ? sentForApproval() : user.isActive ? t('users.disabled') : t('users.enabled'));
  load();
- } catch {
- toast.error(t('users.failedUpdate'));
+ } catch (err) {
+ if (!isStepUpHandled(err)) toast.error(t('users.failedUpdate'));
  }
  };
 
@@ -379,11 +385,11 @@ export function AdminUsersPage() {
  setTenantAssignments(assignments);
  const draft: TenantDraft = {};
  for (const a of assignments) {
- draft[a.tenantId] = { isMember: a.isMember, role: a.role };
+ draft[a.tenantId] = { isMember: a.isMember, role: normaliseTenantRole(a.role) };
  }
  setTenantDraft(draft);
  } catch {
- toast.error('Failed to load tenant assignments');
+ toast.error(t('users.tenantPanel.failedLoad', 'Failed to load tenant assignments'));
  setTenantPanelUser(null);
  } finally {
  setTenantPanelLoading(false);
@@ -398,12 +404,12 @@ export function AdminUsersPage() {
 
  const toggleTenantMember = (tenantId: number) => {
  setTenantDraft((prev) => {
- const current = prev[tenantId] ?? { isMember: false, role: 'member' as const };
+ const current = prev[tenantId] ?? { isMember: false, role: 'user' };
  return { ...prev, [tenantId]: { ...current, isMember: !current.isMember } };
  });
  };
 
- const setTenantRole = (tenantId: number, role: 'admin' | 'member') => {
+ const setTenantRole = (tenantId: number, role: string) => {
  setTenantDraft((prev) => {
  const current = prev[tenantId] ?? { isMember: true, role };
  return { ...prev, [tenantId]: { ...current, role } };
@@ -417,11 +423,11 @@ export function AdminUsersPage() {
  const assignments = Object.entries(tenantDraft)
  .filter(([, v]) => v.isMember)
  .map(([tenantId, v]) => ({ tenantId: Number(tenantId), role: v.role }));
- await usersApi.setTenants(tenantPanelUser.id, assignments);
- toast.success('Tenant assignments saved');
+ const pending = await usersApi.setTenants(tenantPanelUser.id, assignments);
+ toast.success(pending ? sentForApproval() : t('users.tenantPanel.saved', 'Tenant assignments saved'));
  closeTenantPanel();
- } catch {
- toast.error('Failed to save tenant assignments');
+ } catch (err) {
+ if (!isStepUpHandled(err)) toast.error(t('users.tenantPanel.failedSave', 'Failed to save tenant assignments'));
  } finally {
  setTenantSaving(false);
  }
@@ -527,17 +533,34 @@ export function AdminUsersPage() {
  revealForm();
  };
 
- const userMenuItems = (user: User): ActionMenuItem[] => {
+ // Row actions, shared by the desktop icons and the phone menu. Server rule
+ // (users.manage scope, P1): only a platform admin acts on an admin
+ // account; one's own password / 2FA go through the profile. (The server
+ // also refuses accounts the caller does not dominate in their other
+ // tenants — its 403 text is shown.)
+ const userRowFlags = (user: User) => {
  const hasMfa = !!(user.totpEnabled || user.emailOtpEnabled);
  const isLocal = user.foreignSource !== 'obligate';
- const canManage = user.id !== currentUser?.id && isLocal;
+ const isSelf = user.id === currentUser?.id;
+ const inScope = isPlatformAdmin || user.role !== 'admin';
+ return {
+ isLocal, isSelf, inScope,
+ canManage: !isSelf && isLocal && inScope,
+ showMfa: hasMfa && !isSelf && inScope,
+ canEdit: isLocal && inScope,
+ canTenants: isLocal && inScope && (isPlatformAdmin || !isSelf),
+ };
+ };
+
+ const userMenuItems = (user: User): ActionMenuItem[] => {
+ const { isLocal, isSelf, inScope, canManage, showMfa } = userRowFlags(user);
  return [
- { key: 'edit', icon: <Pencil size={16} />, label: t('common.edit'), onClick: () => startEditUser(user), hidden: !isLocal },
+ { key: 'edit', icon: <Pencil size={16} />, label: t('common.edit'), onClick: () => startEditUser(user), hidden: !isLocal || !inScope },
  { key: 'password', icon: <Key size={16} />, label: t('users.actions.password', 'Change password'), onClick: () => startPasswordUser(user), hidden: !canManage },
- { key: 'tenants', icon: <Building2 size={16} />, label: t('users.actions.tenants', 'Manage tenant access'), onClick: () => openTenantPanel(user), hidden: !isLocal },
+ { key: 'tenants', icon: <Building2 size={16} />, label: t('users.actions.tenants', 'Manage tenant access'), onClick: () => openTenantPanel(user), hidden: !isLocal || !inScope || (!isPlatformAdmin && isSelf) },
  { key: 'active', icon: user.isActive ? <UserX size={16} /> : <UserIcon size={16} />, label: user.isActive ? t('common.disable') : t('common.enable'), onClick: () => handleToggleActive(user), hidden: !canManage },
- { key: 'mfa', icon: <ShieldOff size={16} />, label: t('users.resetMfa'), onClick: () => handleResetMfa(user), hidden: !hasMfa, danger: true, separator: true },
- { key: 'delete', icon: <Trash2 size={16} />, label: t('common.delete'), onClick: () => handleDeleteUser(user), hidden: !canManage, danger: true, separator: !hasMfa },
+ { key: 'mfa', icon: <ShieldOff size={16} />, label: t('users.resetMfa'), onClick: () => handleResetMfa(user), hidden: !showMfa, danger: true, separator: true },
+ { key: 'delete', icon: <Trash2 size={16} />, label: t('common.delete'), onClick: () => handleDeleteUser(user), hidden: !canManage, danger: true, separator: !showMfa },
  ];
  };
 
@@ -646,6 +669,8 @@ export function AdminUsersPage() {
  {userFormMode === 'create' && (
  <Input label={t('users.passwordLabel')} type="password" value={formPassword} onChange={(e) => setFormPassword(e.target.value)} required minLength={6} />
  )}
+ {/* Platform role: only a platform admin may set it (server P1 rule). */}
+ {isPlatformAdmin && (
  <div className="space-y-1">
  <label className="block text-sm font-medium text-text-secondary">{t('users.roleLabel')}</label>
  <select value={formRole} onChange={(e) => setFormRole(e.target.value as 'admin' | 'user')}
@@ -654,6 +679,7 @@ export function AdminUsersPage() {
  <option value="admin">{t('users.roleAdmin')}</option>
  </select>
  </div>
+ )}
  <div className="flex gap-2">
  <Button type="submit" size="sm" loading={saving}>{userFormMode === 'create' ? t('common.create') : t('common.save')}</Button>
  <Button type="button" size="sm" variant="secondary" onClick={resetUserForm}>{t('common.cancel')}</Button>
@@ -705,7 +731,7 @@ export function AdminUsersPage() {
  )}
  </div>
  </div>
- {(user.totpEnabled || user.emailOtpEnabled) && (
+ {userRowFlags(user).showMfa && (
  <IconButton
  label={t('users.resetMfa')}
  icon={<ShieldOff size={13} />}
@@ -715,7 +741,7 @@ export function AdminUsersPage() {
  className={`${ROW_ACTION_CLS} text-status-down hover:text-status-down/80`}
  />
  )}
- {user.id !== currentUser?.id && user.foreignSource !== 'obligate' && (
+ {userRowFlags(user).canManage && (
  <>
  <IconButton
  label={t('users.actions.password', 'Change password')}
@@ -735,7 +761,7 @@ export function AdminUsersPage() {
  />
  </>
  )}
- {user.foreignSource !== 'obligate' && (
+ {userRowFlags(user).canEdit && (
  <IconButton
  label={t('common.edit')}
  icon={<Pencil size={13} />}
@@ -746,7 +772,7 @@ export function AdminUsersPage() {
  />
  )}
  {/* Tenant assignment button — hidden for SSO users (managed from Obligate) */}
- {user.foreignSource !== 'obligate' && (
+ {userRowFlags(user).canTenants && (
  <IconButton
  label={t('users.actions.tenants', 'Manage tenant access')}
  icon={<Building2 size={13} />}
@@ -756,7 +782,7 @@ export function AdminUsersPage() {
  className={`${ROW_ACTION_CLS} hover:text-accent`}
  />
  )}
- {user.id !== currentUser?.id && user.foreignSource !== 'obligate' && (
+ {userRowFlags(user).canManage && (
  <IconButton
  label={t('common.delete')}
  icon={<Trash2 size={13} />}
@@ -1129,7 +1155,7 @@ export function AdminUsersPage() {
  <p className="text-sm text-text-muted text-center py-8">{t('users.tenantPanel.none', 'No tenants available')}</p>
  ) : (
  tenantAssignments.map((assignment) => {
- const draft = tenantDraft[assignment.tenantId] ?? { isMember: assignment.isMember, role: assignment.role };
+ const draft = tenantDraft[assignment.tenantId] ?? { isMember: assignment.isMember, role: normaliseTenantRole(assignment.role) };
  return (
  <div
  key={assignment.tenantId}
@@ -1166,10 +1192,10 @@ export function AdminUsersPage() {
  <div className="flex items-center gap-1 coarse:gap-2 mt-2">
  <span className="text-[10px] text-text-muted mr-1">{t('users.tenantPanel.role', 'Role:')}</span>
  <button
- onClick={() => setTenantRole(assignment.tenantId, 'member')}
- aria-pressed={draft.role === 'member'}
+ onClick={() => setTenantRole(assignment.tenantId, 'user')}
+ aria-pressed={draft.role === 'user'}
  className={`px-2 py-0.5 coarse:px-3 coarse:py-2 rounded text-[11px] font-medium transition-colors ${
- draft.role === 'member'
+ draft.role === 'user'
  ? 'bg-bg-tertiary text-text-primary border border-transparent'
  : 'text-text-muted hover:bg-bg-hover'
  }`}

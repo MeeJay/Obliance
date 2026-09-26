@@ -21,7 +21,7 @@ Monte vraisemblablement sous le prefixe `/auth` (d'apres les commentaires JSDoc 
 | `GET /auth/sso-config` | 460 | — |
 | `GET /auth/sso-logout-url` | 473 | — |
 | `GET /auth/connected-apps` | 494 | — |
-| `POST /auth/set-password` | 520 | — |
+| ~~`POST /auth/set-password`~~ | — | Supprimee (2026-09) : un compte SSO (`og_`) ne recoit jamais de mot de passe local |
 | `GET /auth/device-links` | 558 | — |
 | `POST /auth/sso-desktop-init` | 578 | Init du flow SSO pour l'app Oblireach (desktop) |
 | `POST /auth/sso-desktop-complete` | 650 | Completion du flow SSO desktop |

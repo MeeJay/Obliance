@@ -215,10 +215,25 @@ async function provisionObligateUser(assertion: import('../services/obligate.ser
     }
   }
 
+  // A LINKED local account (foreign_source NULL) that is disabled never gets
+  // a session through SSO (P6: a disabled account has no session at all).
+  // og_ accounts are left as before — Obligate owns their activity and only
+  // issues assertions for active users (a lost 'reactivate' push must not
+  // lock them out). The login page is told why (?error=account_disabled):
+  // an Obliance platform admin re-enables the account (Admin > Users).
+  const activeRow = await db('users').where({ id: localUserId }).first('is_active', 'foreign_source') as
+    { is_active: boolean; foreign_source: string | null } | undefined;
+  if (activeRow && activeRow.is_active === false && !activeRow.foreign_source) {
+    throw Object.assign(new Error(`SSO sign-in refused: linked local user #${localUserId} is disabled`), { ssoErrorCode: 'account_disabled' });
+  }
+
   // Set session, under a NEW id (session fixation). Only the cross-app tenant
   // hint survives from the pre-login session.
   await regenerateSession(req, ['requestedTenantSlug']);
   req.session.userId = localUserId;
+  // A full Obligate sign-in lifts the step-up code lock (§6.8).
+  const { clearCodeThrottle } = await import('../services/deviceKey/stepUpProof');
+  await clearCodeThrottle(localUserId);
   const user = await db('users').where({ id: localUserId }).first() as { username: string; role: string } | undefined;
   if (user) {
     req.session.username = user.username;
@@ -319,7 +334,8 @@ router.get('/callback', async (req, res) => {
     });
   } catch (err) {
     logger.error(err, 'Obligate callback error');
-    res.redirect('/login?error=sso_failed');
+    const code = (err as { ssoErrorCode?: string } | null)?.ssoErrorCode === 'account_disabled' ? 'account_disabled' : 'sso_failed';
+    res.redirect(`/login?error=${code}`);
   }
 });
 
@@ -515,44 +531,14 @@ router.get('/connected-apps', async (req, res) => {
   }
 });
 
-/**
- * POST /api/auth/set-password  { password: string }
- * Called after first SSO login if the user wants a local password.
- * Only works for foreign users who currently have no local password.
- */
-router.post('/set-password', async (req, res) => {
-  try {
-    if (!req.session?.userId) {
-      res.status(401).json({ success: false, error: 'Authentication required' });
-      return;
-    }
-    const userId = req.session.userId;
-    const { password } = req.body as { password?: string };
-    if (!password || password.length < 8) {
-      res.status(400).json({ success: false, error: 'Password must be at least 8 characters' });
-      return;
-    }
-
-    const row = await db('users').where({ id: userId }).first() as { password_hash: string | null } | undefined;
-    if (!row) {
-      res.status(404).json({ success: false, error: 'User not found' });
-      return;
-    }
-    if (row.password_hash) {
-      res.status(409).json({ success: false, error: 'User already has a local password' });
-      return;
-    }
-
-    const { hashPassword } = await import('../utils/crypto');
-    const hash = await hashPassword(password);
-    await db('users').where({ id: userId }).update({ password_hash: hash, updated_at: new Date() });
-
-    res.json({ success: true });
-  } catch (err) {
-    logger.error(err, 'set-password error');
-    res.status(500).json({ success: false, error: 'Failed to set password' });
-  }
-});
+// POST /api/auth/set-password was REMOVED (2026-09). It let the holder of a
+// session cookie give an SSO (og_) account a local password, which then
+// signed in alone and outlived an Obligate password / MFA change. No client
+// used it for an SSO account (the enrollment password step, its only caller,
+// is hidden for them and always failed with 409 for accounts that already
+// have a password). An SSO account never gets a local password here: it
+// signs in through Obligate (see authController.login for the local-TOTP
+// exception of accounts that already hold one).
 
 /**
  * GET /api/auth/device-links?uuid=xxx
@@ -723,25 +709,44 @@ router.post('/sso-user-sync', async (req, res) => {
     if (!user) { res.json({ success: true }); return; }
 
     switch (action) {
-      case 'deactivate':
+      case 'deactivate': {
         await db('users').where({ id: remoteUserId }).update({ is_active: false, updated_at: new Date() });
+        // P6: requireAuth does not re-read is_active — kill the sessions now.
+        const { killSessionsForUser } = await import('../services/userSessions.service');
+        await killSessionsForUser(Number(remoteUserId), 'user_disabled');
+        const { tfaTrustService } = await import('../services/tfaTrust.service');
+        await tfaTrustService.revokeAllForUser(Number(remoteUserId));
         logger.info(`SSO sync: deactivated user #${remoteUserId}`);
         break;
-      case 'reactivate':
+      }
+      case 'reactivate': {
         await db('users').where({ id: remoteUserId }).update({ is_active: true, updated_at: new Date() });
+        // The session guard caches is_active for a few seconds.
+        const { forgetSessionUser } = await import('../middleware/sessionUserGuard');
+        forgetSessionUser(Number(remoteUserId));
         logger.info(`SSO sync: reactivated user #${remoteUserId}`);
         break;
-      case 'delete':
+      }
+      case 'delete': {
         await db('sso_foreign_users').where({ local_user_id: remoteUserId }).del();
         await db('users').where({ id: remoteUserId }).del();
+        // A deleted user's sessions would keep their role (admin bypasses).
+        const { killSessionsForUser } = await import('../services/userSessions.service');
+        await killSessionsForUser(Number(remoteUserId), 'user_deleted');
         logger.info(`SSO sync: deleted user #${remoteUserId}`);
         break;
+      }
       case 'update-role': {
         // Obligate is the source of truth — honour both promotion and
         // demotion pushed from Obligate. 'admin' here means the user was
         // granted All-tenants admin on the Obliance app.
         const nextRole = role === 'admin' ? 'admin' : 'user';
         await db('users').where({ id: remoteUserId }).update({ role: nextRole, updated_at: new Date() });
+        if (user.role === 'admin' && nextRole !== 'admin') {
+          // A demoted admin's sessions still carry role 'admin'.
+          const { killSessionsForUser } = await import('../services/userSessions.service');
+          await killSessionsForUser(Number(remoteUserId), 'role_demoted');
+        }
         if (nextRole === 'admin') {
           await db('user_tenants')
             .insert({ user_id: remoteUserId, tenant_id: 1, role: 'admin' })

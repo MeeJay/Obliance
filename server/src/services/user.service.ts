@@ -121,7 +121,9 @@ export const userService = {
         't.name as tenantName',
         't.slug as tenantSlug',
         db.raw('(ut.user_id IS NOT NULL) as is_member'),
-        db.raw("COALESCE(ut.role, 'member') as role"),
+        // 'user' is the default non-admin permission set. 'member' is its
+        // pre-091 name (migration 091 backfilled it): reported as 'user'.
+        db.raw("COALESCE(ut.role, 'user') as role"),
       )
       .orderBy('t.name');
 
@@ -130,24 +132,26 @@ export const userService = {
       tenantName: r.tenantName,
       tenantSlug: r.tenantSlug,
       isMember: Boolean(r.is_member),
-      role: r.role as 'admin' | 'member',
+      role: (r.role === 'member' ? 'user' : r.role) as UserTenantAssignment['role'],
     }));
   },
 
   /** Bulk-replaces all tenant memberships for a user. */
   async setUserTenantAssignments(
     userId: number,
-    assignments: { tenantId: number; role: 'admin' | 'member' }[],
+    assignments: { tenantId: number; role: string }[],
   ): Promise<void> {
     await db.transaction(async (trx) => {
       await trx('user_tenants').where({ user_id: userId }).del();
       if (assignments.length > 0) {
         await trx('user_tenants').insert(
+          // user_tenants has no created_at column (001 / 091): inserting one
+          // made every save fail with a 500.
           assignments.map((a) => ({
             user_id: userId,
             tenant_id: a.tenantId,
-            role: a.role,
-            created_at: new Date(),
+            // Never store the orphan pre-091 slug 'member' (no capability).
+            role: a.role === 'member' || !a.role ? 'user' : a.role,
           })),
         );
       }
